@@ -19,8 +19,11 @@ export default function DispensariesPage() {
   const supabase = createClient()
 
   useEffect(() => {
-    fetchUserRole()
-    fetchDispensaries()
+    const loadData = async () => {
+      await fetchUserRole()
+      await fetchDispensaries()
+    }
+    loadData()
   }, [])
 
   useEffect(() => {
@@ -38,7 +41,10 @@ export default function DispensariesPage() {
         .eq('id', user.id)
         .single()
 
-      if (data) setUserRole(data.role)
+      if (data) {
+        setUserRole(data.role)
+        console.log('User role in dispensaries:', data.role)
+      }
     } catch (error) {
       console.error('Error fetching user role:', error)
     }

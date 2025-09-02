@@ -28,8 +28,11 @@ export default function ProductsPage() {
   const supabase = createClient()
 
   useEffect(() => {
-    fetchUserRole()
-    fetchProducts()
+    const loadData = async () => {
+      await fetchUserRole()
+      await fetchProducts()
+    }
+    loadData()
   }, [])
 
   useEffect(() => {
@@ -47,7 +50,10 @@ export default function ProductsPage() {
         .eq('id', user.id)
         .single()
 
-      if (data) setUserRole(data.role)
+      if (data) {
+        setUserRole(data.role)
+        console.log('User role in products:', data.role)
+      }
     } catch (error) {
       console.error('Error fetching user role:', error)
     }

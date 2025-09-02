@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -33,9 +33,37 @@ export default function DashboardLayout({
   children: React.ReactNode
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [userProfile, setUserProfile] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
+
+  useEffect(() => {
+    fetchUserProfile()
+  }, [])
+
+  const fetchUserProfile = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single()
+        
+        setUserProfile({
+          ...profile,
+          email: user.email
+        })
+      }
+    } catch (error) {
+      console.error('Error fetching profile:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
@@ -70,13 +98,20 @@ export default function DashboardLayout({
         })}
       </nav>
       <div className="border-t p-3">
-        <div className="flex items-center gap-3 rounded-lg px-3 py-2">
+        <Link 
+          href="/dashboard/profile"
+          className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors cursor-pointer"
+        >
           <User className="h-5 w-5 text-zinc-500" />
           <div className="flex-1">
-            <p className="text-sm font-medium">Agent</p>
-            <p className="text-xs text-zinc-500">agent@example.com</p>
+            <p className="text-sm font-medium capitalize">
+              {loading ? 'Loading...' : (userProfile?.role || 'User')}
+            </p>
+            <p className="text-xs text-zinc-500">
+              {loading ? '...' : (userProfile?.email || 'No email')}
+            </p>
           </div>
-        </div>
+        </Link>
         <Button
           variant="ghost"
           className="w-full justify-start gap-3 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20"
