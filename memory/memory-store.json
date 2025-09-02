@@ -1,0 +1,80 @@
+{
+  "hive/cannabis-crm/repairs": [
+    {
+      "key": "authentication_repair_2025-09-02",
+      "value": "{\"issue\":\"RLS policy circular dependency\",\"status\":\"RESOLVED\",\"date\":\"2025-09-02\",\"admin_user\":\"stokes@cakeoklahoma.com\",\"worker_id\":\"claude-code-assistant\",\"timestamp\":\"2025-09-02T15:54:00Z\",\"critical_decision\":true,\"fixes_applied\":{\"database\":[\"eliminated_rls_circular_dependency\",\"created_security_definer_functions\",\"replaced_exists_subqueries\",\"added_secure_profile_loading\"],\"frontend\":[\"enhanced_profile_loading_fallbacks\",\"added_secure_function_calls\",\"fixed_role_checking_timing\",\"improved_error_handling\",\"added_automatic_profile_creation\"]},\"verification_results\":[\"profile_page_loads_without_errors\",\"sidebar_shows_actual_email\",\"sidebar_shows_admin_role\",\"admin_permissions_working\",\"profile_updates_functional\",\"all_dashboard_modules_working\"],\"consensus_required\":true}",
+      "namespace": "hive/cannabis-crm/repairs",
+      "timestamp": 1756828638125
+    }
+  ],
+  "hive/cannabis-crm/architecture": [
+    {
+      "key": "project_architecture",
+      "value": "{\"framework\":\"Next.js 15.5.2\",\"database\":\"Supabase PostgreSQL\",\"auth\":\"Supabase Auth with RLS\",\"ui\":\"ShadCN UI + Tailwind CSS\",\"language\":\"TypeScript\",\"deployment\":\"Vercel\",\"url\":\"https://cake-crm.vercel.app\",\"github\":\"https://github.com/stokespro/cake-crm\",\"status\":\"FULLY_OPERATIONAL\",\"last_major_update\":\"2025-09-02\",\"worker_id\":\"claude-code-assistant\",\"timestamp\":\"2025-09-02T15:55:00Z\"}",
+      "namespace": "hive/cannabis-crm/architecture",
+      "timestamp": 1756828646543
+    }
+  ],
+  "hive/cannabis-crm/users": [
+    {
+      "key": "current_admin_user",
+      "value": "{\"email\":\"stokes@cakeoklahoma.com\",\"role\":\"admin\",\"full_name\":\"Joshua Stokes\",\"phone\":\"9184066384\",\"verified_working\":\"2025-09-02\",\"permissions\":{\"can_add_dispensaries\":true,\"can_add_products\":true,\"can_approve_orders\":true,\"can_manage_users\":true,\"full_system_access\":true},\"profile_loading\":\"working\",\"sidebar_display\":\"correct\",\"admin_buttons_visible\":true,\"worker_id\":\"claude-code-assistant\",\"timestamp\":\"2025-09-02T15:55:30Z\"}",
+      "namespace": "hive/cannabis-crm/users",
+      "timestamp": 1756828655212
+    }
+  ],
+  "hive/cannabis-crm/patterns": [
+    {
+      "key": "technical_patterns",
+      "value": "{\"authentication_pattern\":\"Supabase client with fallback error handling\",\"role_checking\":\"Async with loading states and fallbacks\",\"rls_policies\":\"Security definer functions for admin access\",\"profile_loading\":\"Secure function calls with graceful degradation\",\"component_structure\":\"Module-based dashboard with permission checking\",\"database_patterns\":\"RLS enabled with role-based policies\",\"deployment_pattern\":\"Auto-deploy on git push with TypeScript validation\",\"worker_id\":\"claude-code-assistant\",\"timestamp\":\"2025-09-02T15:56:00Z\",\"critical_knowledge\":true}",
+      "namespace": "hive/cannabis-crm/patterns",
+      "timestamp": 1756828664521
+    }
+  ],
+  "hive/cannabis-crm/summary": [
+    {
+      "key": "collective_intelligence_summary",
+      "value": "{\"project\":\"Cannabis CRM\",\"status\":\"FULLY_OPERATIONAL\",\"major_repair_completed\":\"2025-09-02\",\"hive_mind_initialized\":\"2025-09-02\",\"memory_system\":\"SQLite-based with proper namespacing\",\"swarm_active\":\"cannabis-crm swarm-1756828488731-3eq3t3ryt\",\"agents\":[\"researcher\",\"coder\",\"analyst\",\"tester\"],\"collective_memory_entries\":4,\"namespaces\":[\"hive/cannabis-crm/repairs\",\"hive/cannabis-crm/architecture\",\"hive/cannabis-crm/users\",\"hive/cannabis-crm/patterns\"],\"critical_knowledge_stored\":true,\"worker_id\":\"claude-code-assistant\",\"timestamp\":\"2025-09-02T16:00:00Z\",\"memory_consensus\":true,\"system_integrity\":\"verified\"}",
+      "namespace": "hive/cannabis-crm/summary",
+      "timestamp": 1756828747689
+    }
+  ],
+  "hive/cannabis-crm/requirements": [
+    {
+      "key": "new_requirements_2025-09-02",
+      "value": "{\"request_date\":\"2025-09-02\",\"requested_by\":\"user\",\"priority\":\"high\",\"features_requested\":[\"dispensary_profile_landing_page\",\"communication_tab_for_dispensaries\",\"order_history_tab_for_dispensaries\",\"edit_orders_capability\",\"edit_communications_capability\",\"user_management_system\",\"add_edit_delete_users\",\"per_user_permissions_management\"],\"complexity\":\"high\",\"estimated_effort\":\"medium_to_large\",\"worker_id\":\"claude-code-assistant\",\"timestamp\":\"2025-09-02T16:05:00Z\",\"status\":\"planning_phase\"}",
+      "namespace": "hive/cannabis-crm/requirements",
+      "timestamp": 1756851698042
+    }
+  ],
+  "hive/cannabis-crm/implementation": [
+    {
+      "key": "implementation_start",
+      "value": "{\"phase\":\"swarm_deployment\",\"timestamp\":\"2025-09-02T16:10:00Z\",\"features_to_implement\":[\"dispensary_profiles\",\"user_management\",\"edit_capabilities\"],\"approach\":\"best_practices_driven\",\"database_first\":true,\"permission_system\":\"granular\",\"worker_coordination\":\"active\",\"status\":\"initiated\"}",
+      "namespace": "hive/cannabis-crm/implementation",
+      "timestamp": 1756851920092
+    },
+    {
+      "key": "phase1_complete",
+      "value": "{\"phase\":\"database_backend\",\"status\":\"completed\",\"timestamp\":\"2025-09-02T16:25:00Z\",\"deliverables\":[\"enhanced_schema_migration\",\"user_permissions_system\",\"audit_logging\",\"edit_tracking\",\"soft_delete\",\"dispensary_analytics\",\"performance_indexes\",\"rls_policies\"],\"worker_id\":\"database_architect\",\"next_phase\":\"user_management_frontend\"}",
+      "namespace": "hive/cannabis-crm/implementation",
+      "timestamp": 1756852689259
+    }
+  ],
+  "hive/cannabis-crm/coordination": [
+    {
+      "key": "context_window_management",
+      "value": "{\"issue\":\"context_window_filling_rapidly\",\"timestamp\":\"2025-09-02T17:45:00Z\",\"solution\":\"delegate_more_autonomous_work\",\"status\":\"implementing\",\"approach\":\"full_agent_delegation\",\"coordinator_role\":\"minimal_oversight\",\"memory_dependency\":\"critical\",\"worker_id\":\"claude-code-assistant\"}",
+      "namespace": "hive/cannabis-crm/coordination",
+      "timestamp": 1756853104935
+    }
+  ],
+  "hive/cannabis-crm/deployment": [
+    {
+      "key": "deployment_failure",
+      "value": "{\"timestamp\":\"2025-09-02T17:50:00Z\",\"status\":\"build_failed\",\"commit\":\"4178c50\",\"error\":\"typescript_type_errors\",\"issue\":\"null_assignment_to_string\",\"file\":\"dashboard/layout.tsx\",\"line\":96,\"worker_id\":\"claude-code-assistant\",\"action_required\":\"fix_types_and_commit\"}",
+      "namespace": "hive/cannabis-crm/deployment",
+      "timestamp": 1756855111813
+    }
+  ]
+}

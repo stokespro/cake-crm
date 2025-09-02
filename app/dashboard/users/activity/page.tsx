@@ -22,7 +22,7 @@ interface ActivityLog {
   action_type: string
   resource_type?: string
   resource_id?: string
-  details: Record<string, any>
+  details: Record<string, string | number | boolean>
   timestamp: string
   success: boolean
   error_message?: string
@@ -236,7 +236,7 @@ export default function UserActivityPage() {
           </Button>
           <div>
             <h1 className="text-2xl md:text-3xl font-bold">Access Denied</h1>
-            <p className="text-muted-foreground">You don't have permission to view activity logs</p>
+            <p className="text-muted-foreground">You don&apos;t have permission to view activity logs</p>
           </div>
         </div>
         <Card>

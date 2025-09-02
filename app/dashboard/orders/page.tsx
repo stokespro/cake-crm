@@ -17,7 +17,23 @@ import {
 } from '@/components/ui/select'
 import { Plus, Search, ShoppingCart, Calendar, DollarSign, Package, Truck, Edit2, Save, X, History } from 'lucide-react'
 import { format } from 'date-fns'
-import type { Order } from '@/types/database'
+import type { Order, OrderStatus } from '@/types/database'
+
+interface EditFormData {
+  status: OrderStatus
+  order_notes: string
+  requested_delivery_date: string
+  final_delivery_date: string
+}
+
+interface UpdateData {
+  status?: OrderStatus
+  order_notes?: string
+  requested_delivery_date?: string | null
+  final_delivery_date?: string | null
+  last_edited_by?: string
+  last_edited_at?: string
+}
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([])
@@ -27,7 +43,7 @@ export default function OrdersPage() {
   const [filterStatus, setFilterStatus] = useState('all')
   const [userRole, setUserRole] = useState<string>('agent')
   const [editingOrder, setEditingOrder] = useState<string | null>(null)
-  const [editForm, setEditForm] = useState<Record<string, any>>({})
+  const [editForm, setEditForm] = useState<EditFormData>({} as EditFormData)
   const [saving, setSaving] = useState(false)
   const supabase = createClient()
 
@@ -165,7 +181,7 @@ export default function OrdersPage() {
 
   const cancelEditing = () => {
     setEditingOrder(null)
-    setEditForm({})
+    setEditForm({} as EditFormData)
   }
 
   const saveOrder = async (orderId: string) => {
@@ -174,7 +190,7 @@ export default function OrdersPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      const updateData: Record<string, any> = {
+      const updateData: UpdateData = {
         ...editForm,
         last_edited_by: user.id,
         last_edited_at: new Date().toISOString()
@@ -192,7 +208,7 @@ export default function OrdersPage() {
       if (error) throw error
       
       setEditingOrder(null)
-      setEditForm({})
+      setEditForm({} as EditFormData)
       fetchOrders()
     } catch (error) {
       console.error('Error saving order:', error)
@@ -202,8 +218,8 @@ export default function OrdersPage() {
     }
   }
 
-  const updateEditForm = (field: string, value: any) => {
-    setEditForm((prev: Record<string, any>) => ({...prev, [field]: value}))
+  const updateEditForm = <K extends keyof EditFormData>(field: K, value: EditFormData[K]) => {
+    setEditForm((prev: EditFormData) => ({...prev, [field]: value}))
   }
 
   if (loading) {
@@ -375,7 +391,7 @@ export default function OrdersPage() {
                         <label className="text-sm font-medium">Status</label>
                         <Select 
                           value={editForm.status} 
-                          onValueChange={(value) => updateEditForm('status', value)}
+                          onValueChange={(value) => updateEditForm('status', value as OrderStatus)}
                         >
                           <SelectTrigger>
                             <SelectValue />

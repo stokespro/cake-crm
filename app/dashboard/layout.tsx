@@ -93,8 +93,8 @@ export default function DashboardLayout({
           setUserProfile({
             email: user.email,
             role: 'agent',
-            full_name: null,
-            phone: null
+            full_name: undefined,
+            phone: undefined
           })
         }
         return
@@ -113,8 +113,8 @@ export default function DashboardLayout({
           setUserProfile({
             email: user.email,
             role: 'agent',
-            full_name: null,
-            phone: null
+            full_name: undefined,
+            phone: undefined
           })
         }
       } catch (fallbackError) {

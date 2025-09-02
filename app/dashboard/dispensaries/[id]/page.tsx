@@ -27,6 +27,11 @@ interface DispensaryProfile {
   total_revenue?: number
 }
 
+interface SupabaseProfile {
+  full_name: string
+}
+
+
 interface Communication {
   id: string
   interaction_date: string
@@ -119,10 +124,10 @@ export default function DispensaryDetailPage() {
 
       if (error) throw error
       
-      const formattedComms = (data || []).map(comm => ({
+      const formattedComms = (data || []).map((comm: Record<string, unknown>) => ({
         ...comm,
-        agent_name: comm.profiles?.full_name || 'Unknown Agent'
-      }))
+        agent_name: (comm.profiles as SupabaseProfile)?.full_name || 'Unknown Agent'
+      })) as Communication[]
       
       setCommunications(formattedComms)
     } catch (error) {
@@ -148,10 +153,10 @@ export default function DispensaryDetailPage() {
 
       if (error) throw error
       
-      const formattedOrders = (data || []).map(order => ({
+      const formattedOrders = (data || []).map((order: Record<string, unknown>) => ({
         ...order,
-        agent_name: order.profiles?.full_name || 'Unknown Agent'
-      }))
+        agent_name: (order.profiles as SupabaseProfile)?.full_name || 'Unknown Agent'
+      })) as Order[]
       
       setOrders(formattedOrders)
     } catch (error) {

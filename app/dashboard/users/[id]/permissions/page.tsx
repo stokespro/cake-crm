@@ -281,7 +281,7 @@ export default function UserPermissionsPage() {
         <Card>
           <CardContent className="py-4">
             <p className="text-sm text-muted-foreground text-center">
-              You don't have permission to modify user permissions. Contact an administrator for assistance.
+              You don&apos;t have permission to modify user permissions. Contact an administrator for assistance.
             </p>
           </CardContent>
         </Card>

@@ -49,6 +49,9 @@ export interface Communication {
   follow_up_required: boolean
   created_at: string
   updated_at: string
+  is_edited?: boolean
+  last_edited_at?: string
+  last_edited_by?: string
   dispensary?: DispensaryProfile
   agent?: Profile
 }
@@ -84,6 +87,8 @@ export interface Order {
   approved_at?: string
   created_at: string
   updated_at: string
+  last_edited_at?: string
+  last_edited_by?: string
   dispensary?: DispensaryProfile
   agent?: Profile
   order_items?: OrderItem[]

@@ -53,9 +53,9 @@ export default function NewUserPage() {
       if (error) throw error
 
       router.push('/dashboard/users')
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error creating user:', error)
-      alert(error.message || 'An error occurred while creating the user')
+      alert(error instanceof Error ? error.message : 'An error occurred while creating the user')
     } finally {
       setLoading(false)
     }

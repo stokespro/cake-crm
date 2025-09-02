@@ -18,7 +18,21 @@ import {
 } from '@/components/ui/select'
 import { Plus, Search, Phone, Mail, User, MessageSquare, Calendar, Edit2, Save, X, History } from 'lucide-react'
 import { format } from 'date-fns'
-import type { Communication } from '@/types/database'
+import type { Communication, ContactMethod } from '@/types/database'
+
+interface EditFormData {
+  notes: string
+  contact_method: ContactMethod
+  client_name: string
+  follow_up_required: boolean
+  interaction_date: string
+}
+
+interface UpdateData extends Partial<EditFormData> {
+  last_edited_by?: string
+  last_edited_at?: string
+  is_edited?: boolean
+}
 
 export default function CommunicationsPage() {
   const [communications, setCommunications] = useState<Communication[]>([])
@@ -29,7 +43,7 @@ export default function CommunicationsPage() {
   const [filterFollowUp, setFilterFollowUp] = useState('all')
   const [userRole, setUserRole] = useState<string>('agent')
   const [editingComm, setEditingComm] = useState<string | null>(null)
-  const [editForm, setEditForm] = useState<Record<string, any>>({})
+  const [editForm, setEditForm] = useState<EditFormData>({} as EditFormData)
   const [saving, setSaving] = useState(false)
   const supabase = createClient()
 
@@ -160,7 +174,7 @@ export default function CommunicationsPage() {
 
   const cancelEditing = () => {
     setEditingComm(null)
-    setEditForm({})
+    setEditForm({} as EditFormData)
   }
 
   const saveCommunication = async (commId: string) => {
@@ -169,7 +183,7 @@ export default function CommunicationsPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      const updateData: Record<string, any> = {
+      const updateData: UpdateData = {
         ...editForm,
         last_edited_by: user.id,
         last_edited_at: new Date().toISOString(),
@@ -184,7 +198,7 @@ export default function CommunicationsPage() {
       if (error) throw error
       
       setEditingComm(null)
-      setEditForm({})
+      setEditForm({} as EditFormData)
       fetchCommunications()
     } catch (error) {
       console.error('Error saving communication:', error)
@@ -194,8 +208,8 @@ export default function CommunicationsPage() {
     }
   }
 
-  const updateEditForm = (field: string, value: any) => {
-    setEditForm((prev: Record<string, any>) => ({...prev, [field]: value}))
+  const updateEditForm = <K extends keyof EditFormData>(field: K, value: EditFormData[K]) => {
+    setEditForm((prev: EditFormData) => ({...prev, [field]: value}))
   }
 
   if (loading) {
@@ -320,7 +334,7 @@ export default function CommunicationsPage() {
                             <label className="text-sm font-medium">Contact Method</label>
                             <Select 
                               value={editForm.contact_method} 
-                              onValueChange={(value) => updateEditForm('contact_method', value)}
+                              onValueChange={(value) => updateEditForm('contact_method', value as ContactMethod)}
                             >
                               <SelectTrigger>
                                 <SelectValue />
