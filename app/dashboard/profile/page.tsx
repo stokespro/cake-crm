@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { Loader2, Save, User, Mail, Phone, Shield } from 'lucide-react'
 
 export default function ProfilePage() {
-  const [profile, setProfile] = useState<any>(null)
+  const [profile, setProfile] = useState<{id?: string, created_at?: string, updated_at?: string, full_name?: string, phone?: string, role?: string} | null>(null)
   const [fullName, setFullName] = useState('')
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
@@ -81,9 +81,9 @@ export default function ProfilePage() {
       setTimeout(() => {
         window.location.reload()
       }, 1500)
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error updating profile:', error)
-      setMessage({ type: 'error', text: error.message || 'Failed to update profile' })
+      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Failed to update profile' })
     } finally {
       setSaving(false)
     }
