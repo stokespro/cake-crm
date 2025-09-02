@@ -3,12 +3,12 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Plus, Search, Building2, Phone, Mail, MapPin, FileText } from 'lucide-react'
-import type { DispensaryProfile, Profile } from '@/types/database'
+import type { DispensaryProfile } from '@/types/database'
 
 export default function DispensariesPage() {
   const [dispensaries, setDispensaries] = useState<DispensaryProfile[]>([])

@@ -98,7 +98,7 @@ export default function NewOrderPage() {
     ])
   }
 
-  const updateOrderItem = (index: number, field: keyof OrderItem, value: any) => {
+  const updateOrderItem = (index: number, field: keyof OrderItem, value: string | number) => {
     const updated = [...orderItems]
     updated[index] = { ...updated[index], [field]: value }
 
@@ -110,7 +110,7 @@ export default function NewOrderPage() {
         updated[index].line_total = updated[index].quantity * product.price_per_unit
       }
     } else if (field === 'quantity') {
-      updated[index].line_total = value * updated[index].unit_price
+      updated[index].line_total = (value as number) * updated[index].unit_price
     }
 
     setOrderItems(updated)
@@ -276,7 +276,7 @@ export default function NewOrderPage() {
           <CardContent className="space-y-4">
             {orderItems.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                No items added yet. Click "Add Item" to start.
+                No items added yet. Click &quot;Add Item&quot; to start.
               </div>
             ) : (
               <>
