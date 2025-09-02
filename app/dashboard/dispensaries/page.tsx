@@ -15,7 +15,8 @@ export default function DispensariesPage() {
   const [filteredDispensaries, setFilteredDispensaries] = useState<DispensaryProfile[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
-  const [userRole, setUserRole] = useState<string>('agent')
+  const [userRole, setUserRole] = useState<string>('')
+  const [roleLoading, setRoleLoading] = useState(true)
   const supabase = createClient()
 
   useEffect(() => {
@@ -33,9 +34,23 @@ export default function DispensariesPage() {
   const fetchUserRole = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      if (!user) {
+        setRoleLoading(false)
+        return
+      }
 
-      const { data } = await supabase
+      // Try to use the new secure function first
+      const { data: profileData, error: functionError } = await supabase
+        .rpc('get_user_profile', { user_id: user.id })
+
+      if (!functionError && profileData) {
+        setUserRole(profileData.role || 'agent')
+        setRoleLoading(false)
+        return
+      }
+
+      // Fallback to direct query
+      const { data, error } = await supabase
         .from('profiles')
         .select('role')
         .eq('id', user.id)
@@ -43,10 +58,15 @@ export default function DispensariesPage() {
 
       if (data) {
         setUserRole(data.role)
-        console.log('User role in dispensaries:', data.role)
+      } else if (error) {
+        console.error('Error fetching user role:', error)
+        setUserRole('agent') // fallback
       }
     } catch (error) {
       console.error('Error fetching user role:', error)
+      setUserRole('agent') // fallback
+    } finally {
+      setRoleLoading(false)
     }
   }
 
@@ -85,10 +105,12 @@ export default function DispensariesPage() {
 
   const canManageDispensaries = userRole === 'management' || userRole === 'admin'
 
-  if (loading) {
+  if (loading || roleLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-muted-foreground">Loading dispensaries...</div>
+        <div className="text-muted-foreground">
+          {roleLoading ? 'Loading permissions...' : 'Loading dispensaries...'}
+        </div>
       </div>
     )
   }

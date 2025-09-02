@@ -46,20 +46,80 @@ export default function DashboardLayout({
   const fetchUserProfile = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single()
-        
-        setUserProfile({
-          ...profile,
-          email: user.email
-        })
+      if (!user) {
+        console.error('No authenticated user found')
+        return
       }
+
+      // Try to use the new secure function first
+      const { data: profileData, error: functionError } = await supabase
+        .rpc('get_user_profile', { user_id: user.id })
+
+      if (!functionError && profileData) {
+        setUserProfile({
+          ...profileData,
+          email: profileData.email || user.email
+        })
+        return
+      }
+
+      // Fallback to direct query if function doesn't exist yet
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single()
+      
+      if (error) {
+        console.error('Error fetching profile:', error)
+        // Try to create missing profile
+        const { data: newProfile, error: createError } = await supabase
+          .from('profiles')
+          .insert({
+            id: user.id,
+            email: user.email,
+            role: 'agent'
+          })
+          .select()
+          .single()
+
+        if (!createError && newProfile) {
+          setUserProfile({
+            ...newProfile,
+            email: user.email
+          })
+        } else {
+          // Set basic user info if all else fails
+          setUserProfile({
+            email: user.email,
+            role: 'agent',
+            full_name: null,
+            phone: null
+          })
+        }
+        return
+      }
+
+      setUserProfile({
+        ...profile,
+        email: profile.email || user.email
+      })
     } catch (error) {
       console.error('Error fetching profile:', error)
+      // Set minimal user info on complete failure
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          setUserProfile({
+            email: user.email,
+            role: 'agent',
+            full_name: null,
+            phone: null
+          })
+        }
+      } catch (fallbackError) {
+        console.error('Complete auth failure:', fallbackError)
+      }
     } finally {
       setLoading(false)
     }

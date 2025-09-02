@@ -34,22 +34,75 @@ export default function ProfilePage() {
         return
       }
 
+      // Try to use the new secure function first
+      const { data: profileData, error: functionError } = await supabase
+        .rpc('get_user_profile', { user_id: user.id })
+
+      if (!functionError && profileData) {
+        setProfile(profileData)
+        setFullName(profileData.full_name || '')
+        setPhone(profileData.phone || '')
+        setEmail(profileData.email || user.email || '')
+        setRole(profileData.role || 'agent')
+        setMessage(null) // Clear any previous errors
+        return
+      }
+
+      // Fallback to direct query if function doesn't exist yet
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', user.id)
         .single()
 
-      if (error) throw error
+      if (error) {
+        console.error('Profile fetch error:', error)
+        
+        // Try to create missing profile
+        const { data: newProfile, error: createError } = await supabase
+          .from('profiles')
+          .insert({
+            id: user.id,
+            email: user.email,
+            role: 'agent'
+          })
+          .select()
+          .single()
+
+        if (!createError && newProfile) {
+          setProfile(newProfile)
+          setFullName('')
+          setPhone('')
+          setEmail(user.email || '')
+          setRole('agent')
+          setMessage({ 
+            type: 'success', 
+            text: 'Profile created successfully! You can now update your information.' 
+          })
+        } else {
+          setMessage({ 
+            type: 'error', 
+            text: `Failed to load profile: ${error.message}. Contact admin for assistance.` 
+          })
+          // Set basic user info even if profile creation fails
+          setEmail(user.email || '')
+          setRole('agent')
+        }
+        return
+      }
 
       setProfile(profile)
       setFullName(profile.full_name || '')
       setPhone(profile.phone || '')
-      setEmail(user.email || '')
+      setEmail(profile.email || user.email || '')
       setRole(profile.role || 'agent')
+      setMessage(null) // Clear any previous errors
     } catch (error) {
       console.error('Error fetching profile:', error)
-      setMessage({ type: 'error', text: 'Failed to load profile' })
+      setMessage({ 
+        type: 'error', 
+        text: error instanceof Error ? error.message : 'Failed to load profile. Please try again.' 
+      })
     } finally {
       setLoading(false)
     }
