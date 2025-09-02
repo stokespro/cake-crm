@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
   SelectContent,
@@ -14,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Plus, Search, ShoppingCart, Calendar, DollarSign, Package, Truck } from 'lucide-react'
+import { Plus, Search, ShoppingCart, Calendar, DollarSign, Package, Truck, Edit2, Save, X, History } from 'lucide-react'
 import { format } from 'date-fns'
 import type { Order } from '@/types/database'
 
@@ -25,6 +26,9 @@ export default function OrdersPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
   const [userRole, setUserRole] = useState<string>('agent')
+  const [editingOrder, setEditingOrder] = useState<string | null>(null)
+  const [editForm, setEditForm] = useState<Record<string, any>>({})
+  const [saving, setSaving] = useState(false)
   const supabase = createClient()
 
   useEffect(() => {
@@ -122,6 +126,7 @@ export default function OrdersPage() {
   }
 
   const canApproveOrders = userRole === 'management' || userRole === 'admin'
+  const canEditOrders = userRole === 'management' || userRole === 'admin'
 
   const approveOrder = async (orderId: string) => {
     if (!canApproveOrders) return
@@ -135,7 +140,9 @@ export default function OrdersPage() {
         .update({
           status: 'approved',
           approved_by: user.id,
-          approved_at: new Date().toISOString()
+          approved_at: new Date().toISOString(),
+          last_edited_by: user.id,
+          last_edited_at: new Date().toISOString()
         })
         .eq('id', orderId)
 
@@ -144,6 +151,59 @@ export default function OrdersPage() {
     } catch (error) {
       console.error('Error approving order:', error)
     }
+  }
+
+  const startEditing = (order: Order) => {
+    setEditingOrder(order.id)
+    setEditForm({
+      status: order.status,
+      order_notes: order.order_notes || '',
+      requested_delivery_date: order.requested_delivery_date ? order.requested_delivery_date.split('T')[0] : '',
+      final_delivery_date: order.final_delivery_date ? order.final_delivery_date.split('T')[0] : '',
+    })
+  }
+
+  const cancelEditing = () => {
+    setEditingOrder(null)
+    setEditForm({})
+  }
+
+  const saveOrder = async (orderId: string) => {
+    setSaving(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const updateData: Record<string, any> = {
+        ...editForm,
+        last_edited_by: user.id,
+        last_edited_at: new Date().toISOString()
+      }
+
+      // Convert empty dates to null
+      if (!updateData.requested_delivery_date) updateData.requested_delivery_date = null
+      if (!updateData.final_delivery_date) updateData.final_delivery_date = null
+
+      const { error } = await supabase
+        .from('orders')
+        .update(updateData)
+        .eq('id', orderId)
+
+      if (error) throw error
+      
+      setEditingOrder(null)
+      setEditForm({})
+      fetchOrders()
+    } catch (error) {
+      console.error('Error saving order:', error)
+      alert('Error saving order. Please try again.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const updateEditForm = (field: string, value: any) => {
+    setEditForm((prev: Record<string, any>) => ({...prev, [field]: value}))
   }
 
   if (loading) {
@@ -247,9 +307,16 @@ export default function OrdersPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     {getStatusBadge(order.status)}
-                    <div className="text-lg font-semibold flex items-center">
-                      <DollarSign className="h-5 w-5" />
-                      {order.total_price.toFixed(2)}
+                    <div className="text-right">
+                      <div className="text-lg font-semibold flex items-center">
+                        <DollarSign className="h-5 w-5" />
+                        {order.total_price.toFixed(2)}
+                      </div>
+                      {order.last_edited_at && (
+                        <div className="text-xs text-muted-foreground mt-1">
+                          Edited {format(new Date(order.last_edited_at), 'MMM d, yyyy')}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -300,25 +367,106 @@ export default function OrdersPage() {
                   </p>
                 )}
 
-                {/* Actions */}
-                <div className="flex gap-2 pt-2">
-                  {order.status === 'submitted' && canApproveOrders && (
-                    <Button
-                      size="sm"
-                      onClick={() => approveOrder(order.id)}
-                      className="bg-green-600 hover:bg-green-700"
-                    >
-                      Approve Order
-                    </Button>
-                  )}
-                  {order.status === 'pending' && order.agent_id === orders[0]?.agent_id && (
-                    <Button size="sm" variant="outline" asChild>
-                      <Link href={`/dashboard/orders/${order.id}/edit`}>
+                {/* Inline Editing */}
+                {editingOrder === order.id ? (
+                  <div className="space-y-4 p-4 border rounded-lg bg-muted/50">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Status</label>
+                        <Select 
+                          value={editForm.status} 
+                          onValueChange={(value) => updateEditForm('status', value)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="pending">Pending</SelectItem>
+                            <SelectItem value="submitted">Submitted</SelectItem>
+                            <SelectItem value="approved">Approved</SelectItem>
+                            <SelectItem value="delivered">Delivered</SelectItem>
+                            <SelectItem value="cancelled">Cancelled</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Requested Delivery Date</label>
+                        <Input
+                          type="date"
+                          value={editForm.requested_delivery_date}
+                          onChange={(e) => updateEditForm('requested_delivery_date', e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Final Delivery Date</label>
+                        <Input
+                          type="date"
+                          value={editForm.final_delivery_date}
+                          onChange={(e) => updateEditForm('final_delivery_date', e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Order Notes</label>
+                      <Textarea
+                        value={editForm.order_notes}
+                        onChange={(e) => updateEditForm('order_notes', e.target.value)}
+                        placeholder="Order notes..."
+                        rows={3}
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => saveOrder(order.id)}
+                        disabled={saving}
+                      >
+                        <Save className="h-4 w-4 mr-2" />
+                        {saving ? 'Saving...' : 'Save Changes'}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={cancelEditing}
+                        disabled={saving}
+                      >
+                        <X className="h-4 w-4 mr-2" />
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  /* Actions */
+                  <div className="flex gap-2 pt-2">
+                    {order.status === 'submitted' && canApproveOrders && (
+                      <Button
+                        size="sm"
+                        onClick={() => approveOrder(order.id)}
+                        className="bg-green-600 hover:bg-green-700"
+                      >
+                        Approve Order
+                      </Button>
+                    )}
+                    {canEditOrders && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => startEditing(order)}
+                      >
+                        <Edit2 className="h-4 w-4 mr-2" />
                         Edit Order
-                      </Link>
-                    </Button>
-                  )}
-                </div>
+                      </Button>
+                    )}
+                    {order.last_edited_at && (
+                      <Button size="sm" variant="ghost" className="text-muted-foreground" asChild>
+                        <Link href={`/dashboard/orders/${order.id}/history`}>
+                          <History className="h-4 w-4 mr-2" />
+                          View History
+                        </Link>
+                      </Button>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))

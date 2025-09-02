@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { Textarea } from '@/components/ui/textarea'
+import { Switch } from '@/components/ui/switch'
 import {
   Select,
   SelectContent,
@@ -14,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Plus, Search, Phone, Mail, User, MessageSquare, Calendar } from 'lucide-react'
+import { Plus, Search, Phone, Mail, User, MessageSquare, Calendar, Edit2, Save, X, History } from 'lucide-react'
 import { format } from 'date-fns'
 import type { Communication } from '@/types/database'
 
@@ -25,11 +27,33 @@ export default function CommunicationsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [filterMethod, setFilterMethod] = useState('all')
   const [filterFollowUp, setFilterFollowUp] = useState('all')
+  const [userRole, setUserRole] = useState<string>('agent')
+  const [editingComm, setEditingComm] = useState<string | null>(null)
+  const [editForm, setEditForm] = useState<Record<string, any>>({})
+  const [saving, setSaving] = useState(false)
   const supabase = createClient()
 
   useEffect(() => {
+    fetchUserRole()
     fetchCommunications()
   }, [])
+
+  const fetchUserRole = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+
+      if (data) setUserRole(data.role)
+    } catch (error) {
+      console.error('Error fetching user role:', error)
+    }
+  }
 
   useEffect(() => {
     filterCommunications()
@@ -40,14 +64,20 @@ export default function CommunicationsPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('communications')
         .select(`
           *,
           dispensary:dispensary_profiles(business_name, email, phone_number)
         `)
-        .eq('agent_id', user.id)
         .order('interaction_date', { ascending: false })
+
+      // Agents can only see their own communications
+      if (userRole === 'agent') {
+        query = query.eq('agent_id', user.id)
+      }
+
+      const { data, error } = await query
 
       if (error) throw error
       setCommunications(data || [])
@@ -113,6 +143,59 @@ export default function CommunicationsPage() {
       default:
         return 'Unknown'
     }
+  }
+
+  const canEditCommunications = ['management', 'admin'].includes(userRole)
+
+  const startEditing = (comm: Communication) => {
+    setEditingComm(comm.id)
+    setEditForm({
+      notes: comm.notes || '',
+      contact_method: comm.contact_method || 'phone',
+      client_name: comm.client_name || '',
+      follow_up_required: comm.follow_up_required || false,
+      interaction_date: comm.interaction_date ? new Date(comm.interaction_date).toISOString().slice(0, 16) : ''
+    })
+  }
+
+  const cancelEditing = () => {
+    setEditingComm(null)
+    setEditForm({})
+  }
+
+  const saveCommunication = async (commId: string) => {
+    setSaving(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const updateData: Record<string, any> = {
+        ...editForm,
+        last_edited_by: user.id,
+        last_edited_at: new Date().toISOString(),
+        is_edited: true
+      }
+
+      const { error } = await supabase
+        .from('communications')
+        .update(updateData)
+        .eq('id', commId)
+
+      if (error) throw error
+      
+      setEditingComm(null)
+      setEditForm({})
+      fetchCommunications()
+    } catch (error) {
+      console.error('Error saving communication:', error)
+      alert('Error saving communication. Please try again.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const updateEditForm = (field: string, value: any) => {
+    setEditForm((prev: Record<string, any>) => ({...prev, [field]: value}))
   }
 
   if (loading) {
@@ -215,35 +298,153 @@ export default function CommunicationsPage() {
                           </p>
                         )}
                       </div>
-                      {comm.follow_up_required && (
-                        <Badge variant="destructive">Follow-up Required</Badge>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {comm.follow_up_required && (
+                          <Badge variant="destructive">Follow-up Required</Badge>
+                        )}
+                        {comm.is_edited && (
+                          <Badge variant="outline" className="text-orange-600">
+                            Edited
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                     
                     <p className="text-sm">{comm.notes}</p>
                     
-                    <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        {getContactMethodIcon(comm.contact_method)}
-                        <span>{getContactMethodLabel(comm.contact_method)}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Calendar className="h-4 w-4" />
-                        <span>{format(new Date(comm.interaction_date), 'MMM d, yyyy h:mm a')}</span>
-                      </div>
-                      {comm.dispensary?.phone_number && (
-                        <div className="flex items-center gap-1">
-                          <Phone className="h-4 w-4" />
-                          <span>{comm.dispensary.phone_number}</span>
+                    {/* Inline Editing */}
+                    {editingComm === comm.id ? (
+                      <div className="space-y-4 p-4 border rounded-lg bg-muted/50">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">Contact Method</label>
+                            <Select 
+                              value={editForm.contact_method} 
+                              onValueChange={(value) => updateEditForm('contact_method', value)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="phone">Phone Call</SelectItem>
+                                <SelectItem value="email">Email</SelectItem>
+                                <SelectItem value="in-person">In Person</SelectItem>
+                                <SelectItem value="text">Text Message</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">Client Name</label>
+                            <Input
+                              value={editForm.client_name}
+                              onChange={(e) => updateEditForm('client_name', e.target.value)}
+                              placeholder="Contact person name..."
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">Interaction Date</label>
+                            <Input
+                              type="datetime-local"
+                              value={editForm.interaction_date}
+                              onChange={(e) => updateEditForm('interaction_date', e.target.value)}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">Follow-up Required</label>
+                            <div className="flex items-center space-x-2">
+                              <Switch
+                                checked={editForm.follow_up_required}
+                                onCheckedChange={(checked) => updateEditForm('follow_up_required', checked)}
+                              />
+                              <span className="text-sm text-muted-foreground">
+                                {editForm.follow_up_required ? 'Required' : 'Not required'}
+                              </span>
+                            </div>
+                          </div>
                         </div>
-                      )}
-                      {comm.dispensary?.email && (
-                        <div className="flex items-center gap-1">
-                          <Mail className="h-4 w-4" />
-                          <span>{comm.dispensary.email}</span>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">Notes</label>
+                          <Textarea
+                            value={editForm.notes}
+                            onChange={(e) => updateEditForm('notes', e.target.value)}
+                            placeholder="Communication notes..."
+                            rows={4}
+                          />
                         </div>
-                      )}
-                    </div>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            onClick={() => saveCommunication(comm.id)}
+                            disabled={saving}
+                          >
+                            <Save className="h-4 w-4 mr-2" />
+                            {saving ? 'Saving...' : 'Save Changes'}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={cancelEditing}
+                            disabled={saving}
+                          >
+                            <X className="h-4 w-4 mr-2" />
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+                          <div className="flex items-center gap-1">
+                            {getContactMethodIcon(comm.contact_method)}
+                            <span>{getContactMethodLabel(comm.contact_method)}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Calendar className="h-4 w-4" />
+                            <span>{format(new Date(comm.interaction_date), 'MMM d, yyyy h:mm a')}</span>
+                          </div>
+                          {comm.last_edited_at && (
+                            <div className="flex items-center gap-1 text-orange-600">
+                              <Edit2 className="h-3 w-3" />
+                              <span className="text-xs">Edited {format(new Date(comm.last_edited_at), 'MMM d, yyyy')}</span>
+                            </div>
+                          )}
+                          {comm.dispensary?.phone_number && (
+                            <div className="flex items-center gap-1">
+                              <Phone className="h-4 w-4" />
+                              <span>{comm.dispensary.phone_number}</span>
+                            </div>
+                          )}
+                          {comm.dispensary?.email && (
+                            <div className="flex items-center gap-1">
+                              <Mail className="h-4 w-4" />
+                              <span>{comm.dispensary.email}</span>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Action Buttons */}
+                        {canEditCommunications && (
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => startEditing(comm)}
+                            >
+                              <Edit2 className="h-4 w-4 mr-2" />
+                              Edit
+                            </Button>
+                            {comm.last_edited_at && (
+                              <Button size="sm" variant="ghost" className="text-muted-foreground" asChild>
+                                <Link href={`/dashboard/communications/${comm.id}/history`}>
+                                  <History className="h-4 w-4 mr-2" />
+                                  History
+                                </Link>
+                              </Button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               </CardContent>
