@@ -22,7 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Loader2, Plus, Trash2, DollarSign } from 'lucide-react'
-import type { DispensaryProfile, Product } from '@/types/database'
+import type { DispensaryProfile, Product, Order, OrderItem as DatabaseOrderItem } from '@/types/database'
 
 interface OrderItem {
   product_id: string
@@ -37,15 +37,16 @@ interface OrderSheetProps {
   onClose: () => void
   dispensaryId?: string
   onSuccess: () => void
+  order?: Order // Optional prop for edit mode
 }
 
-export function OrderSheet({ open, onClose, dispensaryId, onSuccess }: OrderSheetProps) {
+export function OrderSheet({ open, onClose, dispensaryId, onSuccess, order }: OrderSheetProps) {
   const [dispensaries, setDispensaries] = useState<DispensaryProfile[]>([])
   const [products, setProducts] = useState<Product[]>([])
-  const [selectedDispensaryId, setSelectedDispensaryId] = useState(dispensaryId || '')
+  const [selectedDispensaryId, setSelectedDispensaryId] = useState(dispensaryId || order?.dispensary_id || '')
   const [orderItems, setOrderItems] = useState<OrderItem[]>([])
-  const [orderNotes, setOrderNotes] = useState('')
-  const [requestedDeliveryDate, setRequestedDeliveryDate] = useState('')
+  const [orderNotes, setOrderNotes] = useState(order?.order_notes || '')
+  const [requestedDeliveryDate, setRequestedDeliveryDate] = useState(order?.requested_delivery_date || '')
   const [totalPrice, setTotalPrice] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -55,17 +56,38 @@ export function OrderSheet({ open, onClose, dispensaryId, onSuccess }: OrderShee
     if (open) {
       fetchDispensaries()
       fetchProducts()
-      // Set default delivery date to 7 days from now
-      const defaultDate = new Date()
-      defaultDate.setDate(defaultDate.getDate() + 7)
-      setRequestedDeliveryDate(defaultDate.toISOString().split('T')[0])
       
-      // Set dispensary if provided
-      if (dispensaryId) {
-        setSelectedDispensaryId(dispensaryId)
+      // Initialize form with existing order data or defaults
+      if (order) {
+        // Edit mode - populate with existing order data
+        setSelectedDispensaryId(order.dispensary_id)
+        setOrderNotes(order.order_notes || '')
+        setRequestedDeliveryDate(order.requested_delivery_date || '')
+        
+        // Convert database order items to form order items
+        if (order.order_items && order.order_items.length > 0) {
+          const formOrderItems = order.order_items.map(item => ({
+            product_id: item.product_id,
+            strain_name: item.strain_name,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            line_total: item.line_total
+          }))
+          setOrderItems(formOrderItems)
+        }
+      } else {
+        // Create mode - set defaults
+        const defaultDate = new Date()
+        defaultDate.setDate(defaultDate.getDate() + 7)
+        setRequestedDeliveryDate(defaultDate.toISOString().split('T')[0])
+        
+        // Set dispensary if provided
+        if (dispensaryId) {
+          setSelectedDispensaryId(dispensaryId)
+        }
       }
     }
-  }, [open, dispensaryId])
+  }, [open, dispensaryId, order])
 
   useEffect(() => {
     calculateTotal()
@@ -208,65 +230,126 @@ export function OrderSheet({ open, onClose, dispensaryId, onSuccess }: OrderShee
         throw new Error('Not authenticated. Please log in and try again.')
       }
 
-      console.log('Creating order for dispensary:', selectedDispensaryId)
-      console.log('Order items:', orderItems.length)
-      console.log('Total price:', totalPrice)
+      const isEditMode = !!order
+      
+      if (isEditMode) {
+        console.log('Updating order:', order.id)
+        console.log('Order items:', orderItems.length)
+        console.log('Total price:', totalPrice)
 
-      // Use transaction to ensure data consistency
-      const { data: order, error: orderError } = await supabase
-        .from('orders')
-        .insert({
-          agent_id: user.id,
-          dispensary_id: selectedDispensaryId,
-          order_notes: orderNotes || null,
-          requested_delivery_date: requestedDeliveryDate,
-          status: 'pending',
-          total_price: totalPrice,
-          order_date: new Date().toISOString().split('T')[0]
-        })
-        .select()
-        .single()
+        // Update the existing order
+        const { error: orderError } = await supabase
+          .from('orders')
+          .update({
+            dispensary_id: selectedDispensaryId,
+            order_notes: orderNotes || null,
+            requested_delivery_date: requestedDeliveryDate,
+            total_price: totalPrice,
+            last_edited_at: new Date().toISOString(),
+            last_edited_by: user.id
+          })
+          .eq('id', order.id)
 
-      if (orderError) {
-        console.error('Error creating order:', orderError)
-        throw new Error(`Failed to create order: ${orderError.message}`)
+        if (orderError) {
+          console.error('Error updating order:', orderError)
+          throw new Error(`Failed to update order: ${orderError.message}`)
+        }
+
+        // Delete existing order items
+        const { error: deleteError } = await supabase
+          .from('order_items')
+          .delete()
+          .eq('order_id', order.id)
+
+        if (deleteError) {
+          console.error('Error deleting existing order items:', deleteError)
+          throw new Error(`Failed to delete existing order items: ${deleteError.message}`)
+        }
+
+        // Insert updated order items
+        const itemsToInsert = orderItems.map(item => ({
+          order_id: order.id,
+          product_id: item.product_id,
+          strain_name: item.strain_name,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          line_total: item.line_total
+        }))
+
+        console.log('Inserting updated order items:', itemsToInsert.length)
+
+        const { error: itemsError } = await supabase
+          .from('order_items')
+          .insert(itemsToInsert)
+
+        if (itemsError) {
+          console.error('Error creating updated order items:', itemsError)
+          throw new Error(`Failed to create updated order items: ${itemsError.message}`)
+        }
+
+        console.log('Order updated successfully')
+      } else {
+        console.log('Creating order for dispensary:', selectedDispensaryId)
+        console.log('Order items:', orderItems.length)
+        console.log('Total price:', totalPrice)
+
+        // Create new order
+        const { data: newOrder, error: orderError } = await supabase
+          .from('orders')
+          .insert({
+            agent_id: user.id,
+            dispensary_id: selectedDispensaryId,
+            order_notes: orderNotes || null,
+            requested_delivery_date: requestedDeliveryDate,
+            status: 'pending',
+            total_price: totalPrice,
+            order_date: new Date().toISOString().split('T')[0]
+          })
+          .select()
+          .single()
+
+        if (orderError) {
+          console.error('Error creating order:', orderError)
+          throw new Error(`Failed to create order: ${orderError.message}`)
+        }
+
+        if (!newOrder) {
+          throw new Error('Order was not created successfully')
+        }
+
+        console.log('Order created successfully:', newOrder.id)
+
+        // Create order items
+        const itemsToInsert = orderItems.map(item => ({
+          order_id: newOrder.id,
+          product_id: item.product_id,
+          strain_name: item.strain_name,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          line_total: item.line_total
+        }))
+
+        console.log('Inserting order items:', itemsToInsert.length)
+
+        const { error: itemsError } = await supabase
+          .from('order_items')
+          .insert(itemsToInsert)
+
+        if (itemsError) {
+          console.error('Error creating order items:', itemsError)
+          throw new Error(`Failed to create order items: ${itemsError.message}`)
+        }
+
+        console.log('Order and items created successfully')
       }
-
-      if (!order) {
-        throw new Error('Order was not created successfully')
-      }
-
-      console.log('Order created successfully:', order.id)
-
-      // Create order items
-      const itemsToInsert = orderItems.map(item => ({
-        order_id: order.id,
-        product_id: item.product_id,
-        strain_name: item.strain_name,
-        quantity: item.quantity,
-        unit_price: item.unit_price,
-        line_total: item.line_total
-      }))
-
-      console.log('Inserting order items:', itemsToInsert.length)
-
-      const { error: itemsError } = await supabase
-        .from('order_items')
-        .insert(itemsToInsert)
-
-      if (itemsError) {
-        console.error('Error creating order items:', itemsError)
-        throw new Error(`Failed to create order items: ${itemsError.message}`)
-      }
-
-      console.log('Order and items created successfully')
 
       // Call success callback and close sheet
       onSuccess()
       onClose()
     } catch (error) {
       console.error('Error in handleSubmit:', error)
-      setError(error instanceof Error ? error.message : 'An unexpected error occurred while creating the order')
+      const action = order ? 'updating' : 'creating'
+      setError(error instanceof Error ? error.message : `An unexpected error occurred while ${action} the order`)
     } finally {
       setLoading(false)
     }
@@ -276,9 +359,9 @@ export function OrderSheet({ open, onClose, dispensaryId, onSuccess }: OrderShee
     <Sheet open={open} onOpenChange={(open) => !open && onClose()}>
       <SheetContent className="sm:max-w-[600px] w-full overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>Create New Order</SheetTitle>
+          <SheetTitle>{order ? 'Edit Order' : 'Create New Order'}</SheetTitle>
           <SheetDescription>
-            Submit a new wholesale order for a dispensary
+            {order ? 'Update an existing wholesale order' : 'Submit a new wholesale order for a dispensary'}
           </SheetDescription>
         </SheetHeader>
 
@@ -300,7 +383,7 @@ export function OrderSheet({ open, onClose, dispensaryId, onSuccess }: OrderShee
                   value={selectedDispensaryId} 
                   onValueChange={setSelectedDispensaryId} 
                   required
-                  disabled={!!dispensaryId} // Disable if dispensary is pre-selected
+                  disabled={!!dispensaryId || !!order} // Disable if dispensary is pre-selected or in edit mode
                 >
                   <SelectTrigger id="dispensary">
                     <SelectValue placeholder="Select a dispensary" />
@@ -459,10 +542,10 @@ export function OrderSheet({ open, onClose, dispensaryId, onSuccess }: OrderShee
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating Order...
+                  {order ? 'Updating Order...' : 'Creating Order...'}
                 </>
               ) : (
-                'Create Order'
+                order ? 'Update Order' : 'Create Order'
               )}
             </Button>
           </SheetFooter>

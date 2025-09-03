@@ -7,12 +7,27 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { ArrowLeft, Building2, Phone, Mail, MapPin, FileText, MessageSquare, ShoppingCart, BarChart3, Plus, Edit } from 'lucide-react'
+import { ArrowLeft, Building2, Phone, Mail, MapPin, FileText, MessageSquare, ShoppingCart, BarChart3, Plus, Edit, MoreHorizontal, Trash2 } from 'lucide-react'
 import Link from 'next/link'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { EditDispensarySheet } from '@/components/dispensary/edit-dispensary-sheet'
 import { CommunicationSheet } from '@/components/communications/communication-sheet'
 import { OrderSheet } from '@/components/orders/order-sheet'
-import { DispensaryProfile } from '@/types/database'
+import { DispensaryProfile, Order } from '@/types/database'
+import { toast } from 'sonner'
 
 interface DispensaryProfileWithStats extends DispensaryProfile {
   is_active?: boolean
@@ -27,7 +42,6 @@ interface SupabaseProfile {
   full_name: string
 }
 
-
 interface Communication {
   id: string
   interaction_date: string
@@ -37,12 +51,7 @@ interface Communication {
   agent_name?: string
 }
 
-interface Order {
-  id: string
-  order_date: string
-  status: string
-  total_price: number
-  order_notes?: string
+interface OrderWithAgent extends Order {
   agent_name?: string
 }
 
@@ -50,13 +59,14 @@ export default function DispensaryDetailPage() {
   const params = useParams()
   const [dispensary, setDispensary] = useState<DispensaryProfileWithStats | null>(null)
   const [communications, setCommunications] = useState<Communication[]>([])
-  const [orders, setOrders] = useState<Order[]>([])
+  const [orders, setOrders] = useState<OrderWithAgent[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('overview')
   const [userRole, setUserRole] = useState<string>('')
   const [editDispensaryOpen, setEditDispensaryOpen] = useState(false)
   const [communicationSheetOpen, setCommunicationSheetOpen] = useState(false)
   const [orderSheetOpen, setOrderSheetOpen] = useState(false)
+  const [selectedOrder, setSelectedOrder] = useState<OrderWithAgent | null>(null)
   const supabase = createClient()
 
   const dispensaryId = params.id as string
@@ -131,11 +141,17 @@ export default function DispensaryDetailPage() {
         .from('orders')
         .select(`
           id,
+          order_id,
+          dispensary_id,
+          agent_id,
           order_date,
           status,
           total_price,
           order_notes,
-          agent_id,
+          requested_delivery_date,
+          final_delivery_date,
+          created_at,
+          updated_at,
           profiles!orders_agent_id_fkey(full_name)
         `)
         .eq('dispensary_id', dispensaryId)
@@ -147,7 +163,7 @@ export default function DispensaryDetailPage() {
       const formattedOrders = (data || []).map((order: Record<string, unknown>) => ({
         ...order,
         agent_name: (order.profiles as SupabaseProfile)?.full_name || 'Unknown Agent'
-      })) as Order[]
+      })) as OrderWithAgent[]
       
       setOrders(formattedOrders)
     } catch (error) {
@@ -193,6 +209,56 @@ export default function DispensaryDetailPage() {
   }
 
   const canManageDispensaries = ['management', 'admin'].includes(userRole)
+
+  const handleDeleteOrder = async (order: OrderWithAgent) => {
+    const deleteOrderAction = async () => {
+      try {
+        // First delete order items
+        const { error: itemsError } = await supabase
+          .from('order_items')
+          .delete()
+          .eq('order_id', order.id)
+
+        if (itemsError) {
+          throw itemsError
+        }
+
+        // Then delete the order
+        const { error: orderError } = await supabase
+          .from('orders')
+          .delete()
+          .eq('id', order.id)
+
+        if (orderError) {
+          throw orderError
+        }
+
+        toast.success('Order deleted successfully')
+        fetchOrders() // Refresh orders list
+      } catch (error) {
+        console.error('Error deleting order:', error)
+        toast.error('Failed to delete order. Please try again.')
+      }
+    }
+
+    // Show confirmation toast with action buttons
+    toast('Delete Order', {
+      description: `Are you sure you want to delete this order? This action cannot be undone.`,
+      action: {
+        label: 'Delete',
+        onClick: deleteOrderAction,
+      },
+      cancel: {
+        label: 'Cancel',
+        onClick: () => {}, // Do nothing on cancel
+      },
+    })
+  }
+
+  const handleEditOrder = (order: OrderWithAgent) => {
+    setSelectedOrder(order)
+    setOrderSheetOpen(true)
+  }
 
   if (loading) {
     return (
@@ -551,7 +617,7 @@ export default function DispensaryDetailPage() {
         <TabsContent value="orders" className="space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-medium">All Orders ({orders.length})</h3>
-            <Button onClick={() => setOrderSheetOpen(true)}>
+            <Button onClick={() => { setSelectedOrder(null); setOrderSheetOpen(true); }}>
               <Plus className="mr-2 h-4 w-4" />
               Create Order
             </Button>
@@ -562,40 +628,105 @@ export default function DispensaryDetailPage() {
               <CardContent className="py-12 text-center">
                 <ShoppingCart className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <p className="text-muted-foreground mb-4">No orders placed yet</p>
-                <Button onClick={() => setOrderSheetOpen(true)}>
+                <Button onClick={() => { setSelectedOrder(null); setOrderSheetOpen(true); }}>
                   <Plus className="mr-2 h-4 w-4" />
                   Create First Order
                 </Button>
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-4">
-              {orders.map((order) => (
-                <Card key={order.id}>
-                  <CardContent className="pt-6">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <Badge variant={getStatusBadgeVariant(order.status)}>
-                          {order.status}
-                        </Badge>
-                        <span className="font-medium">
-                          {formatCurrency(order.total_price)}
-                        </span>
-                      </div>
-                      <span className="text-sm text-muted-foreground">
-                        {formatDate(order.order_date)}
-                      </span>
-                    </div>
-                    {order.order_notes && (
-                      <p className="text-sm mb-3">{order.order_notes}</p>
-                    )}
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <span>By: {order.agent_name}</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+            <Card>
+              <CardContent className="p-0">
+                <div className="overflow-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Order ID</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="hidden md:table-cell">Requested Date</TableHead>
+                        <TableHead>Total Cost</TableHead>
+                        <TableHead className="hidden lg:table-cell">Delivery Date</TableHead>
+                        <TableHead className="w-[50px]">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {orders.map((order) => (
+                        <TableRow key={order.id} className="hover:bg-muted/50">
+                          <TableCell>
+                            <div className="font-medium">
+                              {order.order_id || '—'}
+                            </div>
+                            <div className="text-sm text-muted-foreground md:hidden">
+                              {formatDate(order.order_date)}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={getStatusBadgeVariant(order.status)}>
+                              {order.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="hidden md:table-cell">
+                            <div className="text-sm">
+                              {formatDate(order.order_date)}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              By: {order.agent_name}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <span className="font-medium">
+                              {formatCurrency(order.total_price)}
+                            </span>
+                          </TableCell>
+                          <TableCell className="hidden lg:table-cell">
+                            <div className="text-sm">
+                              {order.final_delivery_date 
+                                ? formatDate(order.final_delivery_date)
+                                : order.requested_delivery_date 
+                                  ? formatDate(order.requested_delivery_date)
+                                  : '—'
+                              }
+                            </div>
+                            {order.final_delivery_date && order.requested_delivery_date && (
+                              <div className="text-xs text-muted-foreground">
+                                Requested: {formatDate(order.requested_delivery_date)}
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0"
+                                >
+                                  <MoreHorizontal className="h-4 w-4" />
+                                  <span className="sr-only">Open menu</span>
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleEditOrder(order)}>
+                                  <Edit className="h-4 w-4 mr-2" />
+                                  Edit Order
+                                </DropdownMenuItem>
+                                <DropdownMenuItem 
+                                  onClick={() => handleDeleteOrder(order)}
+                                  className="text-red-600 focus:text-red-600"
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Delete Order
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
           )}
         </TabsContent>
 
@@ -700,11 +831,30 @@ export default function DispensaryDetailPage() {
 
       <OrderSheet
         open={orderSheetOpen}
-        onClose={() => setOrderSheetOpen(false)}
+        onClose={() => { setOrderSheetOpen(false); setSelectedOrder(null); }}
         dispensaryId={dispensaryId}
+        order={selectedOrder ? {
+          id: selectedOrder.id,
+          order_id: selectedOrder.order_id,
+          dispensary_id: selectedOrder.dispensary_id,
+          agent_id: selectedOrder.agent_id,
+          order_date: selectedOrder.order_date,
+          order_notes: selectedOrder.order_notes,
+          requested_delivery_date: selectedOrder.requested_delivery_date,
+          final_delivery_date: selectedOrder.final_delivery_date,
+          status: selectedOrder.status,
+          total_price: selectedOrder.total_price,
+          approved_by: selectedOrder.approved_by,
+          approved_at: selectedOrder.approved_at,
+          created_at: selectedOrder.created_at,
+          updated_at: selectedOrder.updated_at,
+          last_edited_at: selectedOrder.last_edited_at,
+          last_edited_by: selectedOrder.last_edited_by,
+        } : undefined}
         onSuccess={() => {
           fetchOrders()
           setOrderSheetOpen(false)
+          setSelectedOrder(null)
         }}
       />
     </div>
