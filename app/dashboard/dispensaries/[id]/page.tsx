@@ -105,7 +105,8 @@ export default function DispensaryDetailPage() {
           contact_method,
           notes,
           follow_up_required,
-          profiles!inner(full_name)
+          agent_id,
+          profiles!communications_agent_id_fkey(full_name)
         `)
         .eq('dispensary_id', dispensaryId)
         .order('interaction_date', { ascending: false })
@@ -134,7 +135,8 @@ export default function DispensaryDetailPage() {
           status,
           total_price,
           order_notes,
-          profiles!inner(full_name)
+          agent_id,
+          profiles!orders_agent_id_fkey(full_name)
         `)
         .eq('dispensary_id', dispensaryId)
         .order('order_date', { ascending: false })

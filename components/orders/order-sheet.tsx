@@ -157,19 +157,60 @@ export function OrderSheet({ open, onClose, dispensaryId, onSuccess }: OrderShee
     setTotalPrice(total)
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const validateForm = () => {
+    if (!selectedDispensaryId) {
+      setError('Please select a dispensary')
+      return false
+    }
+    
     if (orderItems.length === 0) {
       setError('Please add at least one item to the order')
+      return false
+    }
+    
+    if (!requestedDeliveryDate) {
+      setError('Please select a requested delivery date')
+      return false
+    }
+    
+    // Validate each order item
+    for (let i = 0; i < orderItems.length; i++) {
+      const item = orderItems[i]
+      
+      if (!item.product_id) {
+        setError(`Please select a product for item ${i + 1}`)
+        return false
+      }
+      
+      if (!item.quantity || item.quantity <= 0) {
+        setError(`Please enter a valid quantity greater than 0 for item ${i + 1}`)
+        return false
+      }
+    }
+    
+    return true
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError(null)
+
+    // Validate form before proceeding
+    if (!validateForm()) {
       return
     }
 
     setLoading(true)
-    setError(null)
 
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('Not authenticated')
+      if (!user) {
+        throw new Error('Not authenticated. Please log in and try again.')
+      }
+
+      console.log('Creating order for dispensary:', selectedDispensaryId)
+      console.log('Order items:', orderItems.length)
+      console.log('Total price:', totalPrice)
 
       // Use transaction to ensure data consistency
       const { data: order, error: orderError } = await supabase
@@ -186,7 +227,16 @@ export function OrderSheet({ open, onClose, dispensaryId, onSuccess }: OrderShee
         .select()
         .single()
 
-      if (orderError) throw orderError
+      if (orderError) {
+        console.error('Error creating order:', orderError)
+        throw new Error(`Failed to create order: ${orderError.message}`)
+      }
+
+      if (!order) {
+        throw new Error('Order was not created successfully')
+      }
+
+      console.log('Order created successfully:', order.id)
 
       // Create order items
       const itemsToInsert = orderItems.map(item => ({
@@ -198,16 +248,25 @@ export function OrderSheet({ open, onClose, dispensaryId, onSuccess }: OrderShee
         line_total: item.line_total
       }))
 
+      console.log('Inserting order items:', itemsToInsert.length)
+
       const { error: itemsError } = await supabase
         .from('order_items')
         .insert(itemsToInsert)
 
-      if (itemsError) throw itemsError
+      if (itemsError) {
+        console.error('Error creating order items:', itemsError)
+        throw new Error(`Failed to create order items: ${itemsError.message}`)
+      }
 
+      console.log('Order and items created successfully')
+
+      // Call success callback and close sheet
       onSuccess()
       onClose()
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'An error occurred')
+      console.error('Error in handleSubmit:', error)
+      setError(error instanceof Error ? error.message : 'An unexpected error occurred while creating the order')
     } finally {
       setLoading(false)
     }
@@ -395,7 +454,7 @@ export function OrderSheet({ open, onClose, dispensaryId, onSuccess }: OrderShee
             </Button>
             <Button 
               type="submit" 
-              disabled={loading || !selectedDispensaryId || orderItems.length === 0}
+              disabled={loading || !selectedDispensaryId || orderItems.length === 0 || !requestedDeliveryDate}
             >
               {loading ? (
                 <>
