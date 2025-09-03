@@ -45,6 +45,7 @@ export function OrderSheet({ open, onClose, dispensaryId, onSuccess, order }: Or
   const [products, setProducts] = useState<Product[]>([])
   const [selectedDispensaryId, setSelectedDispensaryId] = useState(dispensaryId || order?.dispensary_id || '')
   const [orderItems, setOrderItems] = useState<OrderItem[]>([])
+  const [orderId, setOrderId] = useState(order?.order_id || '')
   const [orderNotes, setOrderNotes] = useState(order?.order_notes || '')
   const [requestedDeliveryDate, setRequestedDeliveryDate] = useState(order?.requested_delivery_date || '')
   const [totalPrice, setTotalPrice] = useState(0)
@@ -61,6 +62,7 @@ export function OrderSheet({ open, onClose, dispensaryId, onSuccess, order }: Or
       if (order) {
         // Edit mode - populate with existing order data
         setSelectedDispensaryId(order.dispensary_id)
+        setOrderId(order.order_id || '')
         setOrderNotes(order.order_notes || '')
         setRequestedDeliveryDate(order.requested_delivery_date || '')
         
@@ -98,6 +100,7 @@ export function OrderSheet({ open, onClose, dispensaryId, onSuccess, order }: Or
     if (!open) {
       setSelectedDispensaryId(dispensaryId || '')
       setOrderItems([])
+      setOrderId('')
       setOrderNotes('')
       setTotalPrice(0)
       setError(null)
@@ -242,6 +245,7 @@ export function OrderSheet({ open, onClose, dispensaryId, onSuccess, order }: Or
           .from('orders')
           .update({
             dispensary_id: selectedDispensaryId,
+            order_id: orderId || null,
             order_notes: orderNotes || null,
             requested_delivery_date: requestedDeliveryDate,
             total_price: totalPrice,
@@ -377,6 +381,20 @@ export function OrderSheet({ open, onClose, dispensaryId, onSuccess, order }: Or
             <h3 className="text-lg font-medium">Order Details</h3>
             
             <div className="grid grid-cols-1 gap-4">
+              {/* Order ID field - only show in edit mode */}
+              {order && (
+                <div className="space-y-2">
+                  <Label htmlFor="orderId">Order ID</Label>
+                  <Input
+                    id="orderId"
+                    placeholder="Enter order ID"
+                    value={orderId}
+                    onChange={(e) => setOrderId(e.target.value)}
+                    disabled={loading}
+                  />
+                </div>
+              )}
+              
               <div className="space-y-2">
                 <Label htmlFor="dispensary">Dispensary *</Label>
                 <Select 

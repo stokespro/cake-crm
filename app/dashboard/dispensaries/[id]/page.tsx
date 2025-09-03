@@ -5,9 +5,10 @@ import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { ArrowLeft, Building2, Phone, Mail, MapPin, FileText, MessageSquare, ShoppingCart, BarChart3, Plus, Edit, MoreHorizontal, Trash2 } from 'lucide-react'
+import { ArrowLeft, Building2, Phone, Mail, MapPin, FileText, MessageSquare, ShoppingCart, BarChart3, Plus, Edit, MoreHorizontal, Trash2, Search } from 'lucide-react'
 import Link from 'next/link'
 import {
   Table,
@@ -23,6 +24,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { EditDispensarySheet } from '@/components/dispensary/edit-dispensary-sheet'
 import { CommunicationSheet } from '@/components/communications/communication-sheet'
 import { OrderSheet } from '@/components/orders/order-sheet'
@@ -60,6 +68,7 @@ export default function DispensaryDetailPage() {
   const [dispensary, setDispensary] = useState<DispensaryProfileWithStats | null>(null)
   const [communications, setCommunications] = useState<Communication[]>([])
   const [orders, setOrders] = useState<OrderWithAgent[]>([])
+  const [filteredOrders, setFilteredOrders] = useState<OrderWithAgent[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('overview')
   const [userRole, setUserRole] = useState<string>('')
@@ -67,6 +76,8 @@ export default function DispensaryDetailPage() {
   const [communicationSheetOpen, setCommunicationSheetOpen] = useState(false)
   const [orderSheetOpen, setOrderSheetOpen] = useState(false)
   const [selectedOrder, setSelectedOrder] = useState<OrderWithAgent | null>(null)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [filterStatus, setFilterStatus] = useState('all')
   const supabase = createClient()
 
   const dispensaryId = params.id as string
@@ -183,6 +194,28 @@ export default function DispensaryDetailPage() {
     loadData()
   }, [fetchUserRole, fetchDispensary, fetchCommunications, fetchOrders])
 
+  useEffect(() => {
+    filterOrders()
+  }, [orders, searchTerm, filterStatus])
+
+  const filterOrders = () => {
+    let filtered = [...orders]
+
+    if (searchTerm) {
+      filtered = filtered.filter(order =>
+        order.order_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.order_notes?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.agent_name?.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    }
+
+    if (filterStatus !== 'all') {
+      filtered = filtered.filter(order => order.status === filterStatus)
+    }
+
+    setFilteredOrders(filtered)
+  }
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       month: 'short',
@@ -242,8 +275,8 @@ export default function DispensaryDetailPage() {
     }
 
     // Show confirmation toast with action buttons
-    toast('Delete Order', {
-      description: `Are you sure you want to delete this order? This action cannot be undone.`,
+    toast("Delete Order", {
+      description: "Are you sure you want to delete this order? This action cannot be undone.",
       action: {
         label: 'Delete',
         onClick: deleteOrderAction,
@@ -616,18 +649,56 @@ export default function DispensaryDetailPage() {
 
         <TabsContent value="orders" className="space-y-4">
           <div className="flex justify-between items-center">
-            <h3 className="text-lg font-medium">All Orders ({orders.length})</h3>
+            <h3 className="text-lg font-medium">All Orders ({filteredOrders.length})</h3>
             <Button onClick={() => { setSelectedOrder(null); setOrderSheetOpen(true); }}>
               <Plus className="mr-2 h-4 w-4" />
               Create Order
             </Button>
           </div>
           
-          {orders.length === 0 ? (
+          {/* Search and Filters */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Filters</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search orders..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+                <Select value={filterStatus} onValueChange={setFilterStatus}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Orders</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="submitted">Submitted</SelectItem>
+                    <SelectItem value="approved">Approved</SelectItem>
+                  </SelectContent>
+                </Select>
+                <div className="flex items-center text-sm text-muted-foreground">
+                  {filteredOrders.length} of {orders.length} orders
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          {filteredOrders.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center">
                 <ShoppingCart className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground mb-4">No orders placed yet</p>
+                <p className="text-muted-foreground mb-4">
+                  {searchTerm || filterStatus !== 'all' 
+                    ? 'No orders found matching your filters' 
+                    : 'No orders placed yet'}
+                </p>
                 <Button onClick={() => { setSelectedOrder(null); setOrderSheetOpen(true); }}>
                   <Plus className="mr-2 h-4 w-4" />
                   Create First Order
@@ -650,7 +721,7 @@ export default function DispensaryDetailPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {orders.map((order) => (
+                      {filteredOrders.map((order) => (
                         <TableRow key={order.id} className="hover:bg-muted/50">
                           <TableCell>
                             <div className="font-medium">
