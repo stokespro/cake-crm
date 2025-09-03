@@ -25,6 +25,17 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -244,48 +255,33 @@ export default function DispensaryDetailPage() {
   const canManageDispensaries = ['management', 'admin'].includes(userRole)
 
   const handleDeleteOrder = async (order: OrderWithAgent) => {
-    const deleteOrderAction = async () => {
-      try {
-        // First delete order items
-        const { error: itemsError } = await supabase
-          .from('order_items')
-          .delete()
-          .eq('order_id', order.id)
+    try {
+      // First delete order items
+      const { error: itemsError } = await supabase
+        .from('order_items')
+        .delete()
+        .eq('order_id', order.id)
 
-        if (itemsError) {
-          throw itemsError
-        }
-
-        // Then delete the order
-        const { error: orderError } = await supabase
-          .from('orders')
-          .delete()
-          .eq('id', order.id)
-
-        if (orderError) {
-          throw orderError
-        }
-
-        toast.success('Order deleted successfully')
-        fetchOrders() // Refresh orders list
-      } catch (error) {
-        console.error('Error deleting order:', error)
-        toast.error('Failed to delete order. Please try again.')
+      if (itemsError) {
+        throw itemsError
       }
-    }
 
-    // Show confirmation toast with action buttons
-    toast("Delete Order", {
-      description: "Are you sure you want to delete this order? This action cannot be undone.",
-      action: {
-        label: 'Delete',
-        onClick: deleteOrderAction,
-      },
-      cancel: {
-        label: 'Cancel',
-        onClick: () => {}, // Do nothing on cancel
-      },
-    })
+      // Then delete the order
+      const { error: orderError } = await supabase
+        .from('orders')
+        .delete()
+        .eq('id', order.id)
+
+      if (orderError) {
+        throw orderError
+      }
+
+      toast.success('Order deleted successfully')
+      fetchOrders() // Refresh orders list
+    } catch (error) {
+      console.error('Error deleting order:', error)
+      toast.error('Failed to delete order. Please try again.')
+    }
   }
 
   const handleEditOrder = (order: OrderWithAgent) => {
@@ -781,13 +777,34 @@ export default function DispensaryDetailPage() {
                                   <Edit className="h-4 w-4 mr-2" />
                                   Edit Order
                                 </DropdownMenuItem>
-                                <DropdownMenuItem 
-                                  onClick={() => handleDeleteOrder(order)}
-                                  className="text-red-600 focus:text-red-600"
-                                >
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  Delete Order
-                                </DropdownMenuItem>
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <DropdownMenuItem
+                                      className="text-red-600 focus:text-red-600"
+                                      onSelect={(e) => e.preventDefault()}
+                                    >
+                                      <Trash2 className="h-4 w-4 mr-2" />
+                                      Delete Order
+                                    </DropdownMenuItem>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Delete Order</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Are you sure you want to delete this order ({order.order_id || 'Untitled Order'})? This action cannot be undone and will remove all order items as well.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                      <AlertDialogAction
+                                        onClick={() => handleDeleteOrder(order)}
+                                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                      >
+                                        Delete Order
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </TableCell>
