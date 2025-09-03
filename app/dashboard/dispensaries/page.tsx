@@ -7,7 +7,21 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { Plus, Search, Building2, Phone, Mail, MapPin, FileText } from 'lucide-react'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Plus, Search, Building2, Phone, MoreHorizontal, Eye, MessageSquare, ShoppingCart, BarChart3 } from 'lucide-react'
 import type { DispensaryProfile } from '@/types/database'
 
 export default function DispensariesPage() {
@@ -154,11 +168,11 @@ export default function DispensariesPage() {
         </CardContent>
       </Card>
 
-      {/* Dispensaries Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredDispensaries.length === 0 ? (
-          <Card className="col-span-full">
-            <CardContent className="py-12 text-center">
+      {/* Dispensaries Table */}
+      <Card>
+        <CardContent className="p-0">
+          {filteredDispensaries.length === 0 ? (
+            <div className="py-12 text-center">
               <Building2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-muted-foreground mb-4">
                 {searchTerm ? 'No dispensaries found matching your search' : 'No dispensaries added yet'}
@@ -171,87 +185,129 @@ export default function DispensariesPage() {
                   </Link>
                 </Button>
               )}
-            </CardContent>
-          </Card>
-        ) : (
-          filteredDispensaries.map((dispensary) => (
-            <Link key={dispensary.id} href={`/dashboard/dispensaries/${dispensary.id}`}>
-              <Card className="hover:shadow-md transition-shadow cursor-pointer hover:border-primary/50">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <CardTitle className="text-lg">
-                      <div className="flex items-center gap-2">
-                        <Building2 className="h-5 w-5" />
-                        {dispensary.business_name}
-                      </div>
-                    </CardTitle>
-                  </div>
-                </CardHeader>
-              <CardContent className="space-y-3">
-                {dispensary.address && (
-                  <div className="flex items-start gap-2 text-sm">
-                    <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
-                    <span className="text-muted-foreground">{dispensary.address}</span>
-                  </div>
-                )}
-                
-                {dispensary.phone_number && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <Phone className="h-4 w-4 text-muted-foreground" />
-                    <a 
-                      href={`tel:${dispensary.phone_number}`}
-                      className="text-muted-foreground hover:text-primary"
-                    >
-                      {dispensary.phone_number}
-                    </a>
-                  </div>
-                )}
-                
-                {dispensary.email && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <Mail className="h-4 w-4 text-muted-foreground" />
-                    <a 
-                      href={`mailto:${dispensary.email}`}
-                      className="text-muted-foreground hover:text-primary truncate"
-                    >
-                      {dispensary.email}
-                    </a>
-                  </div>
-                )}
-
-                <div className="flex flex-wrap gap-2 pt-2">
-                  {dispensary.omma_license && (
-                    <Badge variant="outline" className="text-xs">
-                      <FileText className="h-3 w-3 mr-1" />
-                      OMMA: {dispensary.omma_license}
-                    </Badge>
-                  )}
-                  {dispensary.ob_license && (
-                    <Badge variant="outline" className="text-xs">
-                      <FileText className="h-3 w-3 mr-1" />
-                      OB: {dispensary.ob_license}
-                    </Badge>
-                  )}
-                </div>
-
-                <div className="flex gap-2 pt-2" onClick={(e) => e.stopPropagation()}>
-                  <Button size="sm" variant="outline" className="flex-1" asChild>
-                    <Link href={`/dashboard/communications/new?dispensary=${dispensary.id}`}>
-                      Log Communication
-                    </Link>
-                  </Button>
-                  <Button size="sm" variant="outline" className="flex-1" asChild>
-                    <Link href={`/dashboard/tasks/new?dispensary=${dispensary.id}`}>
-                      Create Task
-                    </Link>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-            </Link>
-          ))
-        )}
-      </div>
+            </div>
+          ) : (
+            <div className="overflow-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Business Name</TableHead>
+                    <TableHead className="hidden md:table-cell">Phone</TableHead>
+                    <TableHead className="hidden lg:table-cell">OMMA License</TableHead>
+                    <TableHead className="hidden xl:table-cell">Address</TableHead>
+                    <TableHead className="w-[50px]">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredDispensaries.map((dispensary) => (
+                    <TableRow key={dispensary.id} className="hover:bg-muted/50">
+                      <TableCell>
+                        <Link
+                          href={`/dashboard/dispensaries/${dispensary.id}`}
+                          className="block hover:text-primary transition-colors"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Building2 className="h-4 w-4 text-muted-foreground" />
+                            <div>
+                              <div className="font-medium">{dispensary.business_name}</div>
+                              <div className="text-sm text-muted-foreground md:hidden">
+                                {dispensary.phone_number && (
+                                  <div className="flex items-center gap-1">
+                                    <Phone className="h-3 w-3" />
+                                    {dispensary.phone_number}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </Link>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        {dispensary.phone_number && (
+                          <a
+                            href={`tel:${dispensary.phone_number}`}
+                            className="text-muted-foreground hover:text-primary transition-colors"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {dispensary.phone_number}
+                          </a>
+                        )}
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell">
+                        {dispensary.omma_license && (
+                          <Badge variant="outline" className="text-xs">
+                            {dispensary.omma_license}
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="hidden xl:table-cell">
+                        {dispensary.address && (
+                          <div className="text-sm text-muted-foreground max-w-[200px] truncate">
+                            {dispensary.address}
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                              <span className="sr-only">Open menu</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem asChild>
+                              <Link
+                                href={`/dashboard/dispensaries/${dispensary.id}`}
+                                className="flex items-center gap-2"
+                              >
+                                <Eye className="h-4 w-4" />
+                                View Dispensary
+                              </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                              <Link
+                                href={`/dashboard/communications/new?dispensary=${dispensary.id}`}
+                                className="flex items-center gap-2"
+                              >
+                                <MessageSquare className="h-4 w-4" />
+                                Log Communication
+                              </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                              <Link
+                                href={`/dashboard/orders/new?dispensary=${dispensary.id}`}
+                                className="flex items-center gap-2"
+                              >
+                                <ShoppingCart className="h-4 w-4" />
+                                Create Order
+                              </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                              <Link
+                                href={`/dashboard/dispensaries/${dispensary.id}#analytics`}
+                                className="flex items-center gap-2"
+                              >
+                                <BarChart3 className="h-4 w-4" />
+                                Analytics
+                              </Link>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {!canManageDispensaries && (
         <Card>
