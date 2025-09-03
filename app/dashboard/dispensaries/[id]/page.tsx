@@ -12,16 +12,9 @@ import Link from 'next/link'
 import { EditDispensarySheet } from '@/components/dispensary/edit-dispensary-sheet'
 import { CommunicationSheet } from '@/components/communications/communication-sheet'
 import { OrderSheet } from '@/components/orders/order-sheet'
+import { DispensaryProfile } from '@/types/database'
 
-interface DispensaryProfile {
-  id: string
-  business_name: string
-  address?: string
-  phone_number?: string
-  email?: string
-  omma_license?: string
-  ob_license?: string
-  created_at: string
+interface DispensaryProfileWithStats extends DispensaryProfile {
   is_active?: boolean
   last_communication_date?: string
   last_order_date?: string
@@ -55,7 +48,7 @@ interface Order {
 
 export default function DispensaryDetailPage() {
   const params = useParams()
-  const [dispensary, setDispensary] = useState<DispensaryProfile | null>(null)
+  const [dispensary, setDispensary] = useState<DispensaryProfileWithStats | null>(null)
   const [communications, setCommunications] = useState<Communication[]>([])
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
