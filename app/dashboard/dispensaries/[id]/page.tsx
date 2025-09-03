@@ -233,18 +233,6 @@ export default function DispensaryDetailPage() {
           <p className="text-muted-foreground">Dispensary Profile</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" asChild>
-            <Link href={`/dashboard/communications/new?dispensary=${dispensary.id}`}>
-              <MessageSquare className="mr-2 h-4 w-4" />
-              Log Communication
-            </Link>
-          </Button>
-          <Button variant="outline" asChild>
-            <Link href={`/dashboard/orders/new?dispensary=${dispensary.id}`}>
-              <ShoppingCart className="mr-2 h-4 w-4" />
-              Create Order
-            </Link>
-          </Button>
           {canManageDispensaries && (
             <Button asChild>
               <Link href={`/dashboard/dispensaries/${dispensary.id}/edit`}>
