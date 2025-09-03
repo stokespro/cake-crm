@@ -31,7 +31,7 @@ interface SupabaseProfile {
 interface Communication {
   id: string
   interaction_date: string
-  method: string
+  contact_method: string
   notes: string
   follow_up_required: boolean
   agent_name?: string
@@ -42,7 +42,7 @@ interface Order {
   order_date: string
   status: string
   total_price: number
-  notes?: string
+  order_notes?: string
   agent_name?: string
 }
 
@@ -102,7 +102,7 @@ export default function DispensaryDetailPage() {
         .select(`
           id,
           interaction_date,
-          method,
+          contact_method,
           notes,
           follow_up_required,
           profiles!inner(full_name)
@@ -133,7 +133,7 @@ export default function DispensaryDetailPage() {
           order_date,
           status,
           total_price,
-          notes,
+          order_notes,
           profiles!inner(full_name)
         `)
         .eq('dispensary_id', dispensaryId)
@@ -411,7 +411,7 @@ export default function DispensaryDetailPage() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
                             <Badge variant="outline" className="text-xs">
-                              {comm.method}
+                              {comm.contact_method}
                             </Badge>
                             {comm.follow_up_required && (
                               <Badge variant="secondary" className="text-xs">
@@ -470,9 +470,9 @@ export default function DispensaryDetailPage() {
                               {formatCurrency(order.total_price)}
                             </span>
                           </div>
-                          {order.notes && (
+                          {order.order_notes && (
                             <p className="text-sm text-muted-foreground line-clamp-1">
-                              {order.notes}
+                              {order.order_notes}
                             </p>
                           )}
                           <p className="text-xs text-muted-foreground mt-1">
@@ -523,7 +523,7 @@ export default function DispensaryDetailPage() {
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center gap-2">
                         <Badge variant="outline">
-                          {comm.method}
+                          {comm.contact_method}
                         </Badge>
                         {comm.follow_up_required && (
                           <Badge variant="secondary">
@@ -584,8 +584,8 @@ export default function DispensaryDetailPage() {
                         {formatDate(order.order_date)}
                       </span>
                     </div>
-                    {order.notes && (
-                      <p className="text-sm mb-3">{order.notes}</p>
+                    {order.order_notes && (
+                      <p className="text-sm mb-3">{order.order_notes}</p>
                     )}
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <span>By: {order.agent_name}</span>

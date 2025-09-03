@@ -214,7 +214,7 @@ export function OrderSheet({ open, onClose, dispensaryId, onSuccess }: OrderShee
   }
 
   return (
-    <Sheet open={open} onOpenChange={onClose}>
+    <Sheet open={open} onOpenChange={(open) => !open && onClose()}>
       <SheetContent className="sm:max-w-[600px] w-full overflow-y-auto">
         <SheetHeader>
           <SheetTitle>Create New Order</SheetTitle>
