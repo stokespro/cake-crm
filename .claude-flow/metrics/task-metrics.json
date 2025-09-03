@@ -1,26 +1,10 @@
 [
   {
-    "id": "cmd-memory-1756852930353",
-    "type": "memory",
+    "id": "cmd-hive-mind-1756855937666",
+    "type": "hive-mind",
     "success": true,
-    "duration": 12.02687499999999,
-    "timestamp": 1756852930365,
-    "metadata": {}
-  },
-  {
-    "id": "cmd-memory-1756853104934",
-    "type": "memory",
-    "success": true,
-    "duration": 2.5265830000000165,
-    "timestamp": 1756853104937,
-    "metadata": {}
-  },
-  {
-    "id": "cmd-memory-1756855111810",
-    "type": "memory",
-    "success": true,
-    "duration": 5.089416999999997,
-    "timestamp": 1756855111816,
+    "duration": 0.4633749999999992,
+    "timestamp": 1756855937666,
     "metadata": {}
   }
 ]
