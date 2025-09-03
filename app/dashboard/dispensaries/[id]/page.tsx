@@ -9,6 +9,9 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ArrowLeft, Building2, Phone, Mail, MapPin, FileText, MessageSquare, ShoppingCart, BarChart3, Plus, Edit } from 'lucide-react'
 import Link from 'next/link'
+import { EditDispensarySheet } from '@/components/dispensary/edit-dispensary-sheet'
+import { CommunicationSheet } from '@/components/communications/communication-sheet'
+import { OrderSheet } from '@/components/orders/order-sheet'
 
 interface DispensaryProfile {
   id: string
@@ -58,6 +61,9 @@ export default function DispensaryDetailPage() {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('overview')
   const [userRole, setUserRole] = useState<string>('')
+  const [editDispensaryOpen, setEditDispensaryOpen] = useState(false)
+  const [communicationSheetOpen, setCommunicationSheetOpen] = useState(false)
+  const [orderSheetOpen, setOrderSheetOpen] = useState(false)
   const supabase = createClient()
 
   const dispensaryId = params.id as string
@@ -234,11 +240,9 @@ export default function DispensaryDetailPage() {
         </div>
         <div className="flex gap-2">
           {canManageDispensaries && (
-            <Button asChild>
-              <Link href={`/dashboard/dispensaries/${dispensary.id}/edit`}>
-                <Edit className="mr-2 h-4 w-4" />
-                Edit
-              </Link>
+            <Button onClick={() => setEditDispensaryOpen(true)}>
+              <Edit className="mr-2 h-4 w-4" />
+              Edit
             </Button>
           )}
         </div>
@@ -394,11 +398,9 @@ export default function DispensaryDetailPage() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-lg">Recent Communications</CardTitle>
-                  <Button variant="outline" size="sm" asChild>
-                    <Link href={`/dashboard/communications/new?dispensary=${dispensary.id}`}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add
-                    </Link>
+                  <Button variant="outline" size="sm" onClick={() => setCommunicationSheetOpen(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add
                   </Button>
                 </div>
               </CardHeader>
@@ -449,11 +451,9 @@ export default function DispensaryDetailPage() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-lg">Recent Orders</CardTitle>
-                  <Button variant="outline" size="sm" asChild>
-                    <Link href={`/dashboard/orders/new?dispensary=${dispensary.id}`}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add
-                    </Link>
+                  <Button variant="outline" size="sm" onClick={() => setOrderSheetOpen(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add
                   </Button>
                 </div>
               </CardHeader>
@@ -505,11 +505,9 @@ export default function DispensaryDetailPage() {
         <TabsContent value="communications" className="space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-medium">All Communications ({communications.length})</h3>
-            <Button asChild>
-              <Link href={`/dashboard/communications/new?dispensary=${dispensary.id}`}>
-                <Plus className="mr-2 h-4 w-4" />
-                Log Communication
-              </Link>
+            <Button onClick={() => setCommunicationSheetOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Log Communication
             </Button>
           </div>
           
@@ -518,11 +516,9 @@ export default function DispensaryDetailPage() {
               <CardContent className="py-12 text-center">
                 <MessageSquare className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <p className="text-muted-foreground mb-4">No communications logged yet</p>
-                <Button asChild>
-                  <Link href={`/dashboard/communications/new?dispensary=${dispensary.id}`}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Log First Communication
-                  </Link>
+                <Button onClick={() => setCommunicationSheetOpen(true)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Log First Communication
                 </Button>
               </CardContent>
             </Card>
@@ -560,11 +556,9 @@ export default function DispensaryDetailPage() {
         <TabsContent value="orders" className="space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-medium">All Orders ({orders.length})</h3>
-            <Button asChild>
-              <Link href={`/dashboard/orders/new?dispensary=${dispensary.id}`}>
-                <Plus className="mr-2 h-4 w-4" />
-                Create Order
-              </Link>
+            <Button onClick={() => setOrderSheetOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Create Order
             </Button>
           </div>
           
@@ -573,11 +567,9 @@ export default function DispensaryDetailPage() {
               <CardContent className="py-12 text-center">
                 <ShoppingCart className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <p className="text-muted-foreground mb-4">No orders placed yet</p>
-                <Button asChild>
-                  <Link href={`/dashboard/orders/new?dispensary=${dispensary.id}`}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Create First Order
-                  </Link>
+                <Button onClick={() => setOrderSheetOpen(true)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Create First Order
                 </Button>
               </CardContent>
             </Card>
@@ -689,6 +681,37 @@ export default function DispensaryDetailPage() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Sheet Components */}
+      <EditDispensarySheet
+        open={editDispensaryOpen}
+        onClose={() => setEditDispensaryOpen(false)}
+        dispensary={dispensary}
+        onSuccess={() => {
+          fetchDispensary()
+          setEditDispensaryOpen(false)
+        }}
+      />
+
+      <CommunicationSheet
+        open={communicationSheetOpen}
+        onClose={() => setCommunicationSheetOpen(false)}
+        dispensaryId={dispensaryId}
+        onSuccess={() => {
+          fetchCommunications()
+          setCommunicationSheetOpen(false)
+        }}
+      />
+
+      <OrderSheet
+        open={orderSheetOpen}
+        onClose={() => setOrderSheetOpen(false)}
+        dispensaryId={dispensaryId}
+        onSuccess={() => {
+          fetchOrders()
+          setOrderSheetOpen(false)
+        }}
+      />
     </div>
   )
 }
