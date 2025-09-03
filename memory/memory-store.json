@@ -34,7 +34,7 @@
   "hive/cannabis-crm/summary": [
     {
       "key": "collective_intelligence_summary",
-      "value": "{\"project\":\"Cannabis CRM\",\"status\":\"FULLY_OPERATIONAL\",\"major_repair_completed\":\"2025-09-02\",\"hive_mind_initialized\":\"2025-09-02\",\"memory_system\":\"SQLite-based with proper namespacing\",\"swarm_active\":\"cannabis-crm swarm-1756828488731-3eq3t3ryt\",\"agents\":[\"researcher\",\"coder\",\"analyst\",\"tester\"],\"collective_memory_entries\":4,\"namespaces\":[\"hive/cannabis-crm/repairs\",\"hive/cannabis-crm/architecture\",\"hive/cannabis-crm/users\",\"hive/cannabis-crm/patterns\"],\"critical_knowledge_stored\":true,\"worker_id\":\"claude-code-assistant\",\"timestamp\":\"2025-09-02T16:00:00Z\",\"memory_consensus\":true,\"system_integrity\":\"verified\"}",
+      "value": "{\"project\":\"Cake CRM\",\"status\":\"FULLY_OPERATIONAL\",\"major_repair_completed\":\"2025-09-02\",\"hive_mind_initialized\":\"2025-09-02\",\"memory_system\":\"SQLite-based with proper namespacing\",\"swarm_active\":\"cake-crm swarm-1756828488731-3eq3t3ryt\",\"agents\":[\"researcher\",\"coder\",\"analyst\",\"tester\"],\"collective_memory_entries\":4,\"namespaces\":[\"hive/cake-crm/repairs\",\"hive/cake-crm/architecture\",\"hive/cake-crm/users\",\"hive/cake-crm/patterns\"],\"critical_knowledge_stored\":true,\"worker_id\":\"claude-code-assistant\",\"timestamp\":\"2025-09-02T16:00:00Z\",\"memory_consensus\":true,\"system_integrity\":\"verified\"}",
       "namespace": "hive/cannabis-crm/summary",
       "timestamp": 1756828747689
     }

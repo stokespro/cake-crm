@@ -1,6 +1,6 @@
-# Cannabis Wholesale CRM
+# Cake CRM
 
-A mobile-first CRM web application designed for cannabis wholesale businesses, enabling sales agents to manage communications, tasks, and orders with dispensary customers.
+A mobile-first CRM web application designed for wholesale businesses, enabling sales agents to manage communications, tasks, and orders with dispensary customers.
 
 ## Features
 
@@ -10,7 +10,7 @@ A mobile-first CRM web application designed for cannabis wholesale businesses, e
 - ✅ **Task Management** - Create and manage follow-up tasks with due dates
 - 🛒 **Order Management** - Submit and track wholesale orders
 - 🏢 **Dispensary Profiles** - Maintain customer information and licenses
-- 📦 **Product Catalog** - Manage cannabis strains and pricing
+- 📦 **Product Catalog** - Manage product strains and pricing
 - 📊 **Dashboard Analytics** - Real-time overview of sales and activities
 
 ## Tech Stack
@@ -107,7 +107,7 @@ After deployment, update your Supabase project:
 
 - **profiles** - User profiles with roles (agent/management/admin)
 - **dispensary_profiles** - Customer dispensary information
-- **products** - Cannabis strains and pricing
+- **products** - Product strains and pricing
 - **communications** - Client interaction logs
 - **tasks** - Follow-up tasks and reminders
 - **orders** - Wholesale order records
@@ -220,4 +220,4 @@ Private - All rights reserved
 
 ---
 
-Built with ❤️ for the cannabis industry
+Built with ❤️ for the wholesale industry

@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
+import { ModeToggle } from '@/components/theme-toggle'
 import {
   Home,
   MessageSquare,
@@ -153,7 +154,7 @@ export default function DashboardLayout({
     return (
       <>
         <div className="flex h-16 shrink-0 items-center px-6 border-b">
-          <h2 className="text-lg font-semibold">Cannabis CRM</h2>
+          <h2 className="text-lg font-semibold">Cake CRM</h2>
         </div>
         <nav className="flex-1 space-y-1 px-3 py-4">
           {navigation.map((item) => {
@@ -192,14 +193,17 @@ export default function DashboardLayout({
             </p>
           </div>
         </Link>
-        <Button
-          variant="ghost"
-          className="w-full justify-start gap-3 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20"
-          onClick={handleSignOut}
-        >
-          <LogOut className="h-5 w-5" />
-          Sign Out
-        </Button>
+        <div className="flex items-center justify-between gap-2 mt-2">
+          <Button
+            variant="ghost"
+            className="flex-1 justify-start gap-3 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20"
+            onClick={handleSignOut}
+          >
+            <LogOut className="h-5 w-5" />
+            Sign Out
+          </Button>
+          <ModeToggle />
+        </div>
       </div>
     </>
   )
@@ -232,7 +236,7 @@ export default function DashboardLayout({
           >
             <Menu className="h-6 w-6" />
           </Button>
-          <h1 className="text-lg font-semibold">Cannabis CRM</h1>
+          <h1 className="text-lg font-semibold">Cake CRM</h1>
           <div className="w-10" /> {/* Spacer for centering */}
         </header>
 
