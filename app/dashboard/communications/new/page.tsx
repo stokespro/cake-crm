@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -34,11 +34,7 @@ export default function NewCommunicationPage() {
   const router = useRouter()
   const supabase = createClient()
 
-  useEffect(() => {
-    fetchDispensaries()
-  }, [])
-
-  const fetchDispensaries = async () => {
+  const fetchDispensaries = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('dispensary_profiles')
@@ -50,7 +46,11 @@ export default function NewCommunicationPage() {
     } catch (error) {
       console.error('Error fetching dispensaries:', error)
     }
-  }
+  }, [supabase])
+
+  useEffect(() => {
+    fetchDispensaries()
+  }, [fetchDispensaries])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

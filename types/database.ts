@@ -94,6 +94,29 @@ export interface Order {
   order_items?: OrderItem[]
 }
 
+export interface EditFormData {
+  [key: string]: string | number | boolean | Date | null | undefined
+}
+
+export interface UpdateData {
+  [key: string]: string | number | boolean | Date | null | undefined
+}
+
+export interface UserActivity {
+  id: string
+  user_id: string
+  activity_type: string
+  activity_description: string
+  created_at: string
+  metadata?: Record<string, unknown>
+}
+
+export interface PermissionUpdate {
+  user_id: string
+  permissions: Record<string, boolean>
+  updated_by: string
+}
+
 export interface OrderItem {
   id: string
   order_id: string

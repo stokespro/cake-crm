@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -62,17 +62,7 @@ export default function DispensaryDetailPage() {
 
   const dispensaryId = params.id as string
 
-  useEffect(() => {
-    const loadData = async () => {
-      await fetchUserRole()
-      await fetchDispensary()
-      await fetchCommunications()
-      await fetchOrders()
-    }
-    loadData()
-  }, [dispensaryId])
-
-  const fetchUserRole = async () => {
+  const fetchUserRole = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
@@ -89,9 +79,9 @@ export default function DispensaryDetailPage() {
     } catch (error) {
       console.error('Error fetching user role:', error)
     }
-  }
+  }, [supabase])
 
-  const fetchDispensary = async () => {
+  const fetchDispensary = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('dispensary_profiles')
@@ -104,9 +94,9 @@ export default function DispensaryDetailPage() {
     } catch (error) {
       console.error('Error fetching dispensary:', error)
     }
-  }
+  }, [supabase, dispensaryId])
 
-  const fetchCommunications = async () => {
+  const fetchCommunications = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('communications')
@@ -133,9 +123,9 @@ export default function DispensaryDetailPage() {
     } catch (error) {
       console.error('Error fetching communications:', error)
     }
-  }
+  }, [supabase, dispensaryId])
 
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('orders')
@@ -164,7 +154,17 @@ export default function DispensaryDetailPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [supabase, dispensaryId])
+
+  useEffect(() => {
+    const loadData = async () => {
+      await fetchUserRole()
+      await fetchDispensary()
+      await fetchCommunications()
+      await fetchOrders()
+    }
+    loadData()
+  }, [fetchUserRole, fetchDispensary, fetchCommunications, fetchOrders])
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
