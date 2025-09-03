@@ -175,17 +175,18 @@ export default function DispensariesPage() {
           </Card>
         ) : (
           filteredDispensaries.map((dispensary) => (
-            <Card key={dispensary.id} className="hover:shadow-md transition-shadow">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <CardTitle className="text-lg">
-                    <div className="flex items-center gap-2">
-                      <Building2 className="h-5 w-5" />
-                      {dispensary.business_name}
-                    </div>
-                  </CardTitle>
-                </div>
-              </CardHeader>
+            <Link key={dispensary.id} href={`/dashboard/dispensaries/${dispensary.id}`}>
+              <Card className="hover:shadow-md transition-shadow cursor-pointer hover:border-primary/50">
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <CardTitle className="text-lg">
+                      <div className="flex items-center gap-2">
+                        <Building2 className="h-5 w-5" />
+                        {dispensary.business_name}
+                      </div>
+                    </CardTitle>
+                  </div>
+                </CardHeader>
               <CardContent className="space-y-3">
                 {dispensary.address && (
                   <div className="flex items-start gap-2 text-sm">
@@ -233,7 +234,7 @@ export default function DispensariesPage() {
                   )}
                 </div>
 
-                <div className="flex gap-2 pt-2">
+                <div className="flex gap-2 pt-2" onClick={(e) => e.stopPropagation()}>
                   <Button size="sm" variant="outline" className="flex-1" asChild>
                     <Link href={`/dashboard/communications/new?dispensary=${dispensary.id}`}>
                       Log Communication
@@ -247,6 +248,7 @@ export default function DispensariesPage() {
                 </div>
               </CardContent>
             </Card>
+            </Link>
           ))
         )}
       </div>
