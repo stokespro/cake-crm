@@ -61,19 +61,40 @@ export default function NewProductPage() {
     setError(null)
 
     try {
+      // Check for duplicate strain names first
+      const { data: existingProducts, error: checkError } = await supabase
+        .from('products')
+        .select('id, strain_name')
+        .eq('strain_name', strainName.trim())
+
+      if (checkError) {
+        console.error('Error checking for duplicate strain name:', checkError)
+        throw new Error('Unable to validate strain name. Please try again.')
+      }
+
+      if (existingProducts && existingProducts.length > 0) {
+        throw new Error('A product with this strain name already exists. Please choose a different name.')
+      }
+
       const { error } = await supabase
         .from('products')
         .insert({
-          strain_name: strainName,
+          strain_name: strainName.trim(),
           price_per_unit: parseFloat(pricePerUnit),
-          description: description || null,
+          description: description.trim() || null,
           thc_percentage: thcPercentage ? parseFloat(thcPercentage) : null,
           cbd_percentage: cbdPercentage ? parseFloat(cbdPercentage) : null,
-          category: category || null,
+          category: category.trim() || null,
           in_stock: inStock
         })
 
-      if (error) throw error
+      if (error) {
+        // Check for duplicate strain_name constraint violation as fallback
+        if (error.code === '23505' && error.message.includes('products_strain_name_key')) {
+          throw new Error('A product with this strain name already exists. Please choose a different name.')
+        }
+        throw error
+      }
 
       router.push('/dashboard/products')
     } catch (error) {

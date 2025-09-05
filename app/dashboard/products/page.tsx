@@ -81,7 +81,7 @@ export default function ProductsPage() {
         .from('products')
         .select(`
           *,
-          pricing:product_pricing(
+          pricing:product_pricing!left(
             id,
             min_quantity,
             price
@@ -90,6 +90,10 @@ export default function ProductsPage() {
         .order('strain_name')
 
       if (error) throw error
+      
+      console.log('Fetched products:', data?.length || 0)
+      console.log('Products with pricing:', data?.filter(p => p.pricing && p.pricing.length > 0).length || 0)
+      
       setProducts(data || [])
     } catch (error) {
       console.error('Error fetching products:', error)

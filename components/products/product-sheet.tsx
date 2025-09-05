@@ -142,9 +142,39 @@ export function ProductSheet({ open, onClose, product, onSuccess }: ProductSheet
     setPricingTiers(pricingTiers.filter((_, i) => i !== index))
   }
 
-  const validateForm = () => {
+  const validateForm = async () => {
     if (!strainName.trim()) {
       setError('Strain name is required')
+      return false
+    }
+
+    // Check for duplicate strain names
+    try {
+      let query = supabase
+        .from('products')
+        .select('id, strain_name')
+        .eq('strain_name', strainName.trim())
+
+      // If editing, exclude the current product from the check
+      if (product) {
+        query = query.neq('id', product.id)
+      }
+
+      const { data: existingProducts, error: checkError } = await query
+
+      if (checkError) {
+        console.error('Error checking for duplicate strain name:', checkError)
+        setError('Unable to validate strain name. Please try again.')
+        return false
+      }
+
+      if (existingProducts && existingProducts.length > 0) {
+        setError('A product with this strain name already exists. Please choose a different name.')
+        return false
+      }
+    } catch (error) {
+      console.error('Error checking for duplicate strain name:', error)
+      setError('Unable to validate strain name. Please try again.')
       return false
     }
 
@@ -202,7 +232,7 @@ export function ProductSheet({ open, onClose, product, onSuccess }: ProductSheet
     e.preventDefault()
     setError(null)
 
-    if (!validateForm()) {
+    if (!(await validateForm())) {
       return
     }
 
@@ -243,6 +273,10 @@ export function ProductSheet({ open, onClose, product, onSuccess }: ProductSheet
           .eq('id', product.id)
 
         if (updateError) {
+          // Check for duplicate strain_name constraint violation
+          if (updateError.code === '23505' && updateError.message.includes('products_strain_name_key')) {
+            throw new Error('A product with this strain name already exists. Please choose a different name.')
+          }
           throw new Error(`Failed to update product: ${updateError.message}`)
         }
       } else {
@@ -252,6 +286,10 @@ export function ProductSheet({ open, onClose, product, onSuccess }: ProductSheet
           .insert(productData)
 
         if (insertError) {
+          // Check for duplicate strain_name constraint violation
+          if (insertError.code === '23505' && insertError.message.includes('products_strain_name_key')) {
+            throw new Error('A product with this strain name already exists. Please choose a different name.')
+          }
           throw new Error(`Failed to create product: ${insertError.message}`)
         }
       }
