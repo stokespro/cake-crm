@@ -25,6 +25,15 @@ export interface DispensaryProfile {
   updated_at: string
 }
 
+export interface ProductPricing {
+  id: string
+  product_id: string
+  min_quantity: number
+  price: number
+  created_at: string
+  updated_at: string
+}
+
 export interface Product {
   id: string
   strain_name: string
@@ -36,6 +45,7 @@ export interface Product {
   in_stock: boolean
   created_at: string
   updated_at: string
+  pricing?: ProductPricing[]
 }
 
 export interface Communication {

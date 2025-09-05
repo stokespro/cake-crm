@@ -30,6 +30,12 @@ interface OrderItem {
   quantity: number
   unit_price: number
   line_total: number
+  tier_info?: {
+    minQuantity: number
+    price: number
+  } | null
+  savings?: number
+  regular_price?: number
 }
 
 interface OrderSheetProps {
@@ -66,17 +72,7 @@ export function OrderSheet({ open, onClose, dispensaryId, onSuccess, order }: Or
         setOrderNotes(order.order_notes || '')
         setRequestedDeliveryDate(order.requested_delivery_date || '')
         
-        // Convert database order items to form order items
-        if (order.order_items && order.order_items.length > 0) {
-          const formOrderItems = order.order_items.map(item => ({
-            product_id: item.product_id,
-            strain_name: item.strain_name,
-            quantity: item.quantity,
-            unit_price: item.unit_price,
-            line_total: item.line_total
-          }))
-          setOrderItems(formOrderItems)
-        }
+        // Order items will be loaded in separate useEffect after products are loaded
       } else {
         // Create mode - set defaults
         const defaultDate = new Date()
@@ -90,6 +86,39 @@ export function OrderSheet({ open, onClose, dispensaryId, onSuccess, order }: Or
       }
     }
   }, [open, dispensaryId, order])
+
+  // Update order items with tier pricing when products are loaded (for edit mode)
+  useEffect(() => {
+    if (order && order.order_items && products.length > 0 && orderItems.length === 0) {
+      const formOrderItems = order.order_items.map(item => {
+        // Find the product to calculate current tier pricing
+        const product = products.find(p => p.id === item.product_id)
+        if (product) {
+          const pricing = calculateTieredPrice(product, item.quantity)
+          return {
+            product_id: item.product_id,
+            strain_name: item.strain_name,
+            quantity: item.quantity,
+            unit_price: pricing.unitPrice,
+            line_total: item.quantity * pricing.unitPrice,
+            tier_info: pricing.tierInfo,
+            savings: pricing.savings,
+            regular_price: pricing.regularPrice
+          }
+        } else {
+          // Fallback for products not found
+          return {
+            product_id: item.product_id,
+            strain_name: item.strain_name,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            line_total: item.line_total
+          }
+        }
+      })
+      setOrderItems(formOrderItems)
+    }
+  }, [products, order])
 
   useEffect(() => {
     calculateTotal()
@@ -128,7 +157,14 @@ export function OrderSheet({ open, onClose, dispensaryId, onSuccess, order }: Or
     try {
       const { data, error } = await supabase
         .from('products')
-        .select('*')
+        .select(`
+          *,
+          pricing:product_pricing(
+            id,
+            min_quantity,
+            price
+          )
+        `)
         .eq('in_stock', true)
         .order('strain_name')
 
@@ -139,18 +175,62 @@ export function OrderSheet({ open, onClose, dispensaryId, onSuccess, order }: Or
     }
   }
 
+  // Helper function to calculate the applicable price based on quantity and pricing tiers
+  const calculateTieredPrice = (product: Product, quantity: number) => {
+    if (!product.pricing || product.pricing.length === 0) {
+      // No pricing tiers available, use base price
+      return {
+        unitPrice: product.price_per_unit,
+        tierInfo: null,
+        savings: 0,
+        regularPrice: product.price_per_unit
+      }
+    }
+
+    // Sort pricing tiers by min_quantity in descending order to find the highest applicable tier
+    const sortedTiers = [...product.pricing].sort((a, b) => b.min_quantity - a.min_quantity)
+    
+    // Find the applicable tier based on quantity
+    const applicableTier = sortedTiers.find(tier => quantity >= tier.min_quantity)
+    
+    if (applicableTier) {
+      const savings = (product.price_per_unit - applicableTier.price) * quantity
+      return {
+        unitPrice: applicableTier.price,
+        tierInfo: {
+          minQuantity: applicableTier.min_quantity,
+          price: applicableTier.price
+        },
+        savings: savings > 0 ? savings : 0,
+        regularPrice: product.price_per_unit
+      }
+    }
+
+    // No applicable tier found, use base price
+    return {
+      unitPrice: product.price_per_unit,
+      tierInfo: null,
+      savings: 0,
+      regularPrice: product.price_per_unit
+    }
+  }
+
   const addOrderItem = () => {
     if (products.length === 0) return
 
     const firstProduct = products[0]
+    const pricing = calculateTieredPrice(firstProduct, 1)
     setOrderItems([
       ...orderItems,
       {
         product_id: firstProduct.id,
         strain_name: firstProduct.strain_name,
         quantity: 1,
-        unit_price: firstProduct.price_per_unit,
-        line_total: firstProduct.price_per_unit
+        unit_price: pricing.unitPrice,
+        line_total: pricing.unitPrice,
+        tier_info: pricing.tierInfo,
+        savings: pricing.savings,
+        regular_price: pricing.regularPrice
       }
     ])
   }
@@ -162,12 +242,27 @@ export function OrderSheet({ open, onClose, dispensaryId, onSuccess, order }: Or
     if (field === 'product_id') {
       const product = products.find(p => p.id === value)
       if (product) {
+        const pricing = calculateTieredPrice(product, updated[index].quantity)
         updated[index].strain_name = product.strain_name
-        updated[index].unit_price = product.price_per_unit
-        updated[index].line_total = updated[index].quantity * product.price_per_unit
+        updated[index].unit_price = pricing.unitPrice
+        updated[index].line_total = updated[index].quantity * pricing.unitPrice
+        updated[index].tier_info = pricing.tierInfo
+        updated[index].savings = pricing.savings
+        updated[index].regular_price = pricing.regularPrice
       }
     } else if (field === 'quantity') {
-      updated[index].line_total = (value as number) * updated[index].unit_price
+      const product = products.find(p => p.id === updated[index].product_id)
+      if (product) {
+        const pricing = calculateTieredPrice(product, value as number)
+        updated[index].unit_price = pricing.unitPrice
+        updated[index].line_total = (value as number) * pricing.unitPrice
+        updated[index].tier_info = pricing.tierInfo
+        updated[index].savings = pricing.savings
+        updated[index].regular_price = pricing.regularPrice
+      } else {
+        // Fallback if product not found
+        updated[index].line_total = (value as number) * updated[index].unit_price
+      }
     }
 
     setOrderItems(updated)
@@ -493,7 +588,15 @@ export function OrderSheet({ open, onClose, dispensaryId, onSuccess, order }: Or
                           <SelectContent>
                             {products.map((product) => (
                               <SelectItem key={product.id} value={product.id}>
-                                {product.strain_name} - ${product.price_per_unit.toFixed(2)}
+                                <div className="flex flex-col">
+                                  <span>{product.strain_name}</span>
+                                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                    <span>Base: ${product.price_per_unit.toFixed(2)}</span>
+                                    {product.pricing && product.pricing.length > 0 && (
+                                      <span className="text-green-600">• Bulk discounts available</span>
+                                    )}
+                                  </div>
+                                </div>
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -514,15 +617,34 @@ export function OrderSheet({ open, onClose, dispensaryId, onSuccess, order }: Or
 
                         <div className="space-y-2">
                           <Label>Unit Price</Label>
-                          <div className="flex items-center h-10 px-3 bg-muted rounded-md text-sm">
-                            ${item.unit_price.toFixed(2)}
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center h-10 px-3 bg-muted rounded-md text-sm">
+                              ${item.unit_price.toFixed(2)}
+                            </div>
+                            {item.tier_info && (
+                              <div className="text-xs text-green-600 font-medium">
+                                Bulk rate: {item.tier_info.minQuantity}+ units
+                              </div>
+                            )}
+                            {item.savings && item.savings > 0 && item.regular_price && item.regular_price > item.unit_price && (
+                              <div className="text-xs text-muted-foreground">
+                                Regular: <span className="line-through">${item.regular_price.toFixed(2)}</span>
+                              </div>
+                            )}
                           </div>
                         </div>
 
                         <div className="space-y-2">
                           <Label>Line Total</Label>
-                          <div className="flex items-center h-10 px-3 bg-muted rounded-md text-sm font-medium">
-                            ${item.line_total.toFixed(2)}
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center h-10 px-3 bg-muted rounded-md text-sm font-medium">
+                              ${item.line_total.toFixed(2)}
+                            </div>
+                            {item.savings && item.savings > 0 && (
+                              <div className="text-xs text-green-600 font-medium">
+                                Savings: ${item.savings.toFixed(2)}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
