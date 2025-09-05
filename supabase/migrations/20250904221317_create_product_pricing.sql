@@ -110,9 +110,6 @@ ORDER BY p.strain_name, pp.min_quantity;
 
 -- Grant appropriate permissions on the view
 -- RLS policies will still apply to the underlying tables
-CREATE POLICY "All authenticated users can view pricing view" 
-    ON product_pricing_view
-    FOR SELECT 
-    USING (auth.uid() IS NOT NULL);
+-- Note: Views inherit RLS permissions from their underlying tables, no policy needed
 
 COMMIT;
