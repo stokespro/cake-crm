@@ -41,6 +41,7 @@ export default function ProductsPage() {
   const [userRole, setUserRole] = useState<string>('agent')
   const [sheetOpen, setSheetOpen] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<Product | undefined>(undefined)
+  const [error, setError] = useState<string | null>(null)
   const supabase = createClient()
 
   useEffect(() => {
@@ -77,26 +78,73 @@ export default function ProductsPage() {
 
   const fetchProducts = async () => {
     try {
-      const { data, error } = await supabase
+      setError(null) // Reset error state
+      console.log('Starting to fetch products...')
+      console.log('User authentication status:', await supabase.auth.getUser())
+      
+      // First, try a simple query without JOIN to test basic access
+      const { data: simpleData, error: simpleError } = await supabase
         .from('products')
-        .select(`
-          *,
-          pricing:product_pricing!left(
-            id,
-            min_quantity,
-            price
-          )
-        `)
+        .select('*')
         .order('strain_name')
 
-      if (error) throw error
+      console.log('Simple products query:', { data: simpleData, error: simpleError })
+
+      if (simpleError) {
+        console.error('Simple query failed:', simpleError)
+        throw simpleError
+      }
+
+      // If we have products from the simple query, use those and try to enhance with pricing
+      if (simpleData && simpleData.length > 0) {
+        console.log('Simple query succeeded with', simpleData.length, 'products')
+        
+        // Try to add pricing data - but don't fail if pricing table doesn't exist
+        try {
+          const { data: productsWithPricing, error: joinError } = await supabase
+            .from('products')
+            .select(`
+              *,
+              product_pricing(
+                id,
+                min_quantity,
+                price
+              )
+            `)
+            .order('strain_name')
+
+          console.log('JOIN query result:', { data: productsWithPricing, error: joinError })
+
+          // Check if the error is specifically about the product_pricing table not existing
+          if (joinError) {
+            console.warn('JOIN query failed, using simple product data:', joinError)
+            
+            // Check if it's a "relation does not exist" error which means table doesn't exist yet
+            const errorMessage = joinError.message?.toLowerCase() || ''
+            if (errorMessage.includes('does not exist') || errorMessage.includes('relation') || errorMessage.includes('product_pricing')) {
+              console.info('Product pricing table does not exist yet - this is expected before migration is run')
+            }
+            
+            // Use the simple data without pricing
+            setProducts(simpleData)
+          } else {
+            console.log('JOIN query succeeded with pricing data')
+            console.log('Products with pricing:', productsWithPricing?.filter(p => p.product_pricing && p.product_pricing.length > 0).length || 0)
+            setProducts(productsWithPricing || [])
+          }
+        } catch (joinError) {
+          console.warn('Error with pricing JOIN, falling back to simple product data:', joinError)
+          setProducts(simpleData)
+        }
+      } else {
+        console.log('No products found in simple query')
+        setProducts([])
+      }
       
-      console.log('Fetched products:', data?.length || 0)
-      console.log('Products with pricing:', data?.filter(p => p.pricing && p.pricing.length > 0).length || 0)
-      
-      setProducts(data || [])
     } catch (error) {
       console.error('Error fetching products:', error)
+      setError(`Database connection error: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      setProducts([])
     } finally {
       setLoading(false)
     }
@@ -167,19 +215,32 @@ export default function ProductsPage() {
 
   // Calculate pricing range for display
   const getPricingRange = (product: Product) => {
-    if (!product.pricing || product.pricing.length === 0) {
+    // Check both pricing (old format) and product_pricing (new format)
+    const pricingData = (product as any).product_pricing || product.pricing || []
+    
+    if (!pricingData || pricingData.length === 0) {
       return `$${product.price_per_unit.toFixed(2)}`
     }
 
-    const prices = product.pricing.map(p => p.price).sort((a, b) => a - b)
-    const minPrice = Math.min(prices[0], product.price_per_unit)
-    const maxPrice = Math.max(prices[prices.length - 1], product.price_per_unit)
+    try {
+      const prices = pricingData.map((p: any) => p.price).filter((price: number) => price != null && !isNaN(price)).sort((a: number, b: number) => a - b)
+      
+      if (prices.length === 0) {
+        return `$${product.price_per_unit.toFixed(2)}`
+      }
+      
+      const minPrice = Math.min(prices[0], product.price_per_unit)
+      const maxPrice = Math.max(prices[prices.length - 1], product.price_per_unit)
 
-    if (minPrice === maxPrice) {
-      return `$${minPrice.toFixed(2)}`
+      if (minPrice === maxPrice) {
+        return `$${minPrice.toFixed(2)}`
+      }
+
+      return `$${minPrice.toFixed(2)} - $${maxPrice.toFixed(2)}`
+    } catch (error) {
+      console.warn('Error calculating pricing range:', error)
+      return `$${product.price_per_unit.toFixed(2)}`
     }
-
-    return `$${minPrice.toFixed(2)} - $${maxPrice.toFixed(2)}`
   }
 
   // Get unique categories from products
@@ -255,10 +316,26 @@ export default function ProductsPage() {
         </CardContent>
       </Card>
 
+      {/* Error Display */}
+      {error && (
+        <Card className="border-red-200">
+          <CardContent className="py-6">
+            <div className="text-center">
+              <XCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-red-900 mb-2">Database Connection Error</h3>
+              <p className="text-red-700 mb-4">{error}</p>
+              <Button onClick={fetchProducts} variant="outline">
+                Try Again
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Products Table */}
       <Card>
         <CardContent className="p-0">
-          {filteredProducts.length === 0 ? (
+          {filteredProducts.length === 0 && !error ? (
             <div className="py-12 text-center">
               <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-muted-foreground mb-4">
@@ -273,7 +350,7 @@ export default function ProductsPage() {
                 </Button>
               )}
             </div>
-          ) : (
+          ) : !error ? (
             <div className="overflow-auto">
               <Table>
                 <TableHeader>
@@ -377,7 +454,7 @@ export default function ProductsPage() {
                 </TableBody>
               </Table>
             </div>
-          )}
+          ) : null}
         </CardContent>
       </Card>
 
