@@ -17,20 +17,21 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { ArrowLeft, Loader2, Plus, Trash2, DollarSign } from 'lucide-react'
-import type { DispensaryProfile, Product } from '@/types/database'
+import type { Customer, SKU } from '@/types/database'
 
 interface OrderItem {
-  product_id: string
-  strain_name: string
+  sku_id: string
+  sku_code: string
+  sku_name: string
   quantity: number
   unit_price: number
   line_total: number
 }
 
 export default function NewOrderPage() {
-  const [dispensaries, setDispensaries] = useState<DispensaryProfile[]>([])
-  const [products, setProducts] = useState<Product[]>([])
-  const [dispensaryId, setDispensaryId] = useState('')
+  const [customers, setCustomers] = useState<Customer[]>([])
+  const [skus, setSkus] = useState<SKU[]>([])
+  const [customerId, setCustomerId] = useState('')
   const [orderItems, setOrderItems] = useState<OrderItem[]>([])
   const [orderNotes, setOrderNotes] = useState('')
   const [requestedDeliveryDate, setRequestedDeliveryDate] = useState('')
@@ -41,8 +42,8 @@ export default function NewOrderPage() {
   const supabase = createClient()
 
   useEffect(() => {
-    fetchDispensaries()
-    fetchProducts()
+    fetchCustomers()
+    fetchSKUs()
     // Set default delivery date to 7 days from now
     const defaultDate = new Date()
     defaultDate.setDate(defaultDate.getDate() + 7)
@@ -53,47 +54,48 @@ export default function NewOrderPage() {
     calculateTotal()
   }, [orderItems])
 
-  const fetchDispensaries = async () => {
+  const fetchCustomers = async () => {
     try {
       const { data, error } = await supabase
-        .from('dispensary_profiles')
+        .from('customers')
         .select('*')
         .order('business_name')
 
       if (error) throw error
-      setDispensaries(data || [])
+      setCustomers(data || [])
     } catch (error) {
-      console.error('Error fetching dispensaries:', error)
+      console.error('Error fetching customers:', error)
     }
   }
 
-  const fetchProducts = async () => {
+  const fetchSKUs = async () => {
     try {
       const { data, error } = await supabase
-        .from('products')
+        .from('skus')
         .select('*')
         .eq('in_stock', true)
-        .order('strain_name')
+        .order('code')
 
       if (error) throw error
-      setProducts(data || [])
+      setSkus(data || [])
     } catch (error) {
-      console.error('Error fetching products:', error)
+      console.error('Error fetching SKUs:', error)
     }
   }
 
   const addOrderItem = () => {
-    if (products.length === 0) return
+    if (skus.length === 0) return
 
-    const firstProduct = products[0]
+    const firstSku = skus[0]
     setOrderItems([
       ...orderItems,
       {
-        product_id: firstProduct.id,
-        strain_name: firstProduct.strain_name,
+        sku_id: firstSku.id,
+        sku_code: firstSku.code,
+        sku_name: firstSku.name,
         quantity: 1,
-        unit_price: firstProduct.price_per_unit,
-        line_total: firstProduct.price_per_unit
+        unit_price: firstSku.price_per_unit || 0,
+        line_total: firstSku.price_per_unit || 0
       }
     ])
   }
@@ -102,12 +104,13 @@ export default function NewOrderPage() {
     const updated = [...orderItems]
     updated[index] = { ...updated[index], [field]: value }
 
-    if (field === 'product_id') {
-      const product = products.find(p => p.id === value)
-      if (product) {
-        updated[index].strain_name = product.strain_name
-        updated[index].unit_price = product.price_per_unit
-        updated[index].line_total = updated[index].quantity * product.price_per_unit
+    if (field === 'sku_id') {
+      const sku = skus.find(s => s.id === value)
+      if (sku) {
+        updated[index].sku_code = sku.code
+        updated[index].sku_name = sku.name
+        updated[index].unit_price = sku.price_per_unit || 0
+        updated[index].line_total = updated[index].quantity * (sku.price_per_unit || 0)
       }
     } else if (field === 'quantity') {
       updated[index].line_total = (value as number) * updated[index].unit_price
@@ -144,7 +147,7 @@ export default function NewOrderPage() {
         .from('orders')
         .insert({
           agent_id: user.id,
-          dispensary_id: dispensaryId,
+          customer_id: customerId,
           order_notes: orderNotes || null,
           requested_delivery_date: requestedDeliveryDate,
           status: 'pending',
@@ -158,8 +161,7 @@ export default function NewOrderPage() {
       // Create order items
       const itemsToInsert = orderItems.map(item => ({
         order_id: order.id,
-        product_id: item.product_id,
-        strain_name: item.strain_name,
+        sku_id: item.sku_id,
         quantity: item.quantity,
         unit_price: item.unit_price
       }))
@@ -210,15 +212,15 @@ export default function NewOrderPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="dispensary">Dispensary *</Label>
-                <Select value={dispensaryId} onValueChange={setDispensaryId} required>
-                  <SelectTrigger id="dispensary" className="h-12">
-                    <SelectValue placeholder="Select a dispensary" />
+                <Label htmlFor="customer">Customer *</Label>
+                <Select value={customerId} onValueChange={setCustomerId} required>
+                  <SelectTrigger id="customer" className="h-12">
+                    <SelectValue placeholder="Select a customer" />
                   </SelectTrigger>
                   <SelectContent>
-                    {dispensaries.map((dispensary) => (
-                      <SelectItem key={dispensary.id} value={dispensary.id}>
-                        {dispensary.business_name}
+                    {customers.map((customer) => (
+                      <SelectItem key={customer.id} value={customer.id}>
+                        {customer.business_name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -266,7 +268,7 @@ export default function NewOrderPage() {
                 type="button"
                 size="sm"
                 onClick={addOrderItem}
-                disabled={products.length === 0}
+                disabled={skus.length === 0}
               >
                 <Plus className="mr-2 h-4 w-4" />
                 Add Item
@@ -283,18 +285,18 @@ export default function NewOrderPage() {
                 {orderItems.map((item, index) => (
                   <div key={index} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end border-b pb-4">
                     <div className="md:col-span-5 space-y-2">
-                      <Label>Product</Label>
+                      <Label>SKU</Label>
                       <Select
-                        value={item.product_id}
-                        onValueChange={(value) => updateOrderItem(index, 'product_id', value)}
+                        value={item.sku_id}
+                        onValueChange={(value) => updateOrderItem(index, 'sku_id', value)}
                       >
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {products.map((product) => (
-                            <SelectItem key={product.id} value={product.id}>
-                              {product.strain_name} - ${product.price_per_unit}
+                          {skus.map((sku) => (
+                            <SelectItem key={sku.id} value={sku.id}>
+                              {sku.code} - {sku.name} {sku.price_per_unit ? `($${sku.price_per_unit})` : ''}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -364,9 +366,9 @@ export default function NewOrderPage() {
           >
             Cancel
           </Button>
-          <Button 
-            type="submit" 
-            disabled={loading || !dispensaryId || orderItems.length === 0} 
+          <Button
+            type="submit"
+            disabled={loading || !customerId || orderItems.length === 0}
             className="flex-1"
           >
             {loading ? (

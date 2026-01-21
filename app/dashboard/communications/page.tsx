@@ -58,7 +58,7 @@ export default function CommunicationsPage() {
       if (!user) return
 
       const { data } = await supabase
-        .from('profiles')
+        .from('users')
         .select('role')
         .eq('id', user.id)
         .single()
@@ -82,7 +82,7 @@ export default function CommunicationsPage() {
         .from('communications')
         .select(`
           *,
-          dispensary:dispensary_profiles(business_name, email, phone_number)
+          customer:customers(business_name, email, phone_number)
         `)
         .order('interaction_date', { ascending: false })
 
@@ -110,7 +110,7 @@ export default function CommunicationsPage() {
       filtered = filtered.filter(comm => 
         comm.client_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         comm.notes.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        comm.dispensary?.business_name?.toLowerCase().includes(searchTerm.toLowerCase())
+        comm.customer?.business_name?.toLowerCase().includes(searchTerm.toLowerCase())
       )
     }
 
@@ -304,7 +304,7 @@ export default function CommunicationsPage() {
                     <div className="flex items-start justify-between">
                       <div>
                         <h3 className="font-semibold text-lg">
-                          {comm.dispensary?.business_name || 'Unknown Dispensary'}
+                          {comm.customer?.business_name || 'Unknown Dispensary'}
                         </h3>
                         {comm.client_name && (
                           <p className="text-sm text-muted-foreground">
@@ -422,16 +422,16 @@ export default function CommunicationsPage() {
                               <span className="text-xs">Edited {format(new Date(comm.last_edited_at), 'MMM d, yyyy')}</span>
                             </div>
                           )}
-                          {comm.dispensary?.phone_number && (
+                          {comm.customer?.phone_number && (
                             <div className="flex items-center gap-1">
                               <Phone className="h-4 w-4" />
-                              <span>{comm.dispensary.phone_number}</span>
+                              <span>{comm.customer.phone_number}</span>
                             </div>
                           )}
-                          {comm.dispensary?.email && (
+                          {comm.customer?.email && (
                             <div className="flex items-center gap-1">
                               <Mail className="h-4 w-4" />
-                              <span>{comm.dispensary.email}</span>
+                              <span>{comm.customer.email}</span>
                             </div>
                           )}
                         </div>

@@ -51,6 +51,19 @@ export function ProductSheet({ open, onClose, product, onSuccess }: ProductSheet
   const [error, setError] = useState<string | null>(null)
   const supabase = createClient()
 
+  // Load existing pricing tiers from product
+  const loadExistingPricingTiers = () => {
+    if (product?.pricing && product.pricing.length > 0) {
+      const tiers = product.pricing
+        .sort((a, b) => a.min_quantity - b.min_quantity)
+        .map(p => ({ quantity: p.min_quantity, price: p.price }))
+      setPricingTiers(tiers)
+    } else {
+      // Default to base price
+      setPricingTiers([{ quantity: 1, price: product?.price_per_unit || 0 }])
+    }
+  }
+
   // Reset form when sheet opens/closes
   useEffect(() => {
     if (open) {
@@ -63,8 +76,8 @@ export function ProductSheet({ open, onClose, product, onSuccess }: ProductSheet
         setCategory(product.category || '')
         setInStock(product.in_stock ?? true)
         
-        // Initialize with base tier from existing price_per_unit
-        setPricingTiers([{ quantity: 1, price: product.price_per_unit }])
+        // Load existing pricing tiers or default to base tier
+        loadExistingPricingTiers()
       } else {
         // Create mode - set defaults
         setStrainName('')

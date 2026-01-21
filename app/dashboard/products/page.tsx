@@ -216,14 +216,14 @@ export default function ProductsPage() {
   // Calculate pricing range for display
   const getPricingRange = (product: Product) => {
     // Check both pricing (old format) and product_pricing (new format)
-    const pricingData = (product as any).product_pricing || product.pricing || []
-    
+    const pricingData = (product as { product_pricing?: { price: number }[] }).product_pricing || product.pricing || []
+
     if (!pricingData || pricingData.length === 0) {
       return `$${product.price_per_unit.toFixed(2)}`
     }
 
     try {
-      const prices = pricingData.map((p: any) => p.price).filter((price: number) => price != null && !isNaN(price)).sort((a: number, b: number) => a - b)
+      const prices = pricingData.map((p: { price: number }) => p.price).filter((price: number) => price != null && !isNaN(price)).sort((a: number, b: number) => a - b)
       
       if (prices.length === 0) {
         return `$${product.price_per_unit.toFixed(2)}`

@@ -125,7 +125,7 @@ export function EditDispensarySheet({
       }
 
       const { error } = await supabase
-        .from('dispensary_profiles')
+        .from('customers')
         .update(updateData)
         .eq('id', dispensary.id)
 

@@ -41,10 +41,10 @@ export default function TasksPage() {
       if (!user) return
 
       const { data, error } = await supabase
-        .from('tasks')
+        .from('sales_tasks')
         .select(`
           *,
-          dispensary:dispensary_profiles(business_name)
+          customer:customers(business_name)
         `)
         .eq('agent_id', user.id)
         .order('due_date', { ascending: true })
@@ -65,7 +65,7 @@ export default function TasksPage() {
       filtered = filtered.filter(task => 
         task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         task.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        task.dispensary?.business_name?.toLowerCase().includes(searchTerm.toLowerCase())
+        task.customer?.business_name?.toLowerCase().includes(searchTerm.toLowerCase())
       )
     }
 
@@ -83,7 +83,7 @@ export default function TasksPage() {
   const markComplete = async (taskId: string) => {
     try {
       const { error } = await supabase
-        .from('tasks')
+        .from('sales_tasks')
         .update({ 
           status: 'complete',
           completed_at: new Date().toISOString()
@@ -234,9 +234,9 @@ export default function TasksPage() {
                     </div>
                     
                     <div className="flex flex-wrap items-center gap-4 text-sm">
-                      {task.dispensary && (
+                      {task.customer && (
                         <span className="text-muted-foreground">
-                          {task.dispensary.business_name}
+                          {task.customer.business_name}
                         </span>
                       )}
                       <div className="flex items-center gap-1">

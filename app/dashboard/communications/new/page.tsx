@@ -17,11 +17,11 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { ArrowLeft, Loader2 } from 'lucide-react'
-import type { DispensaryProfile } from '@/types/database'
+import type { Customer } from '@/types/database'
 
 export default function NewCommunicationPage() {
-  const [dispensaries, setDispensaries] = useState<DispensaryProfile[]>([])
-  const [dispensaryId, setDispensaryId] = useState('')
+  const [customers, setCustomers] = useState<Customer[]>([])
+  const [customerId, setCustomerId] = useState('')
   const [clientName, setClientName] = useState('')
   const [notes, setNotes] = useState('')
   const [contactMethod, setContactMethod] = useState('phone')
@@ -34,23 +34,23 @@ export default function NewCommunicationPage() {
   const router = useRouter()
   const supabase = createClient()
 
-  const fetchDispensaries = useCallback(async () => {
+  const fetchCustomers = useCallback(async () => {
     try {
       const { data, error } = await supabase
-        .from('dispensary_profiles')
+        .from('customers')
         .select('*')
         .order('business_name')
 
       if (error) throw error
-      setDispensaries(data || [])
+      setCustomers(data || [])
     } catch (error) {
-      console.error('Error fetching dispensaries:', error)
+      console.error('Error fetching customers:', error)
     }
   }, [supabase])
 
   useEffect(() => {
-    fetchDispensaries()
-  }, [fetchDispensaries])
+    fetchCustomers()
+  }, [fetchCustomers])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -65,7 +65,7 @@ export default function NewCommunicationPage() {
         .from('communications')
         .insert({
           agent_id: user.id,
-          dispensary_id: dispensaryId,
+          customer_id: customerId,
           client_name: clientName,
           notes,
           contact_method: contactMethod,
@@ -116,15 +116,15 @@ export default function NewCommunicationPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="dispensary">Dispensary *</Label>
-                <Select value={dispensaryId} onValueChange={setDispensaryId} required>
-                  <SelectTrigger id="dispensary" className="h-12">
-                    <SelectValue placeholder="Select a dispensary" />
+                <Label htmlFor="customer">Customer *</Label>
+                <Select value={customerId} onValueChange={setCustomerId} required>
+                  <SelectTrigger id="customer" className="h-12">
+                    <SelectValue placeholder="Select a customer" />
                   </SelectTrigger>
                   <SelectContent>
-                    {dispensaries.map((dispensary) => (
-                      <SelectItem key={dispensary.id} value={dispensary.id}>
-                        {dispensary.business_name}
+                    {customers.map((customer) => (
+                      <SelectItem key={customer.id} value={customer.id}>
+                        {customer.business_name}
                       </SelectItem>
                     ))}
                   </SelectContent>

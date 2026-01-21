@@ -36,7 +36,7 @@ export default function NewDispensaryPage() {
       }
 
       const { data } = await supabase
-        .from('profiles')
+        .from('users')
         .select('role')
         .eq('id', user.id)
         .single()
@@ -60,7 +60,7 @@ export default function NewDispensaryPage() {
 
     try {
       const { error } = await supabase
-        .from('dispensary_profiles')
+        .from('customers')
         .insert({
           business_name: businessName,
           address: address || null,

@@ -46,7 +46,7 @@ export default function DashboardPage() {
 
       // Count pending tasks
       const { count: pendingTasksCount } = await supabase
-        .from('tasks')
+        .from('sales_tasks')
         .select('*', { count: 'exact', head: true })
         .eq('agent_id', user.id)
         .eq('status', 'pending')
@@ -69,8 +69,8 @@ export default function DashboardPage() {
 
       // Fetch recent tasks
       const { data: tasks } = await supabase
-        .from('tasks')
-        .select('*, dispensary:dispensary_profiles(business_name)')
+        .from('sales_tasks')
+        .select('*, customer:customers(business_name)')
         .eq('agent_id', user.id)
         .eq('status', 'pending')
         .order('due_date', { ascending: true })
@@ -79,7 +79,7 @@ export default function DashboardPage() {
       // Fetch recent orders
       const { data: orders } = await supabase
         .from('orders')
-        .select('*, dispensary:dispensary_profiles(business_name)')
+        .select('*, customer:customers(business_name)')
         .eq('agent_id', user.id)
         .order('order_date', { ascending: false })
         .limit(5)
@@ -216,10 +216,10 @@ export default function DashboardPage() {
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <Calendar className="h-3 w-3" />
                         <span>Due {format(new Date(task.due_date), 'MMM d, yyyy')}</span>
-                        {task.dispensary && (
+                        {task.customer && (
                           <>
                             <span>•</span>
-                            <span>{task.dispensary.business_name}</span>
+                            <span>{task.customer.business_name}</span>
                           </>
                         )}
                       </div>
@@ -255,7 +255,7 @@ export default function DashboardPage() {
                   <div key={order.id} className="flex items-start justify-between space-x-3 p-3 rounded-lg border hover:bg-accent/50 transition-colors">
                     <div className="flex-1 space-y-1">
                       <p className="text-sm font-medium">
-                        {order.dispensary?.business_name || 'Unknown Dispensary'}
+                        {order.customer?.business_name || 'Unknown Dispensary'}
                       </p>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <span>${order.total_price.toFixed(2)}</span>

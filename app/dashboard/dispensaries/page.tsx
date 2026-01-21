@@ -53,19 +53,9 @@ export default function DispensariesPage() {
         return
       }
 
-      // Try to use the new secure function first
-      const { data: profileData, error: functionError } = await supabase
-        .rpc('get_user_profile', { user_id: user.id })
-
-      if (!functionError && profileData) {
-        setUserRole(profileData.role || 'agent')
-        setRoleLoading(false)
-        return
-      }
-
-      // Fallback to direct query
+      // Query the users table for role
       const { data, error } = await supabase
-        .from('profiles')
+        .from('users')
         .select('role')
         .eq('id', user.id)
         .single()
@@ -87,14 +77,14 @@ export default function DispensariesPage() {
   const fetchDispensaries = async () => {
     try {
       const { data, error } = await supabase
-        .from('dispensary_profiles')
+        .from('customers')
         .select('*')
         .order('business_name')
 
       if (error) throw error
       setDispensaries(data || [])
     } catch (error) {
-      console.error('Error fetching dispensaries:', error)
+      console.error('Error fetching customers:', error)
     } finally {
       setLoading(false)
     }

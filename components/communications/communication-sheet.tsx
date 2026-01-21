@@ -21,23 +21,23 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Loader2 } from 'lucide-react'
-import type { DispensaryProfile, Communication, ContactMethod } from '@/types/database'
+import type { Customer, Communication, ContactMethod } from '@/types/database'
 
 interface CommunicationSheetProps {
   open: boolean
   onClose: () => void
-  dispensaryId?: string
+  dispensaryId?: string // Kept for backwards compatibility, represents customer ID
   onSuccess?: (communication: Communication) => void
 }
 
-export function CommunicationSheet({ 
-  open, 
-  onClose, 
-  dispensaryId, 
-  onSuccess 
+export function CommunicationSheet({
+  open,
+  onClose,
+  dispensaryId,
+  onSuccess
 }: CommunicationSheetProps) {
-  const [dispensaries, setDispensaries] = useState<DispensaryProfile[]>([])
-  const [selectedDispensaryId, setSelectedDispensaryId] = useState(dispensaryId || '')
+  const [customers, setCustomers] = useState<Customer[]>([])
+  const [selectedCustomerId, setSelectedCustomerId] = useState(dispensaryId || '')
   const [clientName, setClientName] = useState('')
   const [notes, setNotes] = useState('')
   const [contactMethod, setContactMethod] = useState<ContactMethod>('phone')
@@ -49,25 +49,25 @@ export function CommunicationSheet({
   const [error, setError] = useState<string | null>(null)
   const supabase = createClient()
 
-  const fetchDispensaries = useCallback(async () => {
+  const fetchCustomers = useCallback(async () => {
     try {
       const { data, error } = await supabase
-        .from('dispensary_profiles')
+        .from('customers')
         .select('*')
         .order('business_name')
 
       if (error) throw error
-      setDispensaries(data || [])
+      setCustomers(data || [])
     } catch (error) {
-      console.error('Error fetching dispensaries:', error)
+      console.error('Error fetching customers:', error)
     }
   }, [supabase])
 
   useEffect(() => {
     if (open) {
-      fetchDispensaries()
+      fetchCustomers()
       // Reset form when opening
-      setSelectedDispensaryId(dispensaryId || '')
+      setSelectedCustomerId(dispensaryId || '')
       setClientName('')
       setNotes('')
       setContactMethod('phone')
@@ -75,11 +75,11 @@ export function CommunicationSheet({
       setInteractionDate(new Date().toISOString().slice(0, 16))
       setError(null)
     }
-  }, [open, dispensaryId, fetchDispensaries])
+  }, [open, dispensaryId, fetchCustomers])
 
   const validateForm = () => {
-    if (!selectedDispensaryId) {
-      setError('Please select a dispensary')
+    if (!selectedCustomerId) {
+      setError('Please select a customer')
       return false
     }
     if (!notes.trim()) {
@@ -115,14 +115,14 @@ export function CommunicationSheet({
         .from('communications')
         .insert({
           agent_id: user.id,
-          dispensary_id: selectedDispensaryId,
+          customer_id: selectedCustomerId,
           client_name: clientName.trim() || null,
           notes: notes.trim(),
           contact_method: contactMethod,
           follow_up_required: followUpRequired,
           interaction_date: interactionDate,
         })
-        .select('*, dispensary:dispensary_profiles(*), agent:profiles(*)')
+        .select('*, customer:customers(*), agent:users(*)')
         .single()
 
       if (error) throw error
@@ -164,20 +164,20 @@ export function CommunicationSheet({
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="dispensary">Dispensary *</Label>
-              <Select 
-                value={selectedDispensaryId} 
-                onValueChange={setSelectedDispensaryId} 
+              <Label htmlFor="customer">Customer *</Label>
+              <Select
+                value={selectedCustomerId}
+                onValueChange={setSelectedCustomerId}
                 required
-                disabled={!!dispensaryId} // Disable if dispensaryId is provided
+                disabled={!!dispensaryId} // Disable if customer ID is provided
               >
-                <SelectTrigger id="dispensary" className="h-12">
-                  <SelectValue placeholder="Select a dispensary" />
+                <SelectTrigger id="customer" className="h-12">
+                  <SelectValue placeholder="Select a customer" />
                 </SelectTrigger>
                 <SelectContent>
-                  {dispensaries.map((dispensary) => (
-                    <SelectItem key={dispensary.id} value={dispensary.id}>
-                      {dispensary.business_name}
+                  {customers.map((customer) => (
+                    <SelectItem key={customer.id} value={customer.id}>
+                      {customer.business_name}
                     </SelectItem>
                   ))}
                 </SelectContent>

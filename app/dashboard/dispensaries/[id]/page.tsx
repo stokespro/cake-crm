@@ -99,7 +99,7 @@ export default function DispensaryDetailPage() {
       if (!user) return
 
       const { data } = await supabase
-        .from('profiles')
+        .from('users')
         .select('role')
         .eq('id', user.id)
         .single()
@@ -115,7 +115,7 @@ export default function DispensaryDetailPage() {
   const fetchDispensary = useCallback(async () => {
     try {
       const { data, error } = await supabase
-        .from('dispensary_profiles')
+        .from('customers')
         .select('*')
         .eq('id', dispensaryId)
         .single()
@@ -123,7 +123,7 @@ export default function DispensaryDetailPage() {
       if (error) throw error
       setDispensary(data)
     } catch (error) {
-      console.error('Error fetching dispensary:', error)
+      console.error('Error fetching customer:', error)
     }
   }, [supabase, dispensaryId])
 
@@ -138,19 +138,19 @@ export default function DispensaryDetailPage() {
           notes,
           follow_up_required,
           agent_id,
-          profiles!communications_agent_id_fkey(full_name)
+          agent:users!communications_agent_id_fkey(name)
         `)
-        .eq('dispensary_id', dispensaryId)
+        .eq('customer_id', dispensaryId)
         .order('interaction_date', { ascending: false })
         .limit(10)
 
       if (error) throw error
-      
+
       const formattedComms = (data || []).map((comm: Record<string, unknown>) => ({
         ...comm,
-        agent_name: (comm.profiles as SupabaseProfile)?.full_name || 'Unknown Agent'
+        agent_name: (comm.agent as { name: string })?.name || 'Unknown Agent'
       })) as Communication[]
-      
+
       setCommunications(formattedComms)
     } catch (error) {
       console.error('Error fetching communications:', error)
@@ -163,30 +163,33 @@ export default function DispensaryDetailPage() {
         .from('orders')
         .select(`
           id,
-          order_id,
-          dispensary_id,
+          order_number,
+          customer_id,
           agent_id,
           order_date,
           status,
           total_price,
           order_notes,
           requested_delivery_date,
-          final_delivery_date,
+          confirmed_delivery_date,
           created_at,
           updated_at,
-          profiles!orders_agent_id_fkey(full_name)
+          agent:users!orders_agent_id_fkey(name)
         `)
-        .eq('dispensary_id', dispensaryId)
+        .eq('customer_id', dispensaryId)
         .order('order_date', { ascending: false })
         .limit(10)
 
       if (error) throw error
-      
+
       const formattedOrders = (data || []).map((order: Record<string, unknown>) => ({
         ...order,
-        agent_name: (order.profiles as SupabaseProfile)?.full_name || 'Unknown Agent'
+        order_id: order.order_number,
+        dispensary_id: order.customer_id,
+        final_delivery_date: order.confirmed_delivery_date,
+        agent_name: (order.agent as { name: string })?.name || 'Unknown Agent'
       })) as OrderWithAgent[]
-      
+
       setOrders(formattedOrders)
     } catch (error) {
       console.error('Error fetching orders:', error)
@@ -920,16 +923,15 @@ export default function DispensaryDetailPage() {
       <OrderSheet
         open={orderSheetOpen}
         onClose={() => { setOrderSheetOpen(false); setSelectedOrder(null); }}
-        dispensaryId={dispensaryId}
+        customerId={dispensaryId}
         order={selectedOrder ? {
           id: selectedOrder.id,
-          order_id: selectedOrder.order_id,
-          dispensary_id: selectedOrder.dispensary_id,
+          order_number: selectedOrder.order_id,
+          customer_id: selectedOrder.dispensary_id || dispensaryId,
           agent_id: selectedOrder.agent_id,
           order_date: selectedOrder.order_date,
           order_notes: selectedOrder.order_notes,
           requested_delivery_date: selectedOrder.requested_delivery_date,
-          final_delivery_date: selectedOrder.final_delivery_date,
           status: selectedOrder.status,
           total_price: selectedOrder.total_price,
           approved_by: selectedOrder.approved_by,

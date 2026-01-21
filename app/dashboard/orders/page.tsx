@@ -23,14 +23,14 @@ interface EditFormData {
   status: OrderStatus
   order_notes: string
   requested_delivery_date: string
-  final_delivery_date: string
+  confirmed_delivery_date: string
 }
 
 interface UpdateData {
   status?: OrderStatus
   order_notes?: string
   requested_delivery_date?: string | null
-  final_delivery_date?: string | null
+  confirmed_delivery_date?: string | null
   last_edited_by?: string
   last_edited_at?: string
 }
@@ -62,7 +62,7 @@ export default function OrdersPage() {
       if (!user) return
 
       const { data } = await supabase
-        .from('profiles')
+        .from('users')
         .select('role')
         .eq('id', user.id)
         .single()
@@ -78,31 +78,31 @@ export default function OrdersPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      let query = supabase
+      const { data, error } = await supabase
         .from('orders')
         .select(`
           *,
-          dispensary:dispensary_profiles(business_name),
-          agent:profiles!orders_agent_id_fkey(full_name, email),
+          customer:customers(business_name),
           order_items(
             id,
             quantity,
             unit_price,
-            strain_name,
-            line_total
+            line_total,
+            sku:skus(code, name)
           )
         `)
         .order('order_date', { ascending: false })
 
-      // Agents can only see their own orders
-      if (userRole === 'agent') {
-        query = query.eq('agent_id', user.id)
-      }
-
-      const { data, error } = await query
-
       if (error) throw error
-      setOrders(data || [])
+
+      // Map the data to include customer info in expected format
+      const mappedOrders = (data || []).map(order => ({
+        ...order,
+        // Support both new and legacy field names in UI
+        dispensary: order.customer,
+      }))
+
+      setOrders(mappedOrders)
     } catch (error) {
       console.error('Error fetching orders:', error)
     } finally {
@@ -115,8 +115,8 @@ export default function OrdersPage() {
 
     if (searchTerm) {
       filtered = filtered.filter(order =>
-        order.dispensary?.business_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.order_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.customer?.business_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.order_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         order.order_notes?.toLowerCase().includes(searchTerm.toLowerCase())
       )
     }
@@ -132,10 +132,14 @@ export default function OrdersPage() {
     switch (status) {
       case 'pending':
         return <Badge variant="outline">Pending</Badge>
-      case 'submitted':
-        return <Badge variant="default">Submitted</Badge>
-      case 'approved':
-        return <Badge variant="default" className="bg-green-600">Approved</Badge>
+      case 'confirmed':
+        return <Badge variant="default">Confirmed</Badge>
+      case 'packed':
+        return <Badge variant="default" className="bg-blue-600">Packed</Badge>
+      case 'delivered':
+        return <Badge variant="default" className="bg-green-600">Delivered</Badge>
+      case 'cancelled':
+        return <Badge variant="destructive">Cancelled</Badge>
       default:
         return null
     }
@@ -144,7 +148,7 @@ export default function OrdersPage() {
   const canApproveOrders = userRole === 'management' || userRole === 'admin'
   const canEditOrders = userRole === 'management' || userRole === 'admin'
 
-  const approveOrder = async (orderId: string) => {
+  const confirmOrder = async (orderId: string) => {
     if (!canApproveOrders) return
 
     try {
@@ -154,18 +158,17 @@ export default function OrdersPage() {
       const { error } = await supabase
         .from('orders')
         .update({
-          status: 'approved',
+          status: 'confirmed',
           approved_by: user.id,
           approved_at: new Date().toISOString(),
-          last_edited_by: user.id,
-          last_edited_at: new Date().toISOString()
+          updated_at: new Date().toISOString()
         })
         .eq('id', orderId)
 
       if (error) throw error
       fetchOrders()
     } catch (error) {
-      console.error('Error approving order:', error)
+      console.error('Error confirming order:', error)
     }
   }
 
@@ -175,7 +178,7 @@ export default function OrdersPage() {
       status: order.status,
       order_notes: order.order_notes || '',
       requested_delivery_date: order.requested_delivery_date ? order.requested_delivery_date.split('T')[0] : '',
-      final_delivery_date: order.final_delivery_date ? order.final_delivery_date.split('T')[0] : '',
+      confirmed_delivery_date: order.confirmed_delivery_date ? order.confirmed_delivery_date.split('T')[0] : '',
     })
   }
 
@@ -191,14 +194,13 @@ export default function OrdersPage() {
       if (!user) return
 
       const updateData: UpdateData = {
-        ...editForm,
+        status: editForm.status,
+        order_notes: editForm.order_notes,
+        requested_delivery_date: editForm.requested_delivery_date || null,
+        confirmed_delivery_date: editForm.confirmed_delivery_date || null,
         last_edited_by: user.id,
         last_edited_at: new Date().toISOString()
       }
-
-      // Convert empty dates to null
-      if (!updateData.requested_delivery_date) updateData.requested_delivery_date = null
-      if (!updateData.final_delivery_date) updateData.final_delivery_date = null
 
       const { error } = await supabase
         .from('orders')
@@ -206,7 +208,7 @@ export default function OrdersPage() {
         .eq('id', orderId)
 
       if (error) throw error
-      
+
       setEditingOrder(null)
       setEditForm({} as EditFormData)
       fetchOrders()
@@ -269,8 +271,10 @@ export default function OrdersPage() {
               <SelectContent>
                 <SelectItem value="all">All Orders</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="submitted">Submitted</SelectItem>
-                <SelectItem value="approved">Approved</SelectItem>
+                <SelectItem value="confirmed">Confirmed</SelectItem>
+                <SelectItem value="packed">Packed</SelectItem>
+                <SelectItem value="delivered">Delivered</SelectItem>
+                <SelectItem value="cancelled">Cancelled</SelectItem>
               </SelectContent>
             </Select>
             <div className="flex items-center text-sm text-muted-foreground">
@@ -287,8 +291,8 @@ export default function OrdersPage() {
             <CardContent className="py-12 text-center">
               <ShoppingCart className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-muted-foreground mb-4">
-                {searchTerm || filterStatus !== 'all' 
-                  ? 'No orders found matching your filters' 
+                {searchTerm || filterStatus !== 'all'
+                  ? 'No orders found matching your filters'
                   : 'No orders created yet'}
               </p>
               <Button asChild>
@@ -306,19 +310,16 @@ export default function OrdersPage() {
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                   <div>
                     <CardTitle className="text-lg">
-                      {order.dispensary?.business_name || 'Unknown Dispensary'}
+                      {order.customer?.business_name || 'Unknown Customer'}
                     </CardTitle>
                     <div className="flex flex-wrap items-center gap-4 mt-2 text-sm text-muted-foreground">
-                      {order.order_id && (
-                        <span className="font-medium">#{order.order_id}</span>
+                      {order.order_number && (
+                        <span className="font-medium">#{order.order_number}</span>
                       )}
                       <div className="flex items-center gap-1">
                         <Calendar className="h-4 w-4" />
                         {format(new Date(order.order_date), 'MMM d, yyyy')}
                       </div>
-                      {userRole !== 'agent' && order.agent && (
-                        <span>Agent: {order.agent.full_name || order.agent.email}</span>
-                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -326,7 +327,7 @@ export default function OrdersPage() {
                     <div className="text-right">
                       <div className="text-lg font-semibold flex items-center">
                         <DollarSign className="h-5 w-5" />
-                        {order.total_price.toFixed(2)}
+                        {(order.total_price || 0).toFixed(2)}
                       </div>
                       {order.last_edited_at && (
                         <div className="text-xs text-muted-foreground mt-1">
@@ -348,8 +349,8 @@ export default function OrdersPage() {
                     <div className="pl-5 space-y-1">
                       {order.order_items.map((item) => (
                         <div key={item.id} className="text-sm text-muted-foreground flex justify-between">
-                          <span>{item.strain_name} x {item.quantity}</span>
-                          <span>${item.line_total.toFixed(2)}</span>
+                          <span>{item.sku?.code || item.sku?.name || 'Unknown SKU'} x {item.quantity}</span>
+                          <span>${(item.line_total || 0).toFixed(2)}</span>
                         </div>
                       ))}
                     </div>
@@ -366,11 +367,11 @@ export default function OrdersPage() {
                       </span>
                     </div>
                   )}
-                  {order.final_delivery_date && (
+                  {order.confirmed_delivery_date && (
                     <div className="flex items-center gap-1">
                       <Truck className="h-4 w-4 text-green-600" />
                       <span className="text-green-600">
-                        Final: {format(new Date(order.final_delivery_date), 'MMM d, yyyy')}
+                        Confirmed: {format(new Date(order.confirmed_delivery_date), 'MMM d, yyyy')}
                       </span>
                     </div>
                   )}
@@ -389,8 +390,8 @@ export default function OrdersPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <label className="text-sm font-medium">Status</label>
-                        <Select 
-                          value={editForm.status} 
+                        <Select
+                          value={editForm.status}
                           onValueChange={(value) => updateEditForm('status', value as OrderStatus)}
                         >
                           <SelectTrigger>
@@ -398,8 +399,8 @@ export default function OrdersPage() {
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="pending">Pending</SelectItem>
-                            <SelectItem value="submitted">Submitted</SelectItem>
-                            <SelectItem value="approved">Approved</SelectItem>
+                            <SelectItem value="confirmed">Confirmed</SelectItem>
+                            <SelectItem value="packed">Packed</SelectItem>
                             <SelectItem value="delivered">Delivered</SelectItem>
                             <SelectItem value="cancelled">Cancelled</SelectItem>
                           </SelectContent>
@@ -414,11 +415,11 @@ export default function OrdersPage() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">Final Delivery Date</label>
+                        <label className="text-sm font-medium">Confirmed Delivery Date</label>
                         <Input
                           type="date"
-                          value={editForm.final_delivery_date}
-                          onChange={(e) => updateEditForm('final_delivery_date', e.target.value)}
+                          value={editForm.confirmed_delivery_date}
+                          onChange={(e) => updateEditForm('confirmed_delivery_date', e.target.value)}
                         />
                       </div>
                     </div>
@@ -454,13 +455,13 @@ export default function OrdersPage() {
                 ) : (
                   /* Actions */
                   <div className="flex gap-2 pt-2">
-                    {order.status === 'submitted' && canApproveOrders && (
+                    {order.status === 'pending' && canApproveOrders && (
                       <Button
                         size="sm"
-                        onClick={() => approveOrder(order.id)}
+                        onClick={() => confirmOrder(order.id)}
                         className="bg-green-600 hover:bg-green-700"
                       >
-                        Approve Order
+                        Confirm Order
                       </Button>
                     )}
                     {canEditOrders && (

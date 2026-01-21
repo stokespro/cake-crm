@@ -17,11 +17,11 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { ArrowLeft, Loader2 } from 'lucide-react'
-import type { DispensaryProfile } from '@/types/database'
+import type { Customer } from '@/types/database'
 
 export default function NewTaskPage() {
-  const [dispensaries, setDispensaries] = useState<DispensaryProfile[]>([])
-  const [dispensaryId, setDispensaryId] = useState('')
+  const [customers, setCustomers] = useState<Customer[]>([])
+  const [customerId, setCustomerId] = useState('')
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [dueDate, setDueDate] = useState('')
@@ -32,24 +32,24 @@ export default function NewTaskPage() {
   const supabase = createClient()
 
   useEffect(() => {
-    fetchDispensaries()
+    fetchCustomers()
     // Set default due date to tomorrow
     const tomorrow = new Date()
     tomorrow.setDate(tomorrow.getDate() + 1)
     setDueDate(tomorrow.toISOString().split('T')[0])
   }, [])
 
-  const fetchDispensaries = async () => {
+  const fetchCustomers = async () => {
     try {
       const { data, error } = await supabase
-        .from('dispensary_profiles')
+        .from('customers')
         .select('*')
         .order('business_name')
 
       if (error) throw error
-      setDispensaries(data || [])
+      setCustomers(data || [])
     } catch (error) {
-      console.error('Error fetching dispensaries:', error)
+      console.error('Error fetching customers:', error)
     }
   }
 
@@ -63,10 +63,10 @@ export default function NewTaskPage() {
       if (!user) throw new Error('Not authenticated')
 
       const { error } = await supabase
-        .from('tasks')
+        .from('sales_tasks')
         .insert({
           agent_id: user.id,
-          dispensary_id: dispensaryId,
+          customer_id: customerId || null,
           title,
           description: description || null,
           due_date: dueDate,
@@ -130,15 +130,15 @@ export default function NewTaskPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="dispensary">Dispensary *</Label>
-                <Select value={dispensaryId} onValueChange={setDispensaryId} required>
-                  <SelectTrigger id="dispensary" className="h-12">
-                    <SelectValue placeholder="Select a dispensary" />
+                <Label htmlFor="customer">Customer (Optional)</Label>
+                <Select value={customerId} onValueChange={setCustomerId}>
+                  <SelectTrigger id="customer" className="h-12">
+                    <SelectValue placeholder="Select a customer" />
                   </SelectTrigger>
                   <SelectContent>
-                    {dispensaries.map((dispensary) => (
-                      <SelectItem key={dispensary.id} value={dispensary.id}>
-                        {dispensary.business_name}
+                    {customers.map((customer) => (
+                      <SelectItem key={customer.id} value={customer.id}>
+                        {customer.business_name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -197,7 +197,7 @@ export default function NewTaskPage() {
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={loading || !dispensaryId} className="flex-1">
+            <Button type="submit" disabled={loading} className="flex-1">
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
