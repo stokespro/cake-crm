@@ -316,7 +316,7 @@ export default function OrdersPage() {
         if (error) throw error
       }
 
-      // Update existing items
+      // Update existing items (line_total is a generated column, don't include it)
       const existingItems = items.filter(item => item.id && !item._deleted)
       for (const item of existingItems) {
         const { error } = await supabase
@@ -325,7 +325,6 @@ export default function OrdersPage() {
             sku_id: item.sku_id,
             quantity: item.quantity,
             unit_price: item.unit_price || null,
-            line_total: item.line_total || null,
           })
           .eq('id', item.id!)
         if (error) {
@@ -334,7 +333,7 @@ export default function OrdersPage() {
         }
       }
 
-      // Insert new items
+      // Insert new items (line_total is a generated column, don't include it)
       const newItems = items.filter(item => !item.id && !item._deleted)
       if (newItems.length > 0) {
         const { error } = await supabase
@@ -344,7 +343,6 @@ export default function OrdersPage() {
             sku_id: item.sku_id,
             quantity: item.quantity,
             unit_price: item.unit_price || null,
-            line_total: item.line_total || null,
           })))
         if (error) {
           console.error('Error inserting new order items:', error)
