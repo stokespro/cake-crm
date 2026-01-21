@@ -16,15 +16,34 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Plus, Search, ShoppingCart, Calendar, DollarSign, Package, Truck, Edit2, Save, X, History } from 'lucide-react'
+import { Plus, Search, ShoppingCart, Calendar, DollarSign, Package, Truck, Edit2, Save, X, History, Trash2 } from 'lucide-react'
 import { format } from 'date-fns'
 import type { Order, OrderStatus } from '@/types/database'
+
+interface SKU {
+  id: string
+  code: string
+  name: string
+  price_per_unit: number | null
+}
+
+interface EditOrderItem {
+  id?: string // undefined for new items
+  sku_id: string
+  sku_code: string
+  sku_name: string
+  quantity: number
+  unit_price: number
+  line_total: number
+  _deleted?: boolean // mark for deletion
+}
 
 interface EditFormData {
   status: OrderStatus
   order_notes: string
   requested_delivery_date: string
   confirmed_delivery_date: string
+  order_items: EditOrderItem[]
 }
 
 interface UpdateData {
@@ -32,6 +51,7 @@ interface UpdateData {
   order_notes?: string
   requested_delivery_date?: string | null
   confirmed_delivery_date?: string | null
+  total_price?: number
   last_edited_by?: string
   last_edited_at?: string
 }
@@ -39,6 +59,7 @@ interface UpdateData {
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([])
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([])
+  const [skus, setSkus] = useState<SKU[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
@@ -53,11 +74,26 @@ export default function OrdersPage() {
 
   useEffect(() => {
     fetchOrders()
+    fetchSKUs()
   }, [])
 
   useEffect(() => {
     filterOrders()
   }, [orders, searchTerm, filterStatus])
+
+  const fetchSKUs = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('skus')
+        .select('id, code, name, price_per_unit')
+        .order('code')
+
+      if (error) throw error
+      setSkus(data || [])
+    } catch (error) {
+      console.error('Error fetching SKUs:', error)
+    }
+  }
 
   const fetchOrders = async () => {
     try {
@@ -68,6 +104,7 @@ export default function OrdersPage() {
           customer:customers(business_name),
           order_items(
             id,
+            sku_id,
             quantity,
             unit_price,
             line_total,
@@ -154,11 +191,24 @@ export default function OrdersPage() {
 
   const startEditing = (order: Order) => {
     setEditingOrder(order.id)
+
+    // Convert order items to edit format
+    const editItems: EditOrderItem[] = (order.order_items || []).map(item => ({
+      id: item.id,
+      sku_id: item.sku_id,
+      sku_code: item.sku?.code || '',
+      sku_name: item.sku?.name || '',
+      quantity: item.quantity,
+      unit_price: item.unit_price || 0,
+      line_total: item.line_total || 0,
+    }))
+
     setEditForm({
       status: order.status,
       order_notes: order.order_notes || '',
       requested_delivery_date: order.requested_delivery_date ? order.requested_delivery_date.split('T')[0] : '',
       confirmed_delivery_date: order.confirmed_delivery_date ? order.confirmed_delivery_date.split('T')[0] : '',
+      order_items: editItems,
     })
   }
 
@@ -167,25 +217,134 @@ export default function OrdersPage() {
     setEditForm({} as EditFormData)
   }
 
+  // Calculate edit form total
+  const getEditTotal = () => {
+    return editForm.order_items
+      ?.filter(item => !item._deleted)
+      .reduce((sum, item) => sum + item.line_total, 0) || 0
+  }
+
+  // Add new item to edit form
+  const addEditItem = () => {
+    if (skus.length === 0) return
+    const firstSku = skus[0]
+    const newItem: EditOrderItem = {
+      sku_id: firstSku.id,
+      sku_code: firstSku.code,
+      sku_name: firstSku.name,
+      quantity: 1,
+      unit_price: firstSku.price_per_unit || 0,
+      line_total: firstSku.price_per_unit || 0,
+    }
+    setEditForm(prev => ({
+      ...prev,
+      order_items: [...(prev.order_items || []), newItem]
+    }))
+  }
+
+  // Update item in edit form
+  const updateEditItem = (index: number, field: keyof EditOrderItem, value: string | number) => {
+    setEditForm(prev => {
+      const items = [...(prev.order_items || [])]
+      items[index] = { ...items[index], [field]: value }
+
+      if (field === 'sku_id') {
+        const sku = skus.find(s => s.id === value)
+        if (sku) {
+          items[index].sku_code = sku.code
+          items[index].sku_name = sku.name
+          items[index].unit_price = sku.price_per_unit || 0
+          items[index].line_total = items[index].quantity * (sku.price_per_unit || 0)
+        }
+      } else if (field === 'quantity') {
+        items[index].line_total = (value as number) * items[index].unit_price
+      }
+
+      return { ...prev, order_items: items }
+    })
+  }
+
+  // Remove item from edit form (mark for deletion if existing, or remove if new)
+  const removeEditItem = (index: number) => {
+    setEditForm(prev => {
+      const items = [...(prev.order_items || [])]
+      if (items[index].id) {
+        // Existing item - mark for deletion
+        items[index] = { ...items[index], _deleted: true }
+      } else {
+        // New item - just remove from array
+        items.splice(index, 1)
+      }
+      return { ...prev, order_items: items }
+    })
+  }
+
   const saveOrder = async (orderId: string) => {
     if (!user) return
     setSaving(true)
     try {
+      const newTotal = getEditTotal()
+
+      // Update order details
       const updateData: UpdateData = {
         status: editForm.status,
         order_notes: editForm.order_notes,
         requested_delivery_date: editForm.requested_delivery_date || null,
         confirmed_delivery_date: editForm.confirmed_delivery_date || null,
+        total_price: newTotal,
         last_edited_by: user.id,
         last_edited_at: new Date().toISOString()
       }
 
-      const { error } = await supabase
+      const { error: orderError } = await supabase
         .from('orders')
         .update(updateData)
         .eq('id', orderId)
 
-      if (error) throw error
+      if (orderError) throw orderError
+
+      // Handle order items changes
+      const items = editForm.order_items || []
+
+      // Delete removed items
+      const deletedItems = items.filter(item => item._deleted && item.id)
+      for (const item of deletedItems) {
+        const { error } = await supabase
+          .from('order_items')
+          .delete()
+          .eq('id', item.id)
+        if (error) throw error
+      }
+
+      // Update existing items
+      const existingItems = items.filter(item => item.id && !item._deleted)
+      for (const item of existingItems) {
+        const { error } = await supabase
+          .from('order_items')
+          .update({
+            sku_id: item.sku_id,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            line_total: item.line_total,
+          })
+          .eq('id', item.id)
+        if (error) throw error
+      }
+
+      // Insert new items
+      const newItems = items.filter(item => !item.id && !item._deleted)
+      if (newItems.length > 0) {
+        const { error } = await supabase
+          .from('order_items')
+          .insert(newItems.map(item => ({
+            order_id: orderId,
+            sku_id: item.sku_id,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            line_total: item.line_total,
+          })))
+        if (error) throw error
+      }
 
       setEditingOrder(null)
       setEditForm({} as EditFormData)
@@ -317,8 +476,8 @@ export default function OrdersPage() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">
-                {/* Order Items */}
-                {order.order_items && order.order_items.length > 0 && (
+                {/* Order Items (View Mode) */}
+                {editingOrder !== order.id && order.order_items && order.order_items.length > 0 && (
                   <div className="space-y-2">
                     <div className="text-sm font-medium flex items-center gap-1">
                       <Package className="h-4 w-4" />
@@ -335,28 +494,30 @@ export default function OrdersPage() {
                   </div>
                 )}
 
-                {/* Delivery Dates */}
-                <div className="flex flex-wrap gap-4 text-sm">
-                  {order.requested_delivery_date && (
-                    <div className="flex items-center gap-1">
-                      <Truck className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-muted-foreground">
-                        Requested: {format(new Date(order.requested_delivery_date), 'MMM d, yyyy')}
-                      </span>
-                    </div>
-                  )}
-                  {order.confirmed_delivery_date && (
-                    <div className="flex items-center gap-1">
-                      <Truck className="h-4 w-4 text-green-600" />
-                      <span className="text-green-600">
-                        Confirmed: {format(new Date(order.confirmed_delivery_date), 'MMM d, yyyy')}
-                      </span>
-                    </div>
-                  )}
-                </div>
+                {/* Delivery Dates (View Mode) */}
+                {editingOrder !== order.id && (
+                  <div className="flex flex-wrap gap-4 text-sm">
+                    {order.requested_delivery_date && (
+                      <div className="flex items-center gap-1">
+                        <Truck className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-muted-foreground">
+                          Requested: {format(new Date(order.requested_delivery_date), 'MMM d, yyyy')}
+                        </span>
+                      </div>
+                    )}
+                    {order.confirmed_delivery_date && (
+                      <div className="flex items-center gap-1">
+                        <Truck className="h-4 w-4 text-green-600" />
+                        <span className="text-green-600">
+                          Confirmed: {format(new Date(order.confirmed_delivery_date), 'MMM d, yyyy')}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
 
-                {/* Order Notes */}
-                {order.order_notes && (
+                {/* Order Notes (View Mode) */}
+                {editingOrder !== order.id && order.order_notes && (
                   <p className="text-sm text-muted-foreground">
                     {order.order_notes}
                   </p>
@@ -365,6 +526,7 @@ export default function OrdersPage() {
                 {/* Inline Editing */}
                 {editingOrder === order.id ? (
                   <div className="space-y-4 p-4 border rounded-lg bg-muted/50">
+                    {/* Order Details */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <label className="text-sm font-medium">Status</label>
@@ -401,6 +563,83 @@ export default function OrdersPage() {
                         />
                       </div>
                     </div>
+
+                    {/* Order Items Edit */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <label className="text-sm font-medium flex items-center gap-1">
+                          <Package className="h-4 w-4" />
+                          Order Items
+                        </label>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={addEditItem}
+                          disabled={skus.length === 0}
+                        >
+                          <Plus className="h-4 w-4 mr-1" />
+                          Add Item
+                        </Button>
+                      </div>
+
+                      {editForm.order_items?.filter(item => !item._deleted).length === 0 ? (
+                        <div className="text-sm text-muted-foreground text-center py-4 border rounded-md">
+                          No items. Click "Add Item" to add products.
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {editForm.order_items?.map((item, index) => (
+                            !item._deleted && (
+                              <div key={index} className="flex items-center gap-2 p-2 border rounded-md bg-background">
+                                <Select
+                                  value={item.sku_id}
+                                  onValueChange={(value) => updateEditItem(index, 'sku_id', value)}
+                                >
+                                  <SelectTrigger className="flex-1">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {skus.map((sku) => (
+                                      <SelectItem key={sku.id} value={sku.id}>
+                                        {sku.code} - {sku.name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <Input
+                                  type="number"
+                                  min="1"
+                                  value={item.quantity}
+                                  onChange={(e) => updateEditItem(index, 'quantity', parseInt(e.target.value) || 1)}
+                                  className="w-20"
+                                />
+                                <div className="w-24 text-right text-sm font-medium">
+                                  ${item.line_total.toFixed(2)}
+                                </div>
+                                <Button
+                                  type="button"
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={() => removeEditItem(index)}
+                                >
+                                  <Trash2 className="h-4 w-4 text-red-500" />
+                                </Button>
+                              </div>
+                            )
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Edit Total */}
+                      <div className="flex justify-end pt-2 border-t">
+                        <div className="text-sm font-medium">
+                          Total: <span className="text-lg">${getEditTotal().toFixed(2)}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Order Notes */}
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Order Notes</label>
                       <Textarea
@@ -410,6 +649,8 @@ export default function OrdersPage() {
                         rows={3}
                       />
                     </div>
+
+                    {/* Save/Cancel Buttons */}
                     <div className="flex gap-2">
                       <Button
                         size="sm"
