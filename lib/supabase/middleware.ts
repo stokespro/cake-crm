@@ -12,17 +12,12 @@ export async function updateSession(request: NextRequest) {
   // Check if Supabase is properly configured
   if (!supabaseUrl || supabaseUrl === 'your_supabase_project_url' ||
       !supabaseAnonKey || supabaseAnonKey === 'your_supabase_anon_key') {
-    // Redirect to a setup page if not on login/signup pages
-    if (!request.nextUrl.pathname.startsWith('/login') && 
-        !request.nextUrl.pathname.startsWith('/signup')) {
-      const url = request.nextUrl.clone()
-      url.pathname = '/login'
-      return NextResponse.redirect(url)
-    }
     return supabaseResponse
   }
 
-  const supabase = createServerClient(
+  // Create Supabase client for cookie handling (data operations)
+  // Auth is handled client-side via PIN authentication
+  createServerClient(
     supabaseUrl,
     supabaseAnonKey,
     {
@@ -44,30 +39,6 @@ export async function updateSession(request: NextRequest) {
       },
     }
   )
-
-  // Check auth status
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  // Protected routes
-  const protectedPaths = ['/dashboard', '/communications', '/tasks', '/orders', '/dispensaries', '/products']
-  const authPaths = ['/login', '/signup']
-  
-  const isProtectedPath = protectedPaths.some(path => request.nextUrl.pathname.startsWith(path))
-  const isAuthPath = authPaths.some(path => request.nextUrl.pathname.startsWith(path))
-
-  if (!user && isProtectedPath) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/login'
-    return NextResponse.redirect(url)
-  }
-
-  if (user && isAuthPath) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/dashboard'
-    return NextResponse.redirect(url)
-  }
 
   return supabaseResponse
 }

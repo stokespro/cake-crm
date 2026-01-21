@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/lib/auth-context'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { ModeToggle } from '@/components/theme-toggle'
@@ -29,7 +29,7 @@ const baseNavigation = [
   { name: 'Products', href: '/dashboard/products', icon: Package },
 ]
 
-const adminManagementNavigation = [
+const adminNavigation = [
   { name: 'Users', href: '/dashboard/users', icon: Users },
 ]
 
@@ -39,118 +39,43 @@ export default function DashboardLayout({
   children: React.ReactNode
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [userProfile, setUserProfile] = useState<{email?: string, role?: string, full_name?: string, phone?: string} | null>(null)
-  const [loading, setLoading] = useState(true)
   const pathname = usePathname()
   const router = useRouter()
-  const supabase = createClient()
+  const { user, isLoading, logout } = useAuth()
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.push('/login')
+    }
+  }, [user, isLoading, router])
+
+  // Show nothing while checking auth
+  if (isLoading || !user) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-zinc-50 dark:bg-zinc-900">
+        <div className="text-zinc-500">Loading...</div>
+      </div>
+    )
+  }
 
   // Get navigation items based on user role
   const getNavigationItems = () => {
     const navigation = [...baseNavigation]
-    
-    // Add admin/management only items
-    if (userProfile?.role === 'admin' || userProfile?.role === 'management') {
-      navigation.push(...adminManagementNavigation)
+    if (user.role === 'admin') {
+      navigation.push(...adminNavigation)
     }
-    
     return navigation
   }
 
-  const fetchUserProfile = useCallback(async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        console.error('No authenticated user found')
-        return
-      }
-
-      // Try to use the new secure function first
-      const { data: profileData, error: functionError } = await supabase
-        .rpc('get_user_profile', { user_id: user.id })
-
-      if (!functionError && profileData) {
-        setUserProfile({
-          ...profileData,
-          email: profileData.email || user.email
-        })
-        return
-      }
-
-      // Fallback to direct query if function doesn't exist yet
-      const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single()
-      
-      if (error) {
-        console.error('Error fetching profile:', error)
-        // Try to create missing profile
-        const { data: newProfile, error: createError } = await supabase
-          .from('profiles')
-          .insert({
-            id: user.id,
-            email: user.email,
-            role: 'agent'
-          })
-          .select()
-          .single()
-
-        if (!createError && newProfile) {
-          setUserProfile({
-            ...newProfile,
-            email: user.email
-          })
-        } else {
-          // Set basic user info if all else fails
-          setUserProfile({
-            email: user.email,
-            role: 'agent',
-            full_name: undefined,
-            phone: undefined
-          })
-        }
-        return
-      }
-
-      setUserProfile({
-        ...profile,
-        email: profile.email || user.email
-      })
-    } catch (error) {
-      console.error('Error fetching profile:', error)
-      // Set minimal user info on complete failure
-      try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user) {
-          setUserProfile({
-            email: user.email,
-            role: 'agent',
-            full_name: undefined,
-            phone: undefined
-          })
-        }
-      } catch (fallbackError) {
-        console.error('Complete auth failure:', fallbackError)
-      }
-    } finally {
-      setLoading(false)
-    }
-  }, [supabase])
-
-  useEffect(() => {
-    fetchUserProfile()
-  }, [fetchUserProfile])
-
-  const handleSignOut = async () => {
-    await supabase.auth.signOut()
+  const handleSignOut = () => {
+    logout()
     router.push('/login')
   }
 
   const NavigationContent = () => {
     const navigation = getNavigationItems()
-    
+
     return (
       <>
         <div className="flex h-16 shrink-0 items-center px-6 border-b">
@@ -166,8 +91,8 @@ export default function DashboardLayout({
                 onClick={() => setSidebarOpen(false)}
                 className={`
                   flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors
-                  ${isActive 
-                    ? 'bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-50' 
+                  ${isActive
+                    ? 'bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-50'
                     : 'text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800/50 dark:hover:text-zinc-50'
                   }
                 `}
@@ -179,35 +104,31 @@ export default function DashboardLayout({
           })}
         </nav>
         <div className="border-t p-3">
-        <Link 
-          href="/dashboard/profile"
-          className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors cursor-pointer"
-        >
-          <User className="h-5 w-5 text-zinc-500" />
-          <div className="flex-1">
-            <p className="text-sm font-medium capitalize">
-              {loading ? 'Loading...' : (userProfile?.role || 'User')}
-            </p>
-            <p className="text-xs text-zinc-500">
-              {loading ? '...' : (userProfile?.email || 'No email')}
-            </p>
-          </div>
-        </Link>
-        <div className="flex items-center justify-between gap-2 mt-2">
-          <Button
-            variant="ghost"
-            className="flex-1 justify-start gap-3 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20"
-            onClick={handleSignOut}
+          <Link
+            href="/dashboard/profile"
+            className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors cursor-pointer"
           >
-            <LogOut className="h-5 w-5" />
-            Sign Out
-          </Button>
-          <ModeToggle />
+            <User className="h-5 w-5 text-zinc-500" />
+            <div className="flex-1">
+              <p className="text-sm font-medium">{user.name}</p>
+              <p className="text-xs text-zinc-500 capitalize">{user.role}</p>
+            </div>
+          </Link>
+          <div className="flex items-center justify-between gap-2 mt-2">
+            <Button
+              variant="ghost"
+              className="flex-1 justify-start gap-3 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20"
+              onClick={handleSignOut}
+            >
+              <LogOut className="h-5 w-5" />
+              Sign Out
+            </Button>
+            <ModeToggle />
+          </div>
         </div>
-      </div>
-    </>
-  )
-}
+      </>
+    )
+  }
 
   return (
     <div className="flex h-screen bg-zinc-50 dark:bg-zinc-900">
