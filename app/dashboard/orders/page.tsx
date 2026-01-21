@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Plus, Search, ShoppingCart, Calendar, DollarSign, Package, Truck, Edit2, Save, X, History, Trash2 } from 'lucide-react'
+import { Plus, Search, ShoppingCart, Calendar, DollarSign, Package, Truck, Edit2, Save, X, Trash2 } from 'lucide-react'
 import { format } from 'date-fns'
 import type { Order, OrderStatus } from '@/types/database'
 
@@ -324,11 +324,14 @@ export default function OrdersPage() {
           .update({
             sku_id: item.sku_id,
             quantity: item.quantity,
-            unit_price: item.unit_price,
-            line_total: item.line_total,
+            unit_price: item.unit_price || null,
+            line_total: item.line_total || null,
           })
-          .eq('id', item.id)
-        if (error) throw error
+          .eq('id', item.id!)
+        if (error) {
+          console.error('Error updating order item:', item.id, error)
+          throw error
+        }
       }
 
       // Insert new items
@@ -340,10 +343,13 @@ export default function OrdersPage() {
             order_id: orderId,
             sku_id: item.sku_id,
             quantity: item.quantity,
-            unit_price: item.unit_price,
-            line_total: item.line_total,
+            unit_price: item.unit_price || null,
+            line_total: item.line_total || null,
           })))
-        if (error) throw error
+        if (error) {
+          console.error('Error inserting new order items:', error)
+          throw error
+        }
       }
 
       setEditingOrder(null)
@@ -691,14 +697,6 @@ export default function OrdersPage() {
                       >
                         <Edit2 className="h-4 w-4 mr-2" />
                         Edit Order
-                      </Button>
-                    )}
-                    {order.last_edited_at && (
-                      <Button size="sm" variant="ghost" className="text-muted-foreground" asChild>
-                        <Link href={`/dashboard/orders/${order.id}/history`}>
-                          <History className="h-4 w-4 mr-2" />
-                          View History
-                        </Link>
                       </Button>
                     )}
                   </div>
