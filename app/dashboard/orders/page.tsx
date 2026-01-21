@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/lib/auth-context'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -41,14 +42,16 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
-  const [userRole, setUserRole] = useState<string>('agent')
   const [editingOrder, setEditingOrder] = useState<string | null>(null)
   const [editForm, setEditForm] = useState<EditFormData>({} as EditFormData)
   const [saving, setSaving] = useState(false)
   const supabase = createClient()
+  const { user } = useAuth()
+
+  // Get user role from auth context
+  const userRole = user?.role || 'standard'
 
   useEffect(() => {
-    fetchUserRole()
     fetchOrders()
   }, [])
 
@@ -56,28 +59,8 @@ export default function OrdersPage() {
     filterOrders()
   }, [orders, searchTerm, filterStatus])
 
-  const fetchUserRole = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      const { data } = await supabase
-        .from('users')
-        .select('role')
-        .eq('id', user.id)
-        .single()
-
-      if (data) setUserRole(data.role)
-    } catch (error) {
-      console.error('Error fetching user role:', error)
-    }
-  }
-
   const fetchOrders = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
       const { data, error } = await supabase
         .from('orders')
         .select(`
@@ -149,12 +132,9 @@ export default function OrdersPage() {
   const canEditOrders = userRole === 'management' || userRole === 'admin'
 
   const confirmOrder = async (orderId: string) => {
-    if (!canApproveOrders) return
+    if (!canApproveOrders || !user) return
 
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
       const { error } = await supabase
         .from('orders')
         .update({
@@ -188,11 +168,9 @@ export default function OrdersPage() {
   }
 
   const saveOrder = async (orderId: string) => {
+    if (!user) return
     setSaving(true)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
       const updateData: UpdateData = {
         status: editForm.status,
         order_notes: editForm.order_notes,

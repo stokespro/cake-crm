@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/lib/auth-context'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -40,6 +41,7 @@ export default function NewOrderPage() {
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
   const supabase = createClient()
+  const { user } = useAuth()
 
   useEffect(() => {
     fetchCustomers()
@@ -134,14 +136,15 @@ export default function NewOrderPage() {
       setError('Please add at least one item to the order')
       return
     }
+    if (!user) {
+      setError('Not authenticated')
+      return
+    }
 
     setLoading(true)
     setError(null)
 
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('Not authenticated')
-
       // Create order
       const { data: order, error: orderError } = await supabase
         .from('orders')
