@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/lib/auth-context'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -38,43 +39,22 @@ export default function ProductsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [filterCategory, setFilterCategory] = useState('all')
   const [filterStock, setFilterStock] = useState('all')
-  const [userRole, setUserRole] = useState<string>('agent')
   const [sheetOpen, setSheetOpen] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<Product | undefined>(undefined)
   const [error, setError] = useState<string | null>(null)
   const supabase = createClient()
+  const { user } = useAuth()
+
+  // Get user role from auth context
+  const userRole = user?.role || 'agent'
 
   useEffect(() => {
-    const loadData = async () => {
-      await fetchUserRole()
-      await fetchProducts()
-    }
-    loadData()
+    fetchProducts()
   }, [])
 
   useEffect(() => {
     filterProducts()
   }, [products, searchTerm, filterCategory, filterStock])
-
-  const fetchUserRole = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      const { data } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single()
-
-      if (data) {
-        setUserRole(data.role)
-        console.log('User role in products:', data.role)
-      }
-    } catch (error) {
-      console.error('Error fetching user role:', error)
-    }
-  }
 
   const fetchProducts = async () => {
     try {
