@@ -38,7 +38,9 @@ interface OrderItem {
   sku_id: string
   sku_code: string
   sku_name: string
-  quantity: number
+  cases: number // number of cases
+  units_per_case: number // units per case for this SKU
+  quantity: number // total units (cases * units_per_case)
   unit_price: number
   line_total: number
 }
@@ -104,15 +106,23 @@ export default function NewOrderPage() {
     if (skus.length === 0) return
 
     const firstSku = skus[0]
+    const unitsPerCase = firstSku.units_per_case || 32
+    const cases = 1
+    const quantity = cases * unitsPerCase
+    const unitPrice = firstSku.price_per_unit || 0
+    const lineTotal = quantity * unitPrice
+
     setOrderItems([
       ...orderItems,
       {
         sku_id: firstSku.id,
         sku_code: firstSku.code,
         sku_name: firstSku.name,
-        quantity: 1,
-        unit_price: firstSku.price_per_unit || 0,
-        line_total: firstSku.price_per_unit || 0
+        cases: cases,
+        units_per_case: unitsPerCase,
+        quantity: quantity,
+        unit_price: unitPrice,
+        line_total: lineTotal
       }
     ])
   }
@@ -122,15 +132,25 @@ export default function NewOrderPage() {
     updated[index] = { ...updated[index], [field]: value }
 
     if (field === 'sku_id') {
+      // SKU changed - update all related fields
       const sku = skus.find(s => s.id === value)
       if (sku) {
         updated[index].sku_code = sku.code
         updated[index].sku_name = sku.name
+        updated[index].units_per_case = sku.units_per_case || 32
         updated[index].unit_price = sku.price_per_unit || 0
-        updated[index].line_total = updated[index].quantity * (sku.price_per_unit || 0)
+        // Recalculate quantity and line_total based on current cases
+        updated[index].quantity = updated[index].cases * updated[index].units_per_case
+        updated[index].line_total = updated[index].quantity * updated[index].unit_price
       }
-    } else if (field === 'quantity') {
-      updated[index].line_total = (value as number) * updated[index].unit_price
+    } else if (field === 'cases') {
+      // Cases changed - recalculate quantity and line_total
+      const cases = value as number
+      updated[index].quantity = cases * updated[index].units_per_case
+      updated[index].line_total = updated[index].quantity * updated[index].unit_price
+    } else if (field === 'unit_price') {
+      // Unit price changed - recalculate line_total
+      updated[index].line_total = updated[index].quantity * (value as number)
     }
 
     setOrderItems(updated)
@@ -332,59 +352,74 @@ export default function NewOrderPage() {
             ) : (
               <>
                 {orderItems.map((item, index) => (
-                  <div key={index} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end border-b pb-4">
-                    <div className="md:col-span-5 space-y-2">
-                      <Label>SKU</Label>
-                      <Select
-                        value={item.sku_id}
-                        onValueChange={(value) => updateOrderItem(index, 'sku_id', value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {skus.map((sku) => (
-                            <SelectItem key={sku.id} value={sku.id}>
-                              {sku.code} - {sku.name} {sku.price_per_unit ? `($${sku.price_per_unit})` : ''}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="md:col-span-2 space-y-2">
-                      <Label>Quantity</Label>
-                      <Input
-                        type="number"
-                        min="1"
-                        value={item.quantity}
-                        onChange={(e) => updateOrderItem(index, 'quantity', parseInt(e.target.value) || 1)}
-                      />
-                    </div>
-
-                    <div className="md:col-span-2 space-y-2">
-                      <Label>Unit Price</Label>
-                      <div className="flex items-center h-10 px-3 bg-muted rounded-md">
-                        ${item.unit_price.toFixed(2)}
+                  <div key={index} className="border rounded-lg p-4 space-y-4">
+                    {/* SKU Selection Row */}
+                    <div className="flex items-center gap-4">
+                      <div className="flex-1 space-y-2">
+                        <Label>SKU</Label>
+                        <Select
+                          value={item.sku_id}
+                          onValueChange={(value) => updateOrderItem(index, 'sku_id', value)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {skus.map((sku) => (
+                              <SelectItem key={sku.id} value={sku.id}>
+                                {sku.code} - {sku.name} ({sku.units_per_case || 32}/case)
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
-                    </div>
-
-                    <div className="md:col-span-2 space-y-2">
-                      <Label>Total</Label>
-                      <div className="flex items-center h-10 px-3 bg-muted rounded-md font-medium">
-                        ${item.line_total.toFixed(2)}
-                      </div>
-                    </div>
-
-                    <div className="md:col-span-1">
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon"
                         onClick={() => removeOrderItem(index)}
+                        className="mt-6"
                       >
                         <Trash2 className="h-4 w-4 text-red-500" />
                       </Button>
+                    </div>
+
+                    {/* Pricing Row */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 items-end">
+                      <div className="space-y-2">
+                        <Label>Cases</Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          value={item.cases}
+                          onChange={(e) => updateOrderItem(index, 'cases', parseInt(e.target.value) || 1)}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          {item.quantity} units ({item.units_per_case}/case)
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Unit Price</Label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={item.unit_price}
+                            onChange={(e) => updateOrderItem(index, 'unit_price', parseFloat(e.target.value) || 0)}
+                            className="pl-7"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2 md:col-span-2">
+                        <Label>Line Total</Label>
+                        <div className="flex items-center h-10 px-3 bg-muted rounded-md font-semibold text-lg">
+                          ${item.line_total.toFixed(2)}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 ))}
