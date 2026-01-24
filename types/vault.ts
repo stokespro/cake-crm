@@ -1,0 +1,54 @@
+// Vault-specific types
+
+export interface ProductType {
+  id: string
+  name: string
+  created_at: string
+}
+
+export interface Strain {
+  id: string
+  name: string
+  created_at: string
+}
+
+export interface Batch {
+  id: string
+  name: string
+  strain_id: string
+  created_at: string
+  strain?: Strain
+}
+
+export interface VaultPackage {
+  tag_id: string
+  batch: string
+  strain: string
+  strain_id?: string
+  type_id: string
+  current_weight: number
+  created_by: string
+  created_at: string
+  updated_at: string
+  // Joined fields
+  type?: ProductType
+  strain_info?: Strain
+  creator?: { id: string; name: string }
+}
+
+export interface Transaction {
+  id: string
+  tag_id: string
+  user_id: string
+  type: 'add' | 'remove'
+  amount: number
+  resulting_balance: number
+  created_at: string
+  user?: { id: string; name: string }
+}
+
+export interface PackageFilters {
+  batches?: string[]
+  strainIds?: string[]
+  typeIds?: string[]
+}

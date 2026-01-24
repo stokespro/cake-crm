@@ -11,16 +11,18 @@ export default function LoginPage() {
   const [pin, setPin] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const { login, user } = useAuth()
+  const { login, user, isLoading: authLoading } = useAuth()
   const router = useRouter()
   const isSubmitting = useRef(false)
+  const hasRedirected = useRef(false)
 
-  // Redirect if already logged in
+  // Redirect if already logged in (single redirect check)
   useEffect(() => {
-    if (user) {
-      router.push('/dashboard')
+    if (user && !authLoading && !hasRedirected.current) {
+      hasRedirected.current = true
+      router.replace('/dashboard')
     }
-  }, [user, router])
+  }, [user, authLoading, router])
 
   const handleDigitPress = (digit: string) => {
     if (pin.length < 4 && !isLoading) {
@@ -74,21 +76,24 @@ export default function LoginPage() {
       authenticateByPin(pin)
         .then((result) => {
           if (result.success && result.user) {
+            hasRedirected.current = true
             login(result.user)
-            router.push('/dashboard')
+            // Use replace to prevent back navigation to login
+            router.replace('/dashboard')
           } else {
             setError(result.error || 'Invalid PIN')
             setPin('')
+            setIsLoading(false)
+            isSubmitting.current = false
           }
         })
         .catch(() => {
           setError('Authentication failed')
           setPin('')
-        })
-        .finally(() => {
           setIsLoading(false)
           isSubmitting.current = false
         })
+      // Don't reset isLoading on success - let the redirect handle it
     }
   }, [pin, isLoading, login, router])
 
@@ -96,7 +101,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-zinc-50 to-zinc-100 dark:from-zinc-900 dark:to-zinc-800">
       <Card className="w-full max-w-sm">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">CAKE CRM</CardTitle>
+          <CardTitle className="text-2xl font-bold text-center">CAKE</CardTitle>
           <CardDescription className="text-center">
             Enter your 4-digit PIN
           </CardDescription>

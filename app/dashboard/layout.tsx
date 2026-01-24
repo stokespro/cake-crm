@@ -17,20 +17,33 @@ import {
   Menu,
   LogOut,
   User,
-  Users
+  Users,
+  Warehouse,
+  ClipboardList
 } from 'lucide-react'
 
-const baseNavigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: Home },
-  { name: 'Communications', href: '/dashboard/communications', icon: MessageSquare },
-  { name: 'Tasks', href: '/dashboard/tasks', icon: CheckSquare },
-  { name: 'Orders', href: '/dashboard/orders', icon: ShoppingCart },
-  { name: 'Dispensaries', href: '/dashboard/dispensaries', icon: Building2 },
-  { name: 'Products', href: '/dashboard/products', icon: Package },
-]
+// Navigation items with role restrictions
+// roles: which roles can see this item (empty = all roles)
+const allNavigation = [
+  { name: 'Dashboard', href: '/dashboard', icon: Home, roles: [] },
 
-const adminNavigation = [
-  { name: 'Users', href: '/dashboard/users', icon: Users },
+  // Vault section - vault, packaging, management, admin
+  { name: 'Vault', href: '/dashboard/vault', icon: Warehouse, roles: ['vault', 'packaging', 'management', 'admin'] },
+
+  // Packaging section - packaging, vault, management, admin
+  { name: 'Packaging', href: '/dashboard/packaging', icon: ClipboardList, roles: ['packaging', 'vault', 'management', 'admin'] },
+
+  // CRM section - agent, management, admin
+  { name: 'Orders', href: '/dashboard/orders', icon: ShoppingCart, roles: ['agent', 'management', 'admin'] },
+  { name: 'Dispensaries', href: '/dashboard/dispensaries', icon: Building2, roles: ['agent', 'management', 'admin'] },
+  { name: 'Communications', href: '/dashboard/communications', icon: MessageSquare, roles: ['agent', 'management', 'admin'] },
+  { name: 'Tasks', href: '/dashboard/tasks', icon: CheckSquare, roles: ['agent', 'management', 'admin'] },
+
+  // Shared - all roles
+  { name: 'Products', href: '/dashboard/products', icon: Package, roles: [] },
+
+  // Admin only
+  { name: 'Users', href: '/dashboard/users', icon: Users, roles: ['admin'] },
 ]
 
 export default function DashboardLayout({
@@ -61,11 +74,12 @@ export default function DashboardLayout({
 
   // Get navigation items based on user role
   const getNavigationItems = () => {
-    const navigation = [...baseNavigation]
-    if (user.role === 'admin') {
-      navigation.push(...adminNavigation)
-    }
-    return navigation
+    return allNavigation.filter(item => {
+      // Empty roles array means all roles can access
+      if (item.roles.length === 0) return true
+      // Check if user's role is in the allowed roles
+      return item.roles.includes(user.role)
+    })
   }
 
   const handleSignOut = () => {
@@ -79,7 +93,7 @@ export default function DashboardLayout({
     return (
       <>
         <div className="flex h-16 shrink-0 items-center px-6 border-b">
-          <h2 className="text-lg font-semibold">Cake CRM</h2>
+          <h2 className="text-lg font-semibold">CAKE</h2>
         </div>
         <nav className="flex-1 space-y-1 px-3 py-4">
           {navigation.map((item) => {
@@ -157,7 +171,7 @@ export default function DashboardLayout({
           >
             <Menu className="h-6 w-6" />
           </Button>
-          <h1 className="text-lg font-semibold">Cake CRM</h1>
+          <h1 className="text-lg font-semibold">CAKE</h1>
           <div className="w-10" /> {/* Spacer for centering */}
         </header>
 

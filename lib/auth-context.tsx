@@ -38,6 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback((newUser: SessionUser) => {
     setUser(newUser);
+    setIsLoading(false); // Ensure loading state is cleared after login
     localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(newUser));
   }, []);
 

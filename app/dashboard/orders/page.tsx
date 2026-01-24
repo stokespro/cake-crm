@@ -16,7 +16,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Plus, Search, ShoppingCart, Calendar, DollarSign, Package, Truck, Edit2, Save, X, Trash2 } from 'lucide-react'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { toast } from 'sonner'
+import { Plus, Search, ShoppingCart, Calendar, DollarSign, Package, Truck, Edit2, Save, X, Trash2, LayoutGrid, List, ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import { format } from 'date-fns'
 import type { Order, OrderStatus } from '@/types/database'
 
@@ -42,7 +61,6 @@ interface EditFormData {
   status: OrderStatus
   order_notes: string
   requested_delivery_date: string
-  confirmed_delivery_date: string
   order_items: EditOrderItem[]
 }
 
@@ -50,11 +68,15 @@ interface UpdateData {
   status?: OrderStatus
   order_notes?: string
   requested_delivery_date?: string | null
-  confirmed_delivery_date?: string | null
   total_price?: number
   last_edited_by?: string
   last_edited_at?: string
+  delivered_at?: string | null
 }
+
+type SortField = 'order_number' | 'customer' | 'status' | 'order_date' | 'delivery_date' | 'total'
+type SortDirection = 'asc' | 'desc'
+type ViewMode = 'card' | 'table'
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([])
@@ -63,9 +85,17 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
+  const [filterDeliveryFrom, setFilterDeliveryFrom] = useState('')
+  const [filterDeliveryTo, setFilterDeliveryTo] = useState('')
   const [editingOrder, setEditingOrder] = useState<string | null>(null)
   const [editForm, setEditForm] = useState<EditFormData>({} as EditFormData)
   const [saving, setSaving] = useState(false)
+  const [deleteOrderId, setDeleteOrderId] = useState<string | null>(null)
+  const [deleteOrderNumber, setDeleteOrderNumber] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const [viewMode, setViewMode] = useState<ViewMode>('card')
+  const [sortField, setSortField] = useState<SortField>('order_date')
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
   const supabase = createClient()
   const { user } = useAuth()
 
@@ -75,11 +105,16 @@ export default function OrdersPage() {
   useEffect(() => {
     fetchOrders()
     fetchSKUs()
+    // Load saved view preference
+    const savedView = localStorage.getItem('ordersViewMode') as ViewMode
+    if (savedView === 'card' || savedView === 'table') {
+      setViewMode(savedView)
+    }
   }, [])
 
   useEffect(() => {
-    filterOrders()
-  }, [orders, searchTerm, filterStatus])
+    filterAndSortOrders()
+  }, [orders, searchTerm, filterStatus, filterDeliveryFrom, filterDeliveryTo, sortField, sortDirection])
 
   const fetchSKUs = async () => {
     try {
@@ -130,7 +165,7 @@ export default function OrdersPage() {
     }
   }
 
-  const filterOrders = () => {
+  const filterAndSortOrders = () => {
     let filtered = [...orders]
 
     if (searchTerm) {
@@ -145,7 +180,85 @@ export default function OrdersPage() {
       filtered = filtered.filter(order => order.status === filterStatus)
     }
 
+    // Filter by delivery date range
+    if (filterDeliveryFrom) {
+      const fromDate = new Date(filterDeliveryFrom + 'T00:00:00')
+      filtered = filtered.filter(order => {
+        if (!order.requested_delivery_date) return false
+        const deliveryDate = new Date(order.requested_delivery_date)
+        return deliveryDate >= fromDate
+      })
+    }
+
+    if (filterDeliveryTo) {
+      const toDate = new Date(filterDeliveryTo + 'T23:59:59')
+      filtered = filtered.filter(order => {
+        if (!order.requested_delivery_date) return false
+        const deliveryDate = new Date(order.requested_delivery_date)
+        return deliveryDate <= toDate
+      })
+    }
+
+    // Sort
+    filtered.sort((a, b) => {
+      let aVal: string | number | null = null
+      let bVal: string | number | null = null
+
+      switch (sortField) {
+        case 'order_number':
+          aVal = a.order_number || ''
+          bVal = b.order_number || ''
+          break
+        case 'customer':
+          aVal = a.customer?.business_name?.toLowerCase() || ''
+          bVal = b.customer?.business_name?.toLowerCase() || ''
+          break
+        case 'status':
+          aVal = a.status
+          bVal = b.status
+          break
+        case 'order_date':
+          aVal = a.order_date ? new Date(a.order_date).getTime() : 0
+          bVal = b.order_date ? new Date(b.order_date).getTime() : 0
+          break
+        case 'delivery_date':
+          aVal = a.requested_delivery_date ? new Date(a.requested_delivery_date).getTime() : 0
+          bVal = b.requested_delivery_date ? new Date(b.requested_delivery_date).getTime() : 0
+          break
+        case 'total':
+          aVal = a.total_price || 0
+          bVal = b.total_price || 0
+          break
+      }
+
+      if (aVal === null || bVal === null) return 0
+      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1
+      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1
+      return 0
+    })
+
     setFilteredOrders(filtered)
+  }
+
+  const toggleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortField(field)
+      setSortDirection('asc')
+    }
+  }
+
+  const SortIcon = ({ field }: { field: SortField }) => {
+    if (sortField !== field) return <ArrowUpDown className="h-4 w-4 ml-1 opacity-50" />
+    return sortDirection === 'asc'
+      ? <ChevronUp className="h-4 w-4 ml-1" />
+      : <ChevronDown className="h-4 w-4 ml-1" />
+  }
+
+  const handleViewModeChange = (mode: ViewMode) => {
+    setViewMode(mode)
+    localStorage.setItem('ordersViewMode', mode)
   }
 
   const getStatusBadge = (status: string) => {
@@ -207,7 +320,6 @@ export default function OrdersPage() {
       status: order.status,
       order_notes: order.order_notes || '',
       requested_delivery_date: order.requested_delivery_date ? order.requested_delivery_date.split('T')[0] : '',
-      confirmed_delivery_date: order.confirmed_delivery_date ? order.confirmed_delivery_date.split('T')[0] : '',
       order_items: editItems,
     })
   }
@@ -290,10 +402,14 @@ export default function OrdersPage() {
         status: editForm.status,
         order_notes: editForm.order_notes,
         requested_delivery_date: editForm.requested_delivery_date || null,
-        confirmed_delivery_date: editForm.confirmed_delivery_date || null,
         total_price: newTotal,
         last_edited_by: user.id,
         last_edited_at: new Date().toISOString()
+      }
+
+      // Auto-set delivered_at when status changes to delivered
+      if (editForm.status === 'delivered') {
+        updateData.delivered_at = new Date().toISOString()
       }
 
       const { error: orderError } = await supabase
@@ -365,6 +481,30 @@ export default function OrdersPage() {
     setEditForm((prev: EditFormData) => ({...prev, [field]: value}))
   }
 
+  const handleDeleteOrder = async () => {
+    if (!deleteOrderId) return
+    setDeleting(true)
+    try {
+      // Delete order - CASCADE will handle order_items, packaging_task_sources, inventory_log
+      const { error } = await supabase
+        .from('orders')
+        .delete()
+        .eq('id', deleteOrderId)
+
+      if (error) throw error
+
+      toast.success('Order deleted successfully')
+      setDeleteOrderId(null)
+      setDeleteOrderNumber(null)
+      fetchOrders()
+    } catch (error) {
+      console.error('Error deleting order:', error)
+      toast.error('Failed to delete order. Please try again.')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -381,21 +521,62 @@ export default function OrdersPage() {
           <h1 className="text-2xl md:text-3xl font-bold">Orders</h1>
           <p className="text-muted-foreground mt-1">Manage wholesale orders and deliveries</p>
         </div>
-        <Button asChild>
-          <Link href="/dashboard/orders/new">
-            <Plus className="mr-2 h-4 w-4" />
-            New Order
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center border rounded-lg p-1">
+            <Button
+              variant={viewMode === 'card' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => handleViewModeChange('card')}
+              className="px-2"
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={viewMode === 'table' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => handleViewModeChange('table')}
+              className="px-2"
+            >
+              <List className="h-4 w-4" />
+            </Button>
+          </div>
+          <Button asChild>
+            <Link href="/dashboard/orders/new">
+              <Plus className="mr-2 h-4 w-4" />
+              New Order
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Filters</CardTitle>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base">Filters</CardTitle>
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-muted-foreground">
+                {filteredOrders.length} of {orders.length} orders
+              </span>
+              {(searchTerm || filterStatus !== 'all' || filterDeliveryFrom || filterDeliveryTo) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setSearchTerm('')
+                    setFilterStatus('all')
+                    setFilterDeliveryFrom('')
+                    setFilterDeliveryTo('')
+                  }}
+                >
+                  Clear Filters
+                </Button>
+              )}
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -410,7 +591,7 @@ export default function OrdersPage() {
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Orders</SelectItem>
+                <SelectItem value="all">All Statuses</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
                 <SelectItem value="confirmed">Confirmed</SelectItem>
                 <SelectItem value="packed">Packed</SelectItem>
@@ -418,34 +599,168 @@ export default function OrdersPage() {
                 <SelectItem value="cancelled">Cancelled</SelectItem>
               </SelectContent>
             </Select>
-            <div className="flex items-center text-sm text-muted-foreground">
-              {filteredOrders.length} of {orders.length} orders
-            </div>
+            <Input
+              type="date"
+              value={filterDeliveryFrom}
+              onChange={(e) => setFilterDeliveryFrom(e.target.value)}
+              placeholder="Delivery from"
+            />
+            <Input
+              type="date"
+              value={filterDeliveryTo}
+              onChange={(e) => setFilterDeliveryTo(e.target.value)}
+              placeholder="Delivery to"
+            />
           </div>
         </CardContent>
       </Card>
 
       {/* Orders List */}
-      <div className="space-y-4">
-        {filteredOrders.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <ShoppingCart className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground mb-4">
-                {searchTerm || filterStatus !== 'all'
-                  ? 'No orders found matching your filters'
-                  : 'No orders created yet'}
-              </p>
-              <Button asChild>
-                <Link href="/dashboard/orders/new">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Create Your First Order
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          filteredOrders.map((order) => (
+      {filteredOrders.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <ShoppingCart className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <p className="text-muted-foreground mb-4">
+              {searchTerm || filterStatus !== 'all' || filterDeliveryFrom || filterDeliveryTo
+                ? 'No orders found matching your filters'
+                : 'No orders created yet'}
+            </p>
+            <Button asChild>
+              <Link href="/dashboard/orders/new">
+                <Plus className="mr-2 h-4 w-4" />
+                Create Your First Order
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      ) : viewMode === 'table' ? (
+        /* Table View */
+        <Card>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>
+                  <button
+                    className="flex items-center font-medium hover:text-foreground"
+                    onClick={() => toggleSort('order_number')}
+                  >
+                    Order #
+                    <SortIcon field="order_number" />
+                  </button>
+                </TableHead>
+                <TableHead>
+                  <button
+                    className="flex items-center font-medium hover:text-foreground"
+                    onClick={() => toggleSort('customer')}
+                  >
+                    Customer
+                    <SortIcon field="customer" />
+                  </button>
+                </TableHead>
+                <TableHead>Items</TableHead>
+                <TableHead>
+                  <button
+                    className="flex items-center font-medium hover:text-foreground"
+                    onClick={() => toggleSort('status')}
+                  >
+                    Status
+                    <SortIcon field="status" />
+                  </button>
+                </TableHead>
+                <TableHead>
+                  <button
+                    className="flex items-center font-medium hover:text-foreground"
+                    onClick={() => toggleSort('order_date')}
+                  >
+                    Created
+                    <SortIcon field="order_date" />
+                  </button>
+                </TableHead>
+                <TableHead>
+                  <button
+                    className="flex items-center font-medium hover:text-foreground"
+                    onClick={() => toggleSort('delivery_date')}
+                  >
+                    Delivery
+                    <SortIcon field="delivery_date" />
+                  </button>
+                </TableHead>
+                <TableHead className="text-right">
+                  <button
+                    className="flex items-center font-medium hover:text-foreground ml-auto"
+                    onClick={() => toggleSort('total')}
+                  >
+                    Total
+                    <SortIcon field="total" />
+                  </button>
+                </TableHead>
+                <TableHead className="w-[100px]">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredOrders.map((order) => (
+                <TableRow key={order.id}>
+                  <TableCell className="font-medium">
+                    {order.order_number ? `#${order.order_number}` : '—'}
+                  </TableCell>
+                  <TableCell>
+                    {order.customer?.business_name || 'Unknown'}
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-muted-foreground">
+                      {order.order_items?.length || 0} items
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    {getStatusBadge(order.status)}
+                  </TableCell>
+                  <TableCell>
+                    {format(new Date(order.order_date), 'MMM d, yyyy')}
+                  </TableCell>
+                  <TableCell>
+                    {order.requested_delivery_date
+                      ? format(new Date(order.requested_delivery_date), 'MMM d, yyyy')
+                      : '—'}
+                  </TableCell>
+                  <TableCell className="text-right font-medium">
+                    ${(order.total_price || 0).toFixed(2)}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
+                      {canEditOrders && (
+                        <>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => startEditing(order)}
+                            className="h-8 w-8"
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => {
+                              setDeleteOrderId(order.id)
+                              setDeleteOrderNumber(order.order_number || order.id.slice(0, 8))
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Card>
+      ) : (
+        /* Card View */
+        <div className="space-y-4">
+          {filteredOrders.map((order) => (
             <Card key={order.id} className="hover:shadow-md transition-shadow">
               <CardHeader>
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
@@ -459,8 +774,14 @@ export default function OrdersPage() {
                       )}
                       <div className="flex items-center gap-1">
                         <Calendar className="h-4 w-4" />
-                        {format(new Date(order.order_date), 'MMM d, yyyy')}
+                        Created: {format(new Date(order.order_date), 'MMM d, yyyy')}
                       </div>
+                      {order.requested_delivery_date && (
+                        <div className="flex items-center gap-1">
+                          <Truck className="h-4 w-4" />
+                          Delivery: {format(new Date(order.requested_delivery_date), 'MMM d, yyyy')}
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -498,25 +819,15 @@ export default function OrdersPage() {
                   </div>
                 )}
 
-                {/* Delivery Dates (View Mode) */}
-                {editingOrder !== order.id && (
+                {/* Delivered Date (View Mode) - only show if order was delivered */}
+                {editingOrder !== order.id && order.delivered_at && (
                   <div className="flex flex-wrap gap-4 text-sm">
-                    {order.requested_delivery_date && (
-                      <div className="flex items-center gap-1">
-                        <Truck className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-muted-foreground">
-                          Requested: {format(new Date(order.requested_delivery_date), 'MMM d, yyyy')}
-                        </span>
-                      </div>
-                    )}
-                    {order.confirmed_delivery_date && (
-                      <div className="flex items-center gap-1">
-                        <Truck className="h-4 w-4 text-green-600" />
-                        <span className="text-green-600">
-                          Confirmed: {format(new Date(order.confirmed_delivery_date), 'MMM d, yyyy')}
-                        </span>
-                      </div>
-                    )}
+                    <div className="flex items-center gap-1">
+                      <Truck className="h-4 w-4 text-green-600" />
+                      <span className="text-green-600">
+                        Delivered: {format(new Date(order.delivered_at), 'MMM d, yyyy')}
+                      </span>
+                    </div>
                   </div>
                 )}
 
@@ -556,14 +867,6 @@ export default function OrdersPage() {
                           type="date"
                           value={editForm.requested_delivery_date}
                           onChange={(e) => updateEditForm('requested_delivery_date', e.target.value)}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Confirmed Delivery Date</label>
-                        <Input
-                          type="date"
-                          value={editForm.confirmed_delivery_date}
-                          onChange={(e) => updateEditForm('confirmed_delivery_date', e.target.value)}
                         />
                       </div>
                     </div>
@@ -688,22 +991,208 @@ export default function OrdersPage() {
                       </Button>
                     )}
                     {canEditOrders && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => startEditing(order)}
-                      >
-                        <Edit2 className="h-4 w-4 mr-2" />
-                        Edit Order
-                      </Button>
+                      <>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => startEditing(order)}
+                        >
+                          <Edit2 className="h-4 w-4 mr-2" />
+                          Edit Order
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => {
+                            setDeleteOrderId(order.id)
+                            setDeleteOrderNumber(order.order_number || order.id.slice(0, 8))
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Delete
+                        </Button>
+                      </>
                     )}
                   </div>
                 )}
               </CardContent>
             </Card>
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
+
+      {/* Edit Modal for Table View */}
+      {viewMode === 'table' && editingOrder && (
+        <Card className="mt-4">
+          <CardHeader>
+            <CardTitle className="text-lg">
+              Edit Order #{filteredOrders.find(o => o.id === editingOrder)?.order_number}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Order Details */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Status</label>
+                <Select
+                  value={editForm.status}
+                  onValueChange={(value) => updateEditForm('status', value as OrderStatus)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="confirmed">Confirmed</SelectItem>
+                    <SelectItem value="packed">Packed</SelectItem>
+                    <SelectItem value="delivered">Delivered</SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Requested Delivery Date</label>
+                <Input
+                  type="date"
+                  value={editForm.requested_delivery_date}
+                  onChange={(e) => updateEditForm('requested_delivery_date', e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* Order Items Edit */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium flex items-center gap-1">
+                  <Package className="h-4 w-4" />
+                  Order Items
+                </label>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={addEditItem}
+                  disabled={skus.length === 0}
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Item
+                </Button>
+              </div>
+
+              {editForm.order_items?.filter(item => !item._deleted).length === 0 ? (
+                <div className="text-sm text-muted-foreground text-center py-4 border rounded-md">
+                  No items. Click "Add Item" to add products.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {editForm.order_items?.map((item, index) => (
+                    !item._deleted && (
+                      <div key={index} className="flex items-center gap-2 p-2 border rounded-md bg-muted/50">
+                        <Select
+                          value={item.sku_id}
+                          onValueChange={(value) => updateEditItem(index, 'sku_id', value)}
+                        >
+                          <SelectTrigger className="flex-1">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {skus.map((sku) => (
+                              <SelectItem key={sku.id} value={sku.id}>
+                                {sku.code} - {sku.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Input
+                          type="number"
+                          min="1"
+                          value={item.quantity}
+                          onChange={(e) => updateEditItem(index, 'quantity', parseInt(e.target.value) || 1)}
+                          className="w-20"
+                        />
+                        <div className="w-24 text-right text-sm font-medium">
+                          ${item.line_total.toFixed(2)}
+                        </div>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => removeEditItem(index)}
+                        >
+                          <Trash2 className="h-4 w-4 text-red-500" />
+                        </Button>
+                      </div>
+                    )
+                  ))}
+                </div>
+              )}
+
+              {/* Edit Total */}
+              <div className="flex justify-end pt-2 border-t">
+                <div className="text-sm font-medium">
+                  Total: <span className="text-lg">${getEditTotal().toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Order Notes */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Order Notes</label>
+              <Textarea
+                value={editForm.order_notes}
+                onChange={(e) => updateEditForm('order_notes', e.target.value)}
+                placeholder="Order notes..."
+                rows={3}
+              />
+            </div>
+
+            {/* Save/Cancel Buttons */}
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                onClick={() => saveOrder(editingOrder)}
+                disabled={saving}
+              >
+                <Save className="h-4 w-4 mr-2" />
+                {saving ? 'Saving...' : 'Save Changes'}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={cancelEditing}
+                disabled={saving}
+              >
+                <X className="h-4 w-4 mr-2" />
+                Cancel
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteOrderId} onOpenChange={(open) => !open && setDeleteOrderId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Order</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete order #{deleteOrderNumber}? This action cannot be undone
+              and will remove all order items as well.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteOrder}
+              disabled={deleting}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              {deleting ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

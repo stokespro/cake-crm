@@ -17,7 +17,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { ArrowLeft, Loader2, Plus, Trash2, DollarSign } from 'lucide-react'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import { ArrowLeft, Loader2, Plus, Trash2, DollarSign, Check, ChevronsUpDown } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import type { Customer, SKU } from '@/types/database'
 
 interface OrderItem {
@@ -39,6 +53,7 @@ export default function NewOrderPage() {
   const [totalPrice, setTotalPrice] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [customerOpen, setCustomerOpen] = useState(false)
   const router = useRouter()
   const supabase = createClient()
   const { user } = useAuth()
@@ -216,18 +231,49 @@ export default function NewOrderPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="customer">Customer *</Label>
-                <Select value={customerId} onValueChange={setCustomerId} required>
-                  <SelectTrigger id="customer" className="h-12">
-                    <SelectValue placeholder="Select a customer" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {customers.map((customer) => (
-                      <SelectItem key={customer.id} value={customer.id}>
-                        {customer.business_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={customerOpen} onOpenChange={setCustomerOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={customerOpen}
+                      className="h-12 w-full justify-between font-normal"
+                    >
+                      {customerId
+                        ? customers.find((c) => c.id === customerId)?.business_name
+                        : "Select a customer..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Search customers..." />
+                      <CommandList>
+                        <CommandEmpty>No customer found.</CommandEmpty>
+                        <CommandGroup>
+                          {customers.map((customer) => (
+                            <CommandItem
+                              key={customer.id}
+                              value={customer.business_name}
+                              onSelect={() => {
+                                setCustomerId(customer.id)
+                                setCustomerOpen(false)
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  customerId === customer.id ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {customer.business_name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
 
               <div className="space-y-2">
