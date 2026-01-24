@@ -217,20 +217,21 @@ export default function ProductsPage() {
   const getPricingRange = (product: Product) => {
     // Check both pricing (old format) and product_pricing (new format)
     const pricingData = (product as { product_pricing?: { price: number }[] }).product_pricing || product.pricing || []
+    const basePrice = product.price_per_unit ?? 0
 
     if (!pricingData || pricingData.length === 0) {
-      return `$${product.price_per_unit.toFixed(2)}`
+      return `$${basePrice.toFixed(2)}`
     }
 
     try {
       const prices = pricingData.map((p: { price: number }) => p.price).filter((price: number) => price != null && !isNaN(price)).sort((a: number, b: number) => a - b)
-      
+
       if (prices.length === 0) {
-        return `$${product.price_per_unit.toFixed(2)}`
+        return `$${basePrice.toFixed(2)}`
       }
-      
-      const minPrice = Math.min(prices[0], product.price_per_unit)
-      const maxPrice = Math.max(prices[prices.length - 1], product.price_per_unit)
+
+      const minPrice = Math.min(prices[0], basePrice)
+      const maxPrice = Math.max(prices[prices.length - 1], basePrice)
 
       if (minPrice === maxPrice) {
         return `$${minPrice.toFixed(2)}`
@@ -239,7 +240,7 @@ export default function ProductsPage() {
       return `$${minPrice.toFixed(2)} - $${maxPrice.toFixed(2)}`
     } catch (error) {
       console.warn('Error calculating pricing range:', error)
-      return `$${product.price_per_unit.toFixed(2)}`
+      return `$${basePrice.toFixed(2)}`
     }
   }
 
