@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/lib/auth-context'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -447,149 +447,165 @@ export default function VaultPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold">Vault Inventory</h1>
-          <p className="text-muted-foreground mt-1">Manage bulk cannabis packages</p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={handlePrint}>
-            <Printer className="mr-2 h-4 w-4" />
-            Print
-          </Button>
-          {canAccessAdmin && (
-            <Button variant="outline" asChild>
-              <Link href="/dashboard/vault/admin">
-                <Settings className="mr-2 h-4 w-4" />
-                Admin
-              </Link>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold">Vault Inventory</h1>
+            <p className="text-muted-foreground mt-1">Manage bulk cannabis packages</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={handlePrint}>
+              <Printer className="mr-2 h-4 w-4" />
+              Print
             </Button>
-          )}
-          {canManagePackages && (
-            <Button onClick={() => setNewPackageDialogOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              New Package
-            </Button>
-          )}
+            {canAccessAdmin && (
+              <Button variant="outline" asChild>
+                <Link href="/dashboard/vault/admin">
+                  <Settings className="mr-2 h-4 w-4" />
+                  Admin
+                </Link>
+              </Button>
+            )}
+            {canManagePackages && (
+              <Button onClick={() => setNewPackageDialogOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                New Package
+              </Button>
+            )}
+          </div>
         </div>
+
+        {/* Tag Lookup */}
+        <Card>
+          <CardContent className="py-3">
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <ScanLine className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Scan or enter tag ID..."
+                  value={lookupTag}
+                  onChange={(e) => setLookupTag(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleLookupTag()}
+                  className="pl-9"
+                />
+              </div>
+              <Button onClick={handleLookupTag} disabled={lookingUp}>
+                {lookingUp ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Search className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Tag Lookup */}
+      {/* Filters Card */}
       <Card>
-        <CardContent className="pt-4">
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <ScanLine className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Scan or enter tag ID..."
-                value={lookupTag}
-                onChange={(e) => setLookupTag(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleLookupTag()}
-                className="pl-9"
-              />
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base font-semibold">Filters</CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-sm text-muted-foreground">Strain</Label>
+              <Select
+                value={strainFilter.length === 1 ? strainFilter[0] : strainFilter.length > 1 ? 'multiple' : 'all'}
+                onValueChange={(value) => {
+                  if (value === 'all') {
+                    setStrainFilter([])
+                  } else if (value !== 'multiple') {
+                    setStrainFilter([value])
+                  }
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="All Strains">
+                    {strainFilter.length === 0 ? 'All Strains' :
+                     strainFilter.length === 1 ? strains.find(s => s.id === strainFilter[0])?.name :
+                     `${strainFilter.length} Strains`}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Strains</SelectItem>
+                  {strains.map((strain) => (
+                    <SelectItem key={strain.id} value={strain.id}>
+                      {strain.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            <Button onClick={handleLookupTag} disabled={lookingUp}>
-              {lookingUp ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Search className="h-4 w-4" />
-              )}
-            </Button>
+
+            <div className="space-y-1.5">
+              <Label className="text-sm text-muted-foreground">Batch</Label>
+              <Select
+                value={batchFilter.length === 1 ? batchFilter[0] : batchFilter.length > 1 ? 'multiple' : 'all'}
+                onValueChange={(value) => {
+                  if (value === 'all') {
+                    setBatchFilter([])
+                  } else if (value !== 'multiple') {
+                    setBatchFilter([value])
+                  }
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="All Batches">
+                    {batchFilter.length === 0 ? 'All Batches' :
+                     batchFilter.length === 1 ? batchFilter[0] :
+                     `${batchFilter.length} Batches`}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Batches</SelectItem>
+                  {uniqueBatches.map((batch) => (
+                    <SelectItem key={batch} value={batch}>
+                      {batch}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-sm text-muted-foreground">Type</Label>
+              <Select
+                value={typeFilter.length === 1 ? typeFilter[0] : typeFilter.length > 1 ? 'multiple' : 'all'}
+                onValueChange={(value) => {
+                  if (value === 'all') {
+                    setTypeFilter([])
+                  } else if (value !== 'multiple') {
+                    setTypeFilter([value])
+                  }
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="All Types">
+                    {typeFilter.length === 0 ? 'All Types' :
+                     typeFilter.length === 1 ? productTypes.find(t => t.id === typeFilter[0])?.name :
+                     `${typeFilter.length} Types`}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  {productTypes.map((type) => (
+                    <SelectItem key={type.id} value={type.id}>
+                      {type.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Filters & Summary */}
-      <div className="flex flex-col lg:flex-row gap-4">
-        {/* Filters */}
-        <div className="flex flex-wrap gap-2 flex-1">
-          <Select
-            value={strainFilter.length === 1 ? strainFilter[0] : strainFilter.length > 1 ? 'multiple' : 'all'}
-            onValueChange={(value) => {
-              if (value === 'all') {
-                setStrainFilter([])
-              } else if (value !== 'multiple') {
-                setStrainFilter([value])
-              }
-            }}
-          >
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Filter by strain">
-                {strainFilter.length === 0 ? 'All Strains' :
-                 strainFilter.length === 1 ? strains.find(s => s.id === strainFilter[0])?.name :
-                 `${strainFilter.length} Strains`}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Strains</SelectItem>
-              {strains.map((strain) => (
-                <SelectItem key={strain.id} value={strain.id}>
-                  {strain.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select
-            value={batchFilter.length === 1 ? batchFilter[0] : batchFilter.length > 1 ? 'multiple' : 'all'}
-            onValueChange={(value) => {
-              if (value === 'all') {
-                setBatchFilter([])
-              } else if (value !== 'multiple') {
-                setBatchFilter([value])
-              }
-            }}
-          >
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Filter by batch">
-                {batchFilter.length === 0 ? 'All Batches' :
-                 batchFilter.length === 1 ? batchFilter[0] :
-                 `${batchFilter.length} Batches`}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Batches</SelectItem>
-              {uniqueBatches.map((batch) => (
-                <SelectItem key={batch} value={batch}>
-                  {batch}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select
-            value={typeFilter.length === 1 ? typeFilter[0] : typeFilter.length > 1 ? 'multiple' : 'all'}
-            onValueChange={(value) => {
-              if (value === 'all') {
-                setTypeFilter([])
-              } else if (value !== 'multiple') {
-                setTypeFilter([value])
-              }
-            }}
-          >
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Filter by type">
-                {typeFilter.length === 0 ? 'All Types' :
-                 typeFilter.length === 1 ? productTypes.find(t => t.id === typeFilter[0])?.name :
-                 `${typeFilter.length} Types`}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
-              {productTypes.map((type) => (
-                <SelectItem key={type.id} value={type.id}>
-                  {type.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
 
           {(strainFilter.length > 0 || batchFilter.length > 0 || typeFilter.length > 0) && (
             <Button
               variant="ghost"
               size="sm"
+              className="mt-3"
               onClick={() => {
                 setStrainFilter([])
                 setBatchFilter([])
@@ -597,27 +613,27 @@ export default function VaultPage() {
               }}
             >
               <X className="h-4 w-4 mr-1" />
-              Clear
+              Clear Filters
             </Button>
           )}
-        </div>
+        </CardContent>
+      </Card>
 
-        {/* Summary Cards */}
-        <div className="flex gap-4">
-          <Card className="min-w-[120px]">
-            <CardContent className="p-4">
-              <p className="text-xs text-muted-foreground uppercase tracking-wide">Packages</p>
-              <p className="text-2xl font-bold">{totalPackages}</p>
-            </CardContent>
-          </Card>
-          <Card className="min-w-[140px]">
-            <CardContent className="p-4">
-              <p className="text-xs text-muted-foreground uppercase tracking-wide">Total Weight</p>
-              <p className="text-2xl font-bold">{totalPounds.toFixed(2)} <span className="text-base font-normal">lbs</span></p>
-              <p className="text-xs text-muted-foreground">{totalGrams.toFixed(2)}g</p>
-            </CardContent>
-          </Card>
-        </div>
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 gap-4">
+        <Card className="bg-green-500/10 border-green-500/30">
+          <CardContent className="py-6 text-center">
+            <p className="text-3xl md:text-4xl font-bold">{totalPackages}</p>
+            <p className="text-sm text-green-600 font-medium">Packages</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-green-500/10 border-green-500/30">
+          <CardContent className="py-6 text-center">
+            <p className="text-3xl md:text-4xl font-bold">{totalPounds.toFixed(2)}</p>
+            <p className="text-sm text-green-600 font-medium">Pounds</p>
+            <p className="text-xs text-muted-foreground">{totalGrams.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}g</p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Packages List */}
@@ -638,12 +654,12 @@ export default function VaultPage() {
                 </div>
                 <div className="flex items-center gap-3 ml-4">
                   <div className="text-right">
-                    <p className="font-semibold">{pkg.current_weight.toFixed(2)}g</p>
+                    <p className="font-semibold text-green-600">{pkg.current_weight.toFixed(2)}g</p>
                     <p className="text-xs text-muted-foreground">
-                      {(pkg.current_weight / GRAMS_PER_LB).toFixed(4)} lbs
+                      {(pkg.current_weight / GRAMS_PER_LB).toFixed(2)} lb
                     </p>
                   </div>
-                  <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                  <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                 </div>
               </button>
             ))}
@@ -693,7 +709,7 @@ export default function VaultPage() {
           {selectedPackage && (
             <div className="space-y-6">
               {/* Meta Row */}
-              <div className="flex justify-center gap-2 text-sm">
+              <div className="flex flex-wrap justify-center gap-2 text-sm">
                 <Badge variant="secondary">{selectedPackage.batch}</Badge>
                 <Badge variant="secondary">{selectedPackage.strain}</Badge>
                 <Badge variant="outline">{selectedPackage.type?.name || '-'}</Badge>
