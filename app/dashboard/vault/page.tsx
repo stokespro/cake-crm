@@ -455,26 +455,14 @@ export default function VaultPage() {
             <h1 className="text-2xl md:text-3xl font-bold">Vault Inventory</h1>
             <p className="text-muted-foreground mt-1">Manage bulk cannabis packages</p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={handlePrint}>
-              <Printer className="mr-2 h-4 w-4" />
-              Print
+          {canAccessAdmin && (
+            <Button variant="outline" asChild>
+              <Link href="/dashboard/vault/admin">
+                <Settings className="mr-2 h-4 w-4" />
+                Admin
+              </Link>
             </Button>
-            {canAccessAdmin && (
-              <Button variant="outline" asChild>
-                <Link href="/dashboard/vault/admin">
-                  <Settings className="mr-2 h-4 w-4" />
-                  Admin
-                </Link>
-              </Button>
-            )}
-            {canManagePackages && (
-              <Button onClick={() => setNewPackageDialogOpen(true)}>
-                <Plus className="mr-2 h-4 w-4" />
-                New Package
-              </Button>
-            )}
-          </div>
+          )}
         </div>
 
         {/* Tag Lookup */}
@@ -506,7 +494,28 @@ export default function VaultPage() {
       {/* Filters Card */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base font-semibold">Filters</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base font-semibold">Filters</CardTitle>
+            <div className="flex items-center gap-2">
+              {(strainFilter.length > 0 || batchFilter.length > 0 || typeFilter.length > 0) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setStrainFilter([])
+                    setBatchFilter([])
+                    setTypeFilter([])
+                  }}
+                >
+                  <X className="h-4 w-4 mr-1" />
+                  Clear
+                </Button>
+              )}
+              <Button variant="ghost" size="icon" onClick={handlePrint}>
+                <Printer className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="pt-0">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -600,22 +609,6 @@ export default function VaultPage() {
               </Select>
             </div>
           </div>
-
-          {(strainFilter.length > 0 || batchFilter.length > 0 || typeFilter.length > 0) && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="mt-3"
-              onClick={() => {
-                setStrainFilter([])
-                setBatchFilter([])
-                setTypeFilter([])
-              }}
-            >
-              <X className="h-4 w-4 mr-1" />
-              Clear Filters
-            </Button>
-          )}
         </CardContent>
       </Card>
 
