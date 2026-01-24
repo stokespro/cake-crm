@@ -27,7 +27,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
-import { Plus, Search, ShoppingCart, Calendar, DollarSign, Package, Truck, Edit2, Save, X, Trash2, LayoutGrid, List, ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react'
+import { Plus, Search, ShoppingCart, Calendar, DollarSign, Package, Truck, Edit2, Save, X, Trash2, LayoutGrid, List, ArrowUpDown, ChevronUp, ChevronDown, MoreVertical } from 'lucide-react'
 import {
   Table,
   TableBody,
@@ -36,6 +36,18 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { format } from 'date-fns'
 import type { Order, OrderStatus } from '@/types/database'
 
@@ -96,6 +108,9 @@ export default function OrdersPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('card')
   const [sortField, setSortField] = useState<SortField>('order_date')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const [sheetEditMode, setSheetEditMode] = useState(false)
   const supabase = createClient()
   const { user } = useAuth()
 
@@ -261,6 +276,12 @@ export default function OrdersPage() {
     localStorage.setItem('ordersViewMode', mode)
   }
 
+  const handleRowClick = (order: Order) => {
+    setSelectedOrder(order)
+    setSheetEditMode(false)
+    setSheetOpen(true)
+  }
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'pending':
@@ -322,6 +343,124 @@ export default function OrdersPage() {
       requested_delivery_date: order.requested_delivery_date ? order.requested_delivery_date.split('T')[0] : '',
       order_items: editItems,
     })
+  }
+
+  const startSheetEditing = (order: Order) => {
+    startEditing(order)
+    setSheetEditMode(true)
+  }
+
+  const cancelSheetEditing = () => {
+    setSheetEditMode(false)
+    setEditingOrder(null)
+    setEditForm({} as EditFormData)
+  }
+
+  const saveSheetOrder = async () => {
+    if (!selectedOrder || !user) return
+    setSaving(true)
+    try {
+      const newTotal = getEditTotal()
+
+      // Update order details
+      const updateData: UpdateData = {
+        status: editForm.status,
+        order_notes: editForm.order_notes,
+        requested_delivery_date: editForm.requested_delivery_date || null,
+        total_price: newTotal,
+        last_edited_by: user.id,
+        last_edited_at: new Date().toISOString()
+      }
+
+      // Auto-set delivered_at when status changes to delivered
+      if (editForm.status === 'delivered') {
+        updateData.delivered_at = new Date().toISOString()
+      }
+
+      const { error: orderError } = await supabase
+        .from('orders')
+        .update(updateData)
+        .eq('id', selectedOrder.id)
+
+      if (orderError) throw orderError
+
+      // Handle order items changes
+      const items = editForm.order_items || []
+
+      // Delete removed items
+      const deletedItems = items.filter(item => item._deleted && item.id)
+      for (const item of deletedItems) {
+        const { error } = await supabase
+          .from('order_items')
+          .delete()
+          .eq('id', item.id)
+        if (error) throw error
+      }
+
+      // Update existing items
+      const existingItems = items.filter(item => item.id && !item._deleted)
+      for (const item of existingItems) {
+        const { error } = await supabase
+          .from('order_items')
+          .update({
+            sku_id: item.sku_id,
+            quantity: item.quantity,
+            unit_price: item.unit_price || null,
+          })
+          .eq('id', item.id!)
+        if (error) throw error
+      }
+
+      // Insert new items
+      const newItems = items.filter(item => !item.id && !item._deleted)
+      if (newItems.length > 0) {
+        const { error } = await supabase
+          .from('order_items')
+          .insert(newItems.map(item => ({
+            order_id: selectedOrder.id,
+            sku_id: item.sku_id,
+            quantity: item.quantity,
+            unit_price: item.unit_price || null,
+          })))
+        if (error) throw error
+      }
+
+      toast.success('Order saved successfully')
+      setSheetEditMode(false)
+      setEditingOrder(null)
+      setEditForm({} as EditFormData)
+      await fetchOrders()
+
+      // Update selectedOrder with new data
+      const { data: updatedOrder } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          customer:customers(business_name),
+          order_items(
+            id,
+            sku_id,
+            quantity,
+            unit_price,
+            line_total,
+            sku:skus(code, name)
+          )
+        `)
+        .eq('id', selectedOrder.id)
+        .single()
+
+      if (updatedOrder) {
+        setSelectedOrder({
+          ...updatedOrder,
+          dispensary: updatedOrder.customer,
+        })
+      }
+    } catch (error) {
+      console.error('Error saving order:', error)
+      toast.error('Error saving order. Please try again.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const cancelEditing = () => {
@@ -694,12 +833,16 @@ export default function OrdersPage() {
                     <SortIcon field="total" />
                   </button>
                 </TableHead>
-                <TableHead className="w-[100px]">Actions</TableHead>
+                <TableHead className="w-[60px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredOrders.map((order) => (
-                <TableRow key={order.id}>
+                <TableRow
+                  key={order.id}
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => handleRowClick(order)}
+                >
                   <TableCell className="font-medium">
                     {order.order_number ? `#${order.order_number}` : '—'}
                   </TableCell>
@@ -725,32 +868,36 @@ export default function OrdersPage() {
                   <TableCell className="text-right font-medium">
                     ${(order.total_price || 0).toFixed(2)}
                   </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      {canEditOrders && (
-                        <>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => startEditing(order)}
-                            className="h-8 w-8"
-                          >
-                            <Edit2 className="h-4 w-4" />
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    {canEditOrders && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreVertical className="h-4 w-4" />
                           </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => {
+                            setSelectedOrder(order)
+                            startSheetEditing(order)
+                            setSheetOpen(true)
+                          }}>
+                            <Edit2 className="h-4 w-4 mr-2" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
                             onClick={() => {
                               setDeleteOrderId(order.id)
                               setDeleteOrderNumber(order.order_number || order.id.slice(0, 8))
                             }}
+                            className="text-red-600 focus:text-red-600"
                           >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </>
-                      )}
-                    </div>
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
@@ -1022,154 +1169,284 @@ export default function OrdersPage() {
         </div>
       )}
 
-      {/* Edit Modal for Table View */}
-      {viewMode === 'table' && editingOrder && (
-        <Card className="mt-4">
-          <CardHeader>
-            <CardTitle className="text-lg">
-              Edit Order #{filteredOrders.find(o => o.id === editingOrder)?.order_number}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Order Details */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Status</label>
-                <Select
-                  value={editForm.status}
-                  onValueChange={(value) => updateEditForm('status', value as OrderStatus)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="confirmed">Confirmed</SelectItem>
-                    <SelectItem value="packed">Packed</SelectItem>
-                    <SelectItem value="delivered">Delivered</SelectItem>
-                    <SelectItem value="cancelled">Cancelled</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Requested Delivery Date</label>
-                <Input
-                  type="date"
-                  value={editForm.requested_delivery_date}
-                  onChange={(e) => updateEditForm('requested_delivery_date', e.target.value)}
-                />
-              </div>
-            </div>
+      {/* Order Details Sheet */}
+      <Sheet open={sheetOpen} onOpenChange={(open) => {
+        setSheetOpen(open)
+        if (!open) {
+          setSheetEditMode(false)
+          setEditingOrder(null)
+          setEditForm({} as EditFormData)
+        }
+      }}>
+        <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+          <SheetHeader className="pb-4">
+            <SheetTitle className="flex items-center gap-2">
+              {sheetEditMode ? 'Edit ' : ''}Order {selectedOrder?.order_number ? `#${selectedOrder.order_number}` : ''}
+              {selectedOrder && !sheetEditMode && getStatusBadge(selectedOrder.status)}
+            </SheetTitle>
+          </SheetHeader>
 
-            {/* Order Items Edit */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium flex items-center gap-1">
-                  <Package className="h-4 w-4" />
-                  Order Items
-                </label>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={addEditItem}
-                  disabled={skus.length === 0}
-                >
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add Item
-                </Button>
+          {selectedOrder && !sheetEditMode && (
+            <div className="space-y-6">
+              {/* Customer */}
+              <div>
+                <h3 className="text-sm font-medium text-muted-foreground mb-1">Customer</h3>
+                <p className="text-lg font-semibold">{selectedOrder.customer?.business_name || 'Unknown'}</p>
               </div>
 
-              {editForm.order_items?.filter(item => !item._deleted).length === 0 ? (
-                <div className="text-sm text-muted-foreground text-center py-4 border rounded-md">
-                  No items. Click "Add Item" to add products.
+              {/* Dates */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-1">Order Date</h3>
+                  <p className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                    {format(new Date(selectedOrder.order_date), 'MMM d, yyyy')}
+                  </p>
                 </div>
-              ) : (
-                <div className="space-y-2">
-                  {editForm.order_items?.map((item, index) => (
-                    !item._deleted && (
-                      <div key={index} className="flex items-center gap-2 p-2 border rounded-md bg-muted/50">
-                        <Select
-                          value={item.sku_id}
-                          onValueChange={(value) => updateEditItem(index, 'sku_id', value)}
-                        >
-                          <SelectTrigger className="flex-1">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {skus.map((sku) => (
-                              <SelectItem key={sku.id} value={sku.id}>
-                                {sku.code} - {sku.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <Input
-                          type="number"
-                          min="1"
-                          value={item.quantity}
-                          onChange={(e) => updateEditItem(index, 'quantity', parseInt(e.target.value) || 1)}
-                          className="w-20"
-                        />
-                        <div className="w-24 text-right text-sm font-medium">
-                          ${item.line_total.toFixed(2)}
-                        </div>
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => removeEditItem(index)}
-                        >
-                          <Trash2 className="h-4 w-4 text-red-500" />
-                        </Button>
-                      </div>
-                    )
-                  ))}
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-1">Delivery Date</h3>
+                  <p className="flex items-center gap-2">
+                    <Truck className="h-4 w-4 text-muted-foreground" />
+                    {selectedOrder.requested_delivery_date
+                      ? format(new Date(selectedOrder.requested_delivery_date), 'MMM d, yyyy')
+                      : '—'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Delivered At */}
+              {selectedOrder.delivered_at && (
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-1">Delivered</h3>
+                  <p className="flex items-center gap-2 text-green-600">
+                    <Truck className="h-4 w-4" />
+                    {format(new Date(selectedOrder.delivered_at), 'MMM d, yyyy h:mm a')}
+                  </p>
                 </div>
               )}
 
-              {/* Edit Total */}
-              <div className="flex justify-end pt-2 border-t">
-                <div className="text-sm font-medium">
-                  Total: <span className="text-lg">${getEditTotal().toFixed(2)}</span>
+              {/* Order Items */}
+              <div>
+                <h3 className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
+                  <Package className="h-4 w-4" />
+                  Order Items ({selectedOrder.order_items?.length || 0})
+                </h3>
+                {selectedOrder.order_items && selectedOrder.order_items.length > 0 ? (
+                  <div className="border rounded-lg divide-y">
+                    {selectedOrder.order_items.map((item) => (
+                      <div key={item.id} className="flex justify-between items-center p-3">
+                        <div>
+                          <p className="font-medium">{item.sku?.code || 'Unknown SKU'}</p>
+                          <p className="text-sm text-muted-foreground">{item.sku?.name}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-medium">${(item.line_total || 0).toFixed(2)}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {item.quantity} × ${(item.unit_price || 0).toFixed(2)}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                    <div className="flex justify-between items-center p-3 bg-muted/50">
+                      <p className="font-semibold">Total</p>
+                      <p className="text-lg font-bold">${(selectedOrder.total_price || 0).toFixed(2)}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No items</p>
+                )}
+              </div>
+
+              {/* Order Notes */}
+              {selectedOrder.order_notes && (
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-1">Notes</h3>
+                  <p className="text-sm bg-muted/50 rounded-lg p-3">{selectedOrder.order_notes}</p>
+                </div>
+              )}
+
+              {/* Last Edited */}
+              {selectedOrder.last_edited_at && (
+                <div className="text-xs text-muted-foreground">
+                  Last edited: {format(new Date(selectedOrder.last_edited_at), 'MMM d, yyyy h:mm a')}
+                </div>
+              )}
+
+              {/* Actions */}
+              {canEditOrders && (
+                <div className="flex gap-2 pt-4 border-t">
+                  <Button
+                    className="flex-1"
+                    onClick={() => startSheetEditing(selectedOrder)}
+                  >
+                    <Edit2 className="h-4 w-4 mr-2" />
+                    Edit Order
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                    onClick={() => {
+                      setSheetOpen(false)
+                      setDeleteOrderId(selectedOrder.id)
+                      setDeleteOrderNumber(selectedOrder.order_number || selectedOrder.id.slice(0, 8))
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Edit Mode Content */}
+          {selectedOrder && sheetEditMode && (
+            <div className="space-y-4">
+              {/* Customer (read-only in edit mode) */}
+              <div>
+                <h3 className="text-sm font-medium text-muted-foreground mb-1">Customer</h3>
+                <p className="font-medium">{selectedOrder.customer?.business_name || 'Unknown'}</p>
+              </div>
+
+              {/* Order Details */}
+              <div className="grid grid-cols-1 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Status</label>
+                  <Select
+                    value={editForm.status}
+                    onValueChange={(value) => updateEditForm('status', value as OrderStatus)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="confirmed">Confirmed</SelectItem>
+                      <SelectItem value="packed">Packed</SelectItem>
+                      <SelectItem value="delivered">Delivered</SelectItem>
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Requested Delivery Date</label>
+                  <Input
+                    type="date"
+                    value={editForm.requested_delivery_date}
+                    onChange={(e) => updateEditForm('requested_delivery_date', e.target.value)}
+                  />
                 </div>
               </div>
-            </div>
 
-            {/* Order Notes */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Order Notes</label>
-              <Textarea
-                value={editForm.order_notes}
-                onChange={(e) => updateEditForm('order_notes', e.target.value)}
-                placeholder="Order notes..."
-                rows={3}
-              />
-            </div>
+              {/* Order Items Edit */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium flex items-center gap-1">
+                    <Package className="h-4 w-4" />
+                    Order Items
+                  </label>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={addEditItem}
+                    disabled={skus.length === 0}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Item
+                  </Button>
+                </div>
 
-            {/* Save/Cancel Buttons */}
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                onClick={() => saveOrder(editingOrder)}
-                disabled={saving}
-              >
-                <Save className="h-4 w-4 mr-2" />
-                {saving ? 'Saving...' : 'Save Changes'}
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={cancelEditing}
-                disabled={saving}
-              >
-                <X className="h-4 w-4 mr-2" />
-                Cancel
-              </Button>
+                {editForm.order_items?.filter(item => !item._deleted).length === 0 ? (
+                  <div className="text-sm text-muted-foreground text-center py-4 border rounded-md">
+                    No items. Click "Add Item" to add products.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {editForm.order_items?.map((item, index) => (
+                      !item._deleted && (
+                        <div key={index} className="flex items-center gap-2 p-2 border rounded-md bg-muted/50">
+                          <Select
+                            value={item.sku_id}
+                            onValueChange={(value) => updateEditItem(index, 'sku_id', value)}
+                          >
+                            <SelectTrigger className="flex-1">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {skus.map((sku) => (
+                                <SelectItem key={sku.id} value={sku.id}>
+                                  {sku.code} - {sku.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Input
+                            type="number"
+                            min="1"
+                            value={item.quantity}
+                            onChange={(e) => updateEditItem(index, 'quantity', parseInt(e.target.value) || 1)}
+                            className="w-16"
+                          />
+                          <div className="w-20 text-right text-sm font-medium">
+                            ${item.line_total.toFixed(2)}
+                          </div>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => removeEditItem(index)}
+                            className="h-8 w-8"
+                          >
+                            <Trash2 className="h-4 w-4 text-red-500" />
+                          </Button>
+                        </div>
+                      )
+                    ))}
+                  </div>
+                )}
+
+                {/* Edit Total */}
+                <div className="flex justify-end pt-2 border-t">
+                  <div className="text-sm font-medium">
+                    Total: <span className="text-lg">${getEditTotal().toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Order Notes */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Order Notes</label>
+                <Textarea
+                  value={editForm.order_notes}
+                  onChange={(e) => updateEditForm('order_notes', e.target.value)}
+                  placeholder="Order notes..."
+                  rows={3}
+                />
+              </div>
+
+              {/* Save/Cancel Buttons */}
+              <div className="flex gap-2 pt-4 border-t">
+                <Button
+                  className="flex-1"
+                  onClick={saveSheetOrder}
+                  disabled={saving}
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  {saving ? 'Saving...' : 'Save Changes'}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={cancelSheetEditing}
+                  disabled={saving}
+                >
+                  <X className="h-4 w-4 mr-2" />
+                  Cancel
+                </Button>
+              </div>
             </div>
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </SheetContent>
+      </Sheet>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!deleteOrderId} onOpenChange={(open) => !open && setDeleteOrderId(null)}>

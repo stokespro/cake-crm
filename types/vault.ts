@@ -16,6 +16,7 @@ export interface Batch {
   id: string
   name: string
   strain_id: string
+  is_active: boolean
   created_at: string
   strain?: Strain
 }

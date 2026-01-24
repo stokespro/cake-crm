@@ -39,7 +39,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Plus, Pencil, Trash2, Loader2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, Loader2, ToggleLeft, ToggleRight } from 'lucide-react'
 import {
   getStrains,
   createStrain,
@@ -49,6 +49,7 @@ import {
   createBatch,
   updateBatch,
   deleteBatch,
+  toggleBatchActive,
   getProductTypes,
   createProductType,
   updateProductType,
@@ -81,6 +82,7 @@ export default function VaultAdminPage() {
   const [batchError, setBatchError] = useState('')
   const [deleteBatchId, setDeleteBatchId] = useState<string | null>(null)
   const [batchDeleting, setBatchDeleting] = useState(false)
+  const [togglingBatchId, setTogglingBatchId] = useState<string | null>(null)
 
   // Product Types state
   const [productTypes, setProductTypes] = useState<ProductType[]>([])
@@ -219,6 +221,17 @@ export default function VaultAdminPage() {
     }
     setDeleteBatchId(null)
     setBatchDeleting(false)
+  }
+
+  async function handleToggleBatchActive(batch: Batch) {
+    setTogglingBatchId(batch.id)
+    const result = await toggleBatchActive(batch.id, !batch.is_active)
+    if (result.success) {
+      loadBatches()
+    } else {
+      alert(result.error || 'Failed to toggle batch status')
+    }
+    setTogglingBatchId(null)
   }
 
   // Product Type handlers
@@ -376,27 +389,52 @@ export default function VaultAdminPage() {
                     <TableRow>
                       <TableHead>Name</TableHead>
                       <TableHead>Strain</TableHead>
+                      <TableHead>Status</TableHead>
                       <TableHead>Created</TableHead>
-                      <TableHead className="w-[100px]">Actions</TableHead>
+                      <TableHead className="w-[120px]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {batches.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={4} className="text-center text-muted-foreground">
+                        <TableCell colSpan={5} className="text-center text-muted-foreground">
                           No batches found
                         </TableCell>
                       </TableRow>
                     ) : (
                       batches.map((batch) => (
-                        <TableRow key={batch.id}>
+                        <TableRow key={batch.id} className={!batch.is_active ? 'opacity-60' : ''}>
                           <TableCell className="font-medium">{batch.name}</TableCell>
                           <TableCell>{batch.strain?.name || '-'}</TableCell>
+                          <TableCell>
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                              batch.is_active
+                                ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                                : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                            }`}>
+                              {batch.is_active ? 'Active' : 'Inactive'}
+                            </span>
+                          </TableCell>
                           <TableCell>
                             {new Date(batch.created_at).toLocaleDateString()}
                           </TableCell>
                           <TableCell>
-                            <div className="flex gap-2">
+                            <div className="flex gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleToggleBatchActive(batch)}
+                                disabled={togglingBatchId === batch.id}
+                                title={batch.is_active ? 'Deactivate batch' : 'Activate batch'}
+                              >
+                                {togglingBatchId === batch.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : batch.is_active ? (
+                                  <ToggleRight className="h-4 w-4 text-green-600" />
+                                ) : (
+                                  <ToggleLeft className="h-4 w-4 text-gray-400" />
+                                )}
+                              </Button>
                               <Button
                                 variant="ghost"
                                 size="icon"

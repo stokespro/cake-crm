@@ -95,7 +95,7 @@ export async function getAllPackages(): Promise<{
   return { success: true, packages: data as VaultPackage[] }
 }
 
-// Get unique batches for filtering
+// Get unique batches for filtering (only active batches)
 export async function getUniqueBatches(): Promise<{
   success: boolean
   batches?: string[]
@@ -103,6 +103,19 @@ export async function getUniqueBatches(): Promise<{
 }> {
   const supabase = await createClient()
 
+  // Get all active batch names
+  const { data: activeBatches, error: batchError } = await supabase
+    .from('batches')
+    .select('name')
+    .eq('is_active', true)
+
+  if (batchError) {
+    return { success: false, error: batchError.message }
+  }
+
+  const activeBatchNames = new Set(activeBatches.map(b => b.name))
+
+  // Get unique batches from packages, filtered to only active ones
   const { data, error } = await supabase
     .from('packages')
     .select('batch')
@@ -112,7 +125,7 @@ export async function getUniqueBatches(): Promise<{
     return { success: false, error: error.message }
   }
 
-  const uniqueBatches = [...new Set(data.map(p => p.batch))]
+  const uniqueBatches = [...new Set(data.map(p => p.batch))].filter(batch => activeBatchNames.has(batch))
   return { success: true, batches: uniqueBatches }
 }
 
@@ -517,26 +530,56 @@ export async function deleteStrain(id: string): Promise<{ success: boolean; erro
 // BATCH CRUD OPERATIONS
 // ============================================================================
 
-export async function getBatches(): Promise<{
+export async function getBatches(options?: { activeOnly?: boolean }): Promise<{
   success: boolean
   batches?: Batch[]
   error?: string
 }> {
   const supabase = await createClient()
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('batches')
     .select(`
       *,
       strain:strains(*)
     `)
-    .order('name', { ascending: true })
+
+  // Filter by active status if requested
+  if (options?.activeOnly) {
+    query = query.eq('is_active', true)
+  }
+
+  const { data, error } = await query.order('name', { ascending: true })
 
   if (error) {
     return { success: false, error: error.message }
   }
 
   return { success: true, batches: data as Batch[] }
+}
+
+// Toggle batch active status
+export async function toggleBatchActive(
+  id: string,
+  isActive: boolean
+): Promise<{ success: boolean; batch?: Batch; error?: string }> {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from('batches')
+    .update({ is_active: isActive })
+    .eq('id', id)
+    .select(`
+      *,
+      strain:strains(*)
+    `)
+    .single()
+
+  if (error) {
+    return { success: false, error: error.message }
+  }
+
+  return { success: true, batch: data as Batch }
 }
 
 export async function createBatch(

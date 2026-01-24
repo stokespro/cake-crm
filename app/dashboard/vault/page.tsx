@@ -136,7 +136,7 @@ export default function VaultPage() {
     const [strainsResult, typesResult, batchesResult, uniqueBatchesResult] = await Promise.all([
       getStrains(),
       getProductTypes(),
-      getBatches(),
+      getBatches({ activeOnly: true }), // Only fetch active batches for dropdowns
       getUniqueBatches(),
     ])
 
