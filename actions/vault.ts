@@ -301,6 +301,79 @@ export async function createPackage(
   return { success: true, package: packageData as VaultPackage }
 }
 
+// Update an existing package
+export async function updatePackage(
+  tagId: string,
+  updates: {
+    batch?: string
+    strain?: string
+    strainId?: string
+    typeId?: string
+  }
+): Promise<{ success: boolean; package?: VaultPackage; error?: string }> {
+  const supabase = await createClient()
+
+  const updateData: Record<string, unknown> = {}
+
+  if (updates.batch !== undefined) {
+    if (!updates.batch.trim()) {
+      return { success: false, error: 'Batch cannot be empty' }
+    }
+    updateData.batch = updates.batch.trim()
+  }
+
+  if (updates.strain !== undefined) {
+    updateData.strain = updates.strain.trim()
+  }
+
+  if (updates.strainId !== undefined) {
+    if (!updates.strainId) {
+      return { success: false, error: 'Strain is required' }
+    }
+    updateData.strain_id = updates.strainId
+  }
+
+  if (updates.typeId !== undefined) {
+    if (!updates.typeId) {
+      return { success: false, error: 'Type is required' }
+    }
+    updateData.type_id = updates.typeId
+  }
+
+  if (Object.keys(updateData).length === 0) {
+    return { success: false, error: 'No updates provided' }
+  }
+
+  updateData.updated_at = new Date().toISOString()
+
+  const { error: updateError } = await supabase
+    .from('packages')
+    .update(updateData)
+    .eq('tag_id', tagId)
+
+  if (updateError) {
+    return { success: false, error: updateError.message }
+  }
+
+  // Fetch updated package with joins
+  const { data: updatedPackage, error: refetchError } = await supabase
+    .from('packages')
+    .select(`
+      *,
+      type:product_types(*),
+      strain_info:strains(*),
+      creator:users(id, name)
+    `)
+    .eq('tag_id', tagId)
+    .single()
+
+  if (refetchError) {
+    return { success: false, error: refetchError.message }
+  }
+
+  return { success: true, package: updatedPackage as VaultPackage }
+}
+
 // Get all strains
 export async function getStrains(): Promise<{
   success: boolean

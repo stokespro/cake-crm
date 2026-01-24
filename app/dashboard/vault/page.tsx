@@ -1,19 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/lib/auth-context'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import {
   Dialog,
   DialogContent,
@@ -29,87 +21,123 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet'
 import { Label } from '@/components/ui/label'
-import { Separator } from '@/components/ui/separator'
 import { toast } from 'sonner'
 import {
-  Package,
   Search,
   Plus,
   Minus,
-  Scale,
-  History,
   Loader2,
-  Warehouse,
   ScanLine,
   Settings,
+  Printer,
+  ChevronRight,
+  Pencil,
+  X,
+  Package,
 } from 'lucide-react'
 import Link from 'next/link'
 import {
   getAllPackages,
+  getFilteredPackages,
   getPackage,
   adjustWeight,
   createPackage,
+  updatePackage,
   getRecentTransactions,
   getStrains,
   getProductTypes,
+  getUniqueBatches,
+  getBatches,
 } from '@/actions/vault'
-import type { VaultPackage, Transaction, Strain, ProductType } from '@/types/vault'
+import type { VaultPackage, Transaction, Strain, ProductType, Batch } from '@/types/vault'
+
+const GRAMS_PER_LB = 453.592
 
 export default function VaultPage() {
   const { user } = useAuth()
   const [packages, setPackages] = useState<VaultPackage[]>([])
   const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState('')
 
-  // Selected package state
+  // Filter state
+  const [strainFilter, setStrainFilter] = useState<string[]>([])
+  const [batchFilter, setBatchFilter] = useState<string[]>([])
+  const [typeFilter, setTypeFilter] = useState<string[]>([])
+  const [strains, setStrains] = useState<Strain[]>([])
+  const [batches, setBatches] = useState<Batch[]>([])
+  const [uniqueBatches, setUniqueBatches] = useState<string[]>([])
+  const [productTypes, setProductTypes] = useState<ProductType[]>([])
+
+  // Selected package state (for Sheet)
   const [selectedPackage, setSelectedPackage] = useState<VaultPackage | null>(null)
   const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [loadingPackage, setLoadingPackage] = useState(false)
+  const [sheetOpen, setSheetOpen] = useState(false)
 
-  // Weight adjustment dialog
-  const [adjustDialogOpen, setAdjustDialogOpen] = useState(false)
-  const [adjustType, setAdjustType] = useState<'add' | 'remove'>('remove')
+  // Weight adjustment state
   const [adjustAmount, setAdjustAmount] = useState('')
   const [adjusting, setAdjusting] = useState(false)
+  const [adjustError, setAdjustError] = useState<string | null>(null)
+
+  // Edit package dialog
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [editBatchId, setEditBatchId] = useState('')
+  const [editTypeId, setEditTypeId] = useState('')
+  const [updating, setUpdating] = useState(false)
 
   // New package dialog
   const [newPackageDialogOpen, setNewPackageDialogOpen] = useState(false)
   const [newTagId, setNewTagId] = useState('')
-  const [newBatch, setNewBatch] = useState('')
-  const [newStrainId, setNewStrainId] = useState('')
+  const [newBatchId, setNewBatchId] = useState('')
   const [newTypeId, setNewTypeId] = useState('')
   const [newWeight, setNewWeight] = useState('')
   const [creating, setCreating] = useState(false)
-  const [strains, setStrains] = useState<Strain[]>([])
-  const [productTypes, setProductTypes] = useState<ProductType[]>([])
 
-  // Lookup by tag
+  // Tag lookup
   const [lookupTag, setLookupTag] = useState('')
+  const [lookingUp, setLookingUp] = useState(false)
 
   const canManagePackages = user?.role === 'admin' || user?.role === 'management' || user?.role === 'vault'
   const canAccessAdmin = user?.role === 'admin' || user?.role === 'management'
+  const canEdit = user?.role === 'admin' || user?.role === 'management'
 
-  useEffect(() => {
-    fetchPackages()
-    fetchFormData()
-  }, [])
-
-  const fetchPackages = async () => {
+  // Fetch packages based on filters
+  const fetchPackages = useCallback(async () => {
     setLoading(true)
-    const result = await getAllPackages()
+
+    const hasFilters = strainFilter.length > 0 || batchFilter.length > 0 || typeFilter.length > 0
+
+    let result
+    if (hasFilters) {
+      result = await getFilteredPackages({
+        strainIds: strainFilter.length > 0 ? strainFilter : undefined,
+        batches: batchFilter.length > 0 ? batchFilter : undefined,
+        typeIds: typeFilter.length > 0 ? typeFilter : undefined,
+      })
+    } else {
+      result = await getAllPackages()
+    }
+
     if (result.success && result.packages) {
       setPackages(result.packages)
     } else {
       toast.error(result.error || 'Failed to load packages')
     }
     setLoading(false)
-  }
+  }, [strainFilter, batchFilter, typeFilter])
 
-  const fetchFormData = async () => {
-    const [strainsResult, typesResult] = await Promise.all([
+  // Fetch filter data
+  const fetchFilterData = async () => {
+    const [strainsResult, typesResult, batchesResult, uniqueBatchesResult] = await Promise.all([
       getStrains(),
       getProductTypes(),
+      getBatches(),
+      getUniqueBatches(),
     ])
 
     if (strainsResult.success && strainsResult.strains) {
@@ -118,12 +146,33 @@ export default function VaultPage() {
     if (typesResult.success && typesResult.productTypes) {
       setProductTypes(typesResult.productTypes)
     }
+    if (batchesResult.success && batchesResult.batches) {
+      setBatches(batchesResult.batches)
+    }
+    if (uniqueBatchesResult.success && uniqueBatchesResult.batches) {
+      setUniqueBatches(uniqueBatchesResult.batches)
+    }
   }
 
+  useEffect(() => {
+    fetchPackages()
+    fetchFilterData()
+  }, [])
+
+  useEffect(() => {
+    fetchPackages()
+  }, [fetchPackages])
+
+  // Calculate summary stats
+  const totalPackages = packages.length
+  const totalGrams = packages.reduce((sum, p) => sum + p.current_weight, 0)
+  const totalPounds = totalGrams / GRAMS_PER_LB
+
+  // Handle tag lookup
   const handleLookupTag = async () => {
     if (!lookupTag.trim()) return
 
-    setLoadingPackage(true)
+    setLookingUp(true)
     const result = await getPackage(lookupTag.trim())
 
     if (result.success) {
@@ -133,6 +182,7 @@ export default function VaultPage() {
         if (txResult.success && txResult.transactions) {
           setTransactions(txResult.transactions)
         }
+        setSheetOpen(true)
       } else {
         toast.error('Package not found')
         if (canManagePackages) {
@@ -144,34 +194,45 @@ export default function VaultPage() {
       toast.error(result.error || 'Failed to lookup package')
     }
 
-    setLoadingPackage(false)
+    setLookingUp(false)
     setLookupTag('')
   }
 
+  // Handle selecting a package from the list
   const handleSelectPackage = async (pkg: VaultPackage) => {
     setSelectedPackage(pkg)
+    setAdjustAmount('')
+    setAdjustError(null)
+
     const result = await getRecentTransactions(pkg.tag_id)
     if (result.success && result.transactions) {
       setTransactions(result.transactions)
     }
+    setSheetOpen(true)
   }
 
-  const handleAdjustWeight = async () => {
+  // Handle weight adjustment
+  const handleAdjustWeight = async (type: 'add' | 'remove') => {
     if (!selectedPackage || !user) return
+    setAdjustError(null)
 
     const amount = parseFloat(adjustAmount)
     if (isNaN(amount) || amount <= 0) {
-      toast.error('Please enter a valid amount')
+      setAdjustError('Please enter a valid weight')
+      return
+    }
+
+    if (type === 'remove' && amount > selectedPackage.current_weight) {
+      setAdjustError('Cannot remove more than current balance')
       return
     }
 
     setAdjusting(true)
-    const result = await adjustWeight(selectedPackage.tag_id, amount, adjustType, user.id)
+    const result = await adjustWeight(selectedPackage.tag_id, amount, type, user.id)
 
     if (result.success && result.package) {
       setSelectedPackage(result.package)
-      toast.success(`${adjustType === 'add' ? 'Added' : 'Removed'} ${amount}g`)
-      setAdjustDialogOpen(false)
+      toast.success(`${type === 'add' ? 'Added' : 'Removed'} ${amount}g`)
       setAdjustAmount('')
 
       // Refresh transactions
@@ -183,12 +244,59 @@ export default function VaultPage() {
       // Refresh packages list
       fetchPackages()
     } else {
-      toast.error(result.error || 'Failed to adjust weight')
+      setAdjustError(result.error || 'Failed to adjust weight')
     }
 
     setAdjusting(false)
   }
 
+  // Handle opening edit dialog
+  const handleOpenEdit = () => {
+    if (!selectedPackage) return
+
+    // Find the batch that matches
+    const matchingBatch = batches.find(b => b.name === selectedPackage.batch)
+    setEditBatchId(matchingBatch?.id || '')
+    setEditTypeId(selectedPackage.type_id)
+    setEditDialogOpen(true)
+  }
+
+  // Handle updating package
+  const handleUpdatePackage = async () => {
+    if (!selectedPackage) return
+
+    const batch = batches.find(b => b.id === editBatchId)
+    if (!batch) {
+      toast.error('Please select a batch')
+      return
+    }
+
+    if (!editTypeId) {
+      toast.error('Please select a type')
+      return
+    }
+
+    setUpdating(true)
+    const result = await updatePackage(selectedPackage.tag_id, {
+      batch: batch.name,
+      strain: batch.strain?.name || '',
+      strainId: batch.strain_id,
+      typeId: editTypeId,
+    })
+
+    if (result.success && result.package) {
+      setSelectedPackage(result.package)
+      toast.success('Package updated')
+      setEditDialogOpen(false)
+      fetchPackages()
+    } else {
+      toast.error(result.error || 'Failed to update package')
+    }
+
+    setUpdating(false)
+  }
+
+  // Handle creating new package
   const handleCreatePackage = async () => {
     if (!user) return
 
@@ -198,18 +306,23 @@ export default function VaultPage() {
       return
     }
 
-    const strain = strains.find(s => s.id === newStrainId)
-    if (!strain) {
-      toast.error('Please select a strain')
+    const batch = batches.find(b => b.id === newBatchId)
+    if (!batch) {
+      toast.error('Please select a batch')
+      return
+    }
+
+    if (!newTypeId) {
+      toast.error('Please select a type')
       return
     }
 
     setCreating(true)
     const result = await createPackage(
       newTagId,
-      newBatch,
-      strain.name,
-      newStrainId,
+      batch.name,
+      batch.strain?.name || '',
+      batch.strain_id,
       newTypeId,
       weight,
       user.id
@@ -221,6 +334,13 @@ export default function VaultPage() {
       setSelectedPackage(result.package)
       resetNewPackageForm()
       fetchPackages()
+
+      // Open the sheet with the new package
+      const txResult = await getRecentTransactions(result.package.tag_id)
+      if (txResult.success && txResult.transactions) {
+        setTransactions(txResult.transactions)
+      }
+      setSheetOpen(true)
     } else {
       toast.error(result.error || 'Failed to create package')
     }
@@ -230,31 +350,95 @@ export default function VaultPage() {
 
   const resetNewPackageForm = () => {
     setNewTagId('')
-    setNewBatch('')
-    setNewStrainId('')
+    setNewBatchId('')
     setNewTypeId('')
     setNewWeight('')
   }
 
-  // Filter packages by search
-  const filteredPackages = packages.filter(pkg =>
-    pkg.tag_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    pkg.strain.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    pkg.batch.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  // Handle print
+  const handlePrint = () => {
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Vault Inventory Report</title>
+        <style>
+          body { font-family: system-ui, sans-serif; padding: 20px; }
+          h1 { margin-bottom: 5px; }
+          .date { color: #666; margin-bottom: 20px; }
+          .summary { display: flex; gap: 40px; margin-bottom: 30px; }
+          .summary-item { }
+          .summary-label { font-size: 12px; color: #666; text-transform: uppercase; }
+          .summary-value { font-size: 24px; font-weight: bold; }
+          .summary-sub { font-size: 12px; color: #666; }
+          table { width: 100%; border-collapse: collapse; }
+          th, td { text-align: left; padding: 8px; border-bottom: 1px solid #ddd; }
+          th { font-weight: 600; background: #f5f5f5; }
+          .mono { font-family: monospace; font-size: 12px; }
+          .right { text-align: right; }
+          @media print { body { padding: 0; } }
+        </style>
+      </head>
+      <body>
+        <h1>Vault Inventory Report</h1>
+        <p class="date">${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
 
-  // Group packages by strain for summary
-  const strainSummary = packages.reduce((acc, pkg) => {
-    const strain = pkg.strain
-    if (!acc[strain]) {
-      acc[strain] = { count: 0, weight: 0 }
+        <div class="summary">
+          <div class="summary-item">
+            <div class="summary-label">Packages</div>
+            <div class="summary-value">${totalPackages}</div>
+          </div>
+          <div class="summary-item">
+            <div class="summary-label">Total Weight</div>
+            <div class="summary-value">${totalPounds.toFixed(2)} lbs</div>
+            <div class="summary-sub">${totalGrams.toFixed(2)}g</div>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Tag ID</th>
+              <th>Batch</th>
+              <th>Strain</th>
+              <th>Type</th>
+              <th class="right">Weight (g)</th>
+              <th class="right">Weight (lbs)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${packages.map(pkg => `
+              <tr>
+                <td class="mono">${pkg.tag_id}</td>
+                <td>${pkg.batch}</td>
+                <td>${pkg.strain}</td>
+                <td>${pkg.type?.name || '-'}</td>
+                <td class="right">${pkg.current_weight.toFixed(2)}</td>
+                <td class="right">${(pkg.current_weight / GRAMS_PER_LB).toFixed(4)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `
+
+    const printWindow = window.open('', '_blank')
+    if (printWindow) {
+      printWindow.document.write(printContent)
+      printWindow.document.close()
+      printWindow.print()
     }
-    acc[strain].count++
-    acc[strain].weight += pkg.current_weight
-    return acc
-  }, {} as Record<string, { count: number; weight: number }>)
+  }
 
-  if (loading) {
+  // Get selected batch for edit dialog
+  const selectedEditBatch = batches.find(b => b.id === editBatchId)
+  const selectedNewBatch = batches.find(b => b.id === newBatchId)
+
+  // Check if package is empty (for yellow warning)
+  const isPackageEmpty = selectedPackage && selectedPackage.current_weight === 0
+
+  if (loading && packages.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -271,6 +455,10 @@ export default function VaultPage() {
           <p className="text-muted-foreground mt-1">Manage bulk cannabis packages</p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={handlePrint}>
+            <Printer className="mr-2 h-4 w-4" />
+            Print
+          </Button>
           {canAccessAdmin && (
             <Button variant="outline" asChild>
               <Link href="/dashboard/vault/admin">
@@ -290,23 +478,20 @@ export default function VaultPage() {
 
       {/* Tag Lookup */}
       <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <ScanLine className="h-4 w-4" />
-            Tag Lookup
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="pt-4">
           <div className="flex gap-2">
-            <Input
-              placeholder="Enter or scan tag ID..."
-              value={lookupTag}
-              onChange={(e) => setLookupTag(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleLookupTag()}
-              className="flex-1"
-            />
-            <Button onClick={handleLookupTag} disabled={loadingPackage}>
-              {loadingPackage ? (
+            <div className="relative flex-1">
+              <ScanLine className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Scan or enter tag ID..."
+                value={lookupTag}
+                onChange={(e) => setLookupTag(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleLookupTag()}
+                className="pl-9"
+              />
+            </div>
+            <Button onClick={handleLookupTag} disabled={lookingUp}>
+              {lookingUp ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <Search className="h-4 w-4" />
@@ -316,266 +501,371 @@ export default function VaultPage() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      {/* Filters & Summary */}
+      <div className="flex flex-col lg:flex-row gap-4">
+        {/* Filters */}
+        <div className="flex flex-wrap gap-2 flex-1">
+          <Select
+            value={strainFilter.length === 1 ? strainFilter[0] : strainFilter.length > 1 ? 'multiple' : 'all'}
+            onValueChange={(value) => {
+              if (value === 'all') {
+                setStrainFilter([])
+              } else if (value !== 'multiple') {
+                setStrainFilter([value])
+              }
+            }}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Filter by strain">
+                {strainFilter.length === 0 ? 'All Strains' :
+                 strainFilter.length === 1 ? strains.find(s => s.id === strainFilter[0])?.name :
+                 `${strainFilter.length} Strains`}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Strains</SelectItem>
+              {strains.map((strain) => (
+                <SelectItem key={strain.id} value={strain.id}>
+                  {strain.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select
+            value={batchFilter.length === 1 ? batchFilter[0] : batchFilter.length > 1 ? 'multiple' : 'all'}
+            onValueChange={(value) => {
+              if (value === 'all') {
+                setBatchFilter([])
+              } else if (value !== 'multiple') {
+                setBatchFilter([value])
+              }
+            }}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Filter by batch">
+                {batchFilter.length === 0 ? 'All Batches' :
+                 batchFilter.length === 1 ? batchFilter[0] :
+                 `${batchFilter.length} Batches`}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Batches</SelectItem>
+              {uniqueBatches.map((batch) => (
+                <SelectItem key={batch} value={batch}>
+                  {batch}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select
+            value={typeFilter.length === 1 ? typeFilter[0] : typeFilter.length > 1 ? 'multiple' : 'all'}
+            onValueChange={(value) => {
+              if (value === 'all') {
+                setTypeFilter([])
+              } else if (value !== 'multiple') {
+                setTypeFilter([value])
+              }
+            }}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Filter by type">
+                {typeFilter.length === 0 ? 'All Types' :
+                 typeFilter.length === 1 ? productTypes.find(t => t.id === typeFilter[0])?.name :
+                 `${typeFilter.length} Types`}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              {productTypes.map((type) => (
+                <SelectItem key={type.id} value={type.id}>
+                  {type.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {(strainFilter.length > 0 || batchFilter.length > 0 || typeFilter.length > 0) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setStrainFilter([])
+                setBatchFilter([])
+                setTypeFilter([])
+              }}
+            >
+              <X className="h-4 w-4 mr-1" />
+              Clear
+            </Button>
+          )}
+        </div>
+
         {/* Summary Cards */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Packages</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{packages.length}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Weight</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {packages.reduce((sum, p) => sum + p.current_weight, 0).toFixed(2)}g
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Strains</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{Object.keys(strainSummary).length}</div>
-          </CardContent>
-        </Card>
+        <div className="flex gap-4">
+          <Card className="min-w-[120px]">
+            <CardContent className="p-4">
+              <p className="text-xs text-muted-foreground uppercase tracking-wide">Packages</p>
+              <p className="text-2xl font-bold">{totalPackages}</p>
+            </CardContent>
+          </Card>
+          <Card className="min-w-[140px]">
+            <CardContent className="p-4">
+              <p className="text-xs text-muted-foreground uppercase tracking-wide">Total Weight</p>
+              <p className="text-2xl font-bold">{totalPounds.toFixed(2)} <span className="text-base font-normal">lbs</span></p>
+              <p className="text-xs text-muted-foreground">{totalGrams.toFixed(2)}g</p>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Packages Table */}
-        <Card className="lg:col-span-1">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Warehouse className="h-5 w-5" />
-              Packages
-            </CardTitle>
-            <CardDescription>
-              <div className="relative mt-2">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search packages..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9"
-                />
-              </div>
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="max-h-[400px] overflow-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Tag ID</TableHead>
-                    <TableHead>Strain</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead className="text-right">Weight</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredPackages.map((pkg) => (
-                    <TableRow
-                      key={pkg.tag_id}
-                      className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => handleSelectPackage(pkg)}
-                    >
-                      <TableCell className="font-mono text-xs">{pkg.tag_id}</TableCell>
-                      <TableCell>{pkg.strain}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{pkg.type?.name || '-'}</Badge>
-                      </TableCell>
-                      <TableCell className="text-right font-medium">
-                        {pkg.current_weight.toFixed(2)}g
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {filteredPackages.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
-                        No packages found
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Selected Package Details */}
-        <Card className="lg:col-span-1">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Package className="h-5 w-5" />
-              Package Details
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {selectedPackage ? (
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-muted-foreground">Tag ID</Label>
-                    <p className="font-mono text-sm">{selectedPackage.tag_id}</p>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground">Batch</Label>
-                    <p className="font-medium">{selectedPackage.batch}</p>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground">Strain</Label>
-                    <p className="font-medium">{selectedPackage.strain}</p>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground">Type</Label>
-                    <p className="font-medium">{selectedPackage.type?.name || '-'}</p>
-                  </div>
+      {/* Packages List */}
+      <Card>
+        <CardContent className="p-0">
+          <div className="divide-y divide-border">
+            {packages.map((pkg) => (
+              <button
+                key={pkg.tag_id}
+                onClick={() => handleSelectPackage(pkg)}
+                className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors text-left"
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="font-mono text-sm font-medium truncate">{pkg.tag_id}</p>
+                  <p className="text-sm text-muted-foreground truncate">
+                    {pkg.batch} • {pkg.strain} • {pkg.type?.name || '-'}
+                  </p>
                 </div>
-
-                <Separator />
-
-                <div className="text-center">
-                  <Label className="text-muted-foreground">Current Weight</Label>
-                  <p className="text-3xl font-bold">{selectedPackage.current_weight.toFixed(2)}g</p>
-                </div>
-
-                {canManagePackages && (
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      className="flex-1"
-                      onClick={() => {
-                        setAdjustType('add')
-                        setAdjustDialogOpen(true)
-                      }}
-                    >
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="flex-1"
-                      onClick={() => {
-                        setAdjustType('remove')
-                        setAdjustDialogOpen(true)
-                      }}
-                    >
-                      <Minus className="mr-2 h-4 w-4" />
-                      Remove
-                    </Button>
+                <div className="flex items-center gap-3 ml-4">
+                  <div className="text-right">
+                    <p className="font-semibold">{pkg.current_weight.toFixed(2)}g</p>
+                    <p className="text-xs text-muted-foreground">
+                      {(pkg.current_weight / GRAMS_PER_LB).toFixed(4)} lbs
+                    </p>
                   </div>
+                  <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                </div>
+              </button>
+            ))}
+            {packages.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                <Package className="h-12 w-12 mb-4 opacity-50" />
+                <p>No packages found</p>
+                {(strainFilter.length > 0 || batchFilter.length > 0 || typeFilter.length > 0) && (
+                  <Button
+                    variant="link"
+                    onClick={() => {
+                      setStrainFilter([])
+                      setBatchFilter([])
+                      setTypeFilter([])
+                    }}
+                  >
+                    Clear filters
+                  </Button>
                 )}
-
-                <Separator />
-
-                {/* Recent Transactions */}
-                <div>
-                  <Label className="flex items-center gap-2 mb-2">
-                    <History className="h-4 w-4" />
-                    Recent Transactions
-                  </Label>
-                  <div className="space-y-2 max-h-[200px] overflow-auto">
-                    {transactions.map((tx) => (
-                      <div
-                        key={tx.id}
-                        className="flex items-center justify-between text-sm p-2 rounded bg-muted/50"
-                      >
-                        <div className="flex items-center gap-2">
-                          {tx.type === 'add' ? (
-                            <Plus className="h-3 w-3 text-green-600" />
-                          ) : (
-                            <Minus className="h-3 w-3 text-red-600" />
-                          )}
-                          <span className={tx.type === 'add' ? 'text-green-600' : 'text-red-600'}>
-                            {tx.type === 'add' ? '+' : '-'}{tx.amount}g
-                          </span>
-                          <span className="text-muted-foreground">by {tx.user?.name || 'Unknown'}</span>
-                        </div>
-                        <span className="text-muted-foreground text-xs">
-                          {new Date(tx.created_at).toLocaleDateString()}
-                        </span>
-                      </div>
-                    ))}
-                    {transactions.length === 0 && (
-                      <p className="text-muted-foreground text-sm text-center py-4">
-                        No transactions yet
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="text-center py-12 text-muted-foreground">
-                <Scale className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>Select a package or scan a tag to view details</p>
               </div>
             )}
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </CardContent>
+      </Card>
 
-      {/* Weight Adjustment Dialog */}
-      <Dialog open={adjustDialogOpen} onOpenChange={setAdjustDialogOpen}>
+      {/* Package Detail Sheet */}
+      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+        <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+          <SheetHeader className="text-center pb-4">
+            <div className="flex items-center justify-center gap-2">
+              <SheetTitle className="font-mono text-lg">
+                {selectedPackage?.tag_id}
+              </SheetTitle>
+              {canEdit && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={handleOpenEdit}
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          </SheetHeader>
+
+          {selectedPackage && (
+            <div className="space-y-6">
+              {/* Meta Row */}
+              <div className="flex justify-center gap-2 text-sm">
+                <Badge variant="secondary">{selectedPackage.batch}</Badge>
+                <Badge variant="secondary">{selectedPackage.strain}</Badge>
+                <Badge variant="outline">{selectedPackage.type?.name || '-'}</Badge>
+              </div>
+
+              {/* Current Balance */}
+              <Card className={`${isPackageEmpty ? 'bg-yellow-500/10 border-yellow-500/30' : 'bg-green-500/10 border-green-500/30'}`}>
+                <CardContent className="py-6 text-center">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Current Balance</p>
+                  <p className={`text-4xl font-bold ${isPackageEmpty ? 'text-yellow-600' : 'text-green-600'}`}>
+                    {selectedPackage.current_weight.toFixed(2)}g
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {(selectedPackage.current_weight / GRAMS_PER_LB).toFixed(4)} lbs
+                  </p>
+                  {isPackageEmpty && (
+                    <p className="text-yellow-600 text-sm mt-2 font-medium">Package is empty</p>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Weight Adjuster */}
+              {canManagePackages && (
+                <Card>
+                  <CardContent className="pt-4 space-y-4">
+                    <Label className="text-sm text-muted-foreground">Enter weight (grams)</Label>
+                    <div className="relative">
+                      <Input
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="0.00"
+                        value={adjustAmount}
+                        onChange={(e) => {
+                          setAdjustError(null)
+                          const regex = /^\d*\.?\d{0,2}$/
+                          if (e.target.value === '' || regex.test(e.target.value)) {
+                            setAdjustAmount(e.target.value)
+                          }
+                        }}
+                        className="text-center text-2xl h-14 pr-8"
+                      />
+                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground">g</span>
+                    </div>
+
+                    {adjustError && (
+                      <p className="text-destructive text-sm text-center">{adjustError}</p>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <Button
+                        variant="outline"
+                        size="lg"
+                        onClick={() => handleAdjustWeight('remove')}
+                        disabled={adjusting || !adjustAmount}
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                      >
+                        <Minus className="h-4 w-4 mr-2" />
+                        Remove
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="lg"
+                        onClick={() => handleAdjustWeight('add')}
+                        disabled={adjusting || !adjustAmount}
+                        className="text-green-600 hover:text-green-600 hover:bg-green-500/10"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Recent Activity */}
+              <div>
+                <h3 className="text-sm font-semibold mb-3">Recent Activity</h3>
+                <div className="space-y-2">
+                  {transactions.map((tx) => (
+                    <div
+                      key={tx.id}
+                      className="flex items-center justify-between text-sm p-3 rounded-lg bg-muted/50"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className={`font-medium ${tx.type === 'add' ? 'text-green-600' : 'text-red-600'}`}>
+                          {tx.type === 'add' ? '+' : '-'}{tx.amount}g
+                        </span>
+                        <span className="text-muted-foreground">→</span>
+                        <span className="font-medium">{tx.resulting_balance}g</span>
+                      </div>
+                      <div className="text-right text-muted-foreground">
+                        <p className="text-xs">{tx.user?.name || 'Unknown'}</p>
+                        <p className="text-xs">{new Date(tx.created_at).toLocaleDateString()}</p>
+                      </div>
+                    </div>
+                  ))}
+                  {transactions.length === 0 && (
+                    <p className="text-muted-foreground text-sm text-center py-4">
+                      No transactions yet
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
+
+      {/* Edit Package Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {adjustType === 'add' ? 'Add Weight' : 'Remove Weight'}
-            </DialogTitle>
+            <DialogTitle>Edit Package</DialogTitle>
             <DialogDescription>
-              {adjustType === 'add'
-                ? 'Add weight to this package'
-                : 'Remove weight from this package'}
+              Update package details for {selectedPackage?.tag_id}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             <div>
-              <Label>Amount (grams)</Label>
-              <Input
-                type="number"
-                step="0.01"
-                min="0"
-                placeholder="Enter amount..."
-                value={adjustAmount}
-                onChange={(e) => setAdjustAmount(e.target.value)}
-              />
+              <Label>Batch</Label>
+              <Select value={editBatchId} onValueChange={setEditBatchId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select batch..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {batches.map((batch) => (
+                    <SelectItem key={batch.id} value={batch.id}>
+                      {batch.name} ({batch.strain?.name || 'No strain'})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
-            {selectedPackage && (
-              <p className="text-sm text-muted-foreground">
-                Current weight: {selectedPackage.current_weight.toFixed(2)}g
-                {adjustAmount && !isNaN(parseFloat(adjustAmount)) && (
-                  <>
-                    {' → '}
-                    <span className="font-medium">
-                      {adjustType === 'add'
-                        ? (selectedPackage.current_weight + parseFloat(adjustAmount)).toFixed(2)
-                        : (selectedPackage.current_weight - parseFloat(adjustAmount)).toFixed(2)}g
-                    </span>
-                  </>
-                )}
-              </p>
-            )}
+            <div>
+              <Label>Strain</Label>
+              <Input
+                value={selectedEditBatch?.strain?.name || 'Select a batch first'}
+                readOnly
+                className="bg-muted"
+              />
+              <p className="text-xs text-muted-foreground mt-1">Auto-selected from batch</p>
+            </div>
+
+            <div>
+              <Label>Type</Label>
+              <Select value={editTypeId} onValueChange={setEditTypeId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select type..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {productTypes.map((type) => (
+                    <SelectItem key={type.id} value={type.id}>
+                      {type.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAdjustDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
               Cancel
             </Button>
             <Button
-              onClick={handleAdjustWeight}
-              disabled={adjusting || !adjustAmount}
-              variant={adjustType === 'add' ? 'default' : 'destructive'}
+              onClick={handleUpdatePackage}
+              disabled={updating || !editBatchId || !editTypeId}
             >
-              {adjusting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {adjustType === 'add' ? 'Add' : 'Remove'}
+              {updating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save Changes
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -595,7 +885,7 @@ export default function VaultPage() {
             <div>
               <Label>Tag ID</Label>
               <Input
-                placeholder="Enter tag ID..."
+                placeholder="Enter or scan tag ID..."
                 value={newTagId}
                 onChange={(e) => setNewTagId(e.target.value)}
               />
@@ -603,27 +893,28 @@ export default function VaultPage() {
 
             <div>
               <Label>Batch</Label>
-              <Input
-                placeholder="Enter batch name..."
-                value={newBatch}
-                onChange={(e) => setNewBatch(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <Label>Strain</Label>
-              <Select value={newStrainId} onValueChange={setNewStrainId}>
+              <Select value={newBatchId} onValueChange={setNewBatchId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select strain..." />
+                  <SelectValue placeholder="Select batch..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {strains.map((strain) => (
-                    <SelectItem key={strain.id} value={strain.id}>
-                      {strain.name}
+                  {batches.map((batch) => (
+                    <SelectItem key={batch.id} value={batch.id}>
+                      {batch.name} ({batch.strain?.name || 'No strain'})
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div>
+              <Label>Strain</Label>
+              <Input
+                value={selectedNewBatch?.strain?.name || 'Select a batch first'}
+                readOnly
+                className="bg-muted"
+              />
+              <p className="text-xs text-muted-foreground mt-1">Auto-selected from batch</p>
             </div>
 
             <div>
@@ -661,7 +952,7 @@ export default function VaultPage() {
             </Button>
             <Button
               onClick={handleCreatePackage}
-              disabled={creating || !newTagId || !newBatch || !newStrainId || !newTypeId || !newWeight}
+              disabled={creating || !newTagId || !newBatchId || !newTypeId || !newWeight}
             >
               {creating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Create Package
