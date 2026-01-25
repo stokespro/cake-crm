@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ArrowLeft, Building2, Phone, Mail, MapPin, FileText, MessageSquare, ShoppingCart, BarChart3, Plus, Edit, MoreHorizontal, Trash2, Search } from 'lucide-react'
 import Link from 'next/link'
+import { useAuth } from '@/lib/auth-context'
 import {
   Table,
   TableBody,
@@ -83,7 +84,6 @@ export default function DispensaryDetailPage() {
   const [filteredOrders, setFilteredOrders] = useState<OrderWithAgent[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('overview')
-  const [userRole, setUserRole] = useState<string>('')
   const [editDispensaryOpen, setEditDispensaryOpen] = useState(false)
   const [communicationSheetOpen, setCommunicationSheetOpen] = useState(false)
   const [orderSheetOpen, setOrderSheetOpen] = useState(false)
@@ -91,27 +91,10 @@ export default function DispensaryDetailPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
   const supabase = createClient()
+  const { user } = useAuth()
 
   const dispensaryId = params.id as string
-
-  const fetchUserRole = useCallback(async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      const { data } = await supabase
-        .from('users')
-        .select('role')
-        .eq('id', user.id)
-        .single()
-
-      if (data) {
-        setUserRole(data.role)
-      }
-    } catch (error) {
-      console.error('Error fetching user role:', error)
-    }
-  }, [supabase])
+  const userRole = user?.role || 'agent'
 
   const fetchDispensary = useCallback(async () => {
     try {
@@ -201,13 +184,12 @@ export default function DispensaryDetailPage() {
 
   useEffect(() => {
     const loadData = async () => {
-      await fetchUserRole()
       await fetchDispensary()
       await fetchCommunications()
       await fetchOrders()
     }
     loadData()
-  }, [fetchUserRole, fetchDispensary, fetchCommunications, fetchOrders])
+  }, [fetchDispensary, fetchCommunications, fetchOrders])
 
   useEffect(() => {
     filterOrders()
