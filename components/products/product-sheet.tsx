@@ -156,11 +156,6 @@ export function ProductSheet({ open, onClose, product, onSuccess }: ProductSheet
     setLoading(true)
 
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        throw new Error('Not authenticated. Please log in and try again.')
-      }
-
       // Write directly to skus table (products is a view)
       const skuData = {
         name: itemName.trim(),
