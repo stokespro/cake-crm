@@ -2,10 +2,52 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 
+export type UserRole = 'admin' | 'management' | 'sales' | 'standard' | 'vault' | 'packaging' | 'agent';
+
 export interface SessionUser {
   id: string;
   name: string;
-  role: string;
+  role: UserRole;
+}
+
+// Permission helper functions
+export function canViewSection(role: UserRole, section: string): boolean {
+  const permissions: Record<string, UserRole[]> = {
+    // Admin and management see everything
+    vault: ['admin', 'management', 'vault', 'standard'],
+    packaging: ['admin', 'management', 'packaging', 'standard'],
+    dispensaries: ['admin', 'management', 'sales', 'agent'],
+    orders: ['admin', 'management', 'sales', 'agent'],
+    products: ['admin', 'management', 'vault', 'packaging', 'standard'],
+    communications: ['admin', 'management', 'sales', 'agent'],
+    tasks: ['admin', 'management', 'sales', 'agent'],
+    users: ['admin'],
+  };
+  return permissions[section]?.includes(role) ?? false;
+}
+
+export function canCreateOrder(role: UserRole): boolean {
+  return ['admin', 'management', 'sales'].includes(role);
+}
+
+export function canApproveOrder(role: UserRole): boolean {
+  return ['admin', 'management'].includes(role);
+}
+
+export function canEditOrder(role: UserRole): boolean {
+  return ['admin', 'management'].includes(role);
+}
+
+export function canDeleteOrder(role: UserRole): boolean {
+  return ['admin', 'management'].includes(role);
+}
+
+export function canManageUsers(role: UserRole): boolean {
+  return role === 'admin';
+}
+
+export function canAssignSales(role: UserRole): boolean {
+  return ['admin', 'management'].includes(role);
 }
 
 interface AuthContextType {

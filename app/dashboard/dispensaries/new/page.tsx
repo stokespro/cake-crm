@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/lib/auth-context'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -19,39 +20,13 @@ export default function NewDispensaryPage() {
   const [obLicense, setObLicense] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [userRole, setUserRole] = useState<string>('agent')
   const router = useRouter()
   const supabase = createClient()
+  const { user } = useAuth()
 
-  useEffect(() => {
-    checkUserPermissions()
-  }, [])
-
-  const checkUserPermissions = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        router.push('/login')
-        return
-      }
-
-      const { data } = await supabase
-        .from('users')
-        .select('role')
-        .eq('id', user.id)
-        .single()
-
-      if (data) {
-        setUserRole(data.role)
-        if (data.role !== 'management' && data.role !== 'admin') {
-          router.push('/dashboard/dispensaries')
-        }
-      }
-    } catch (error) {
-      console.error('Error checking permissions:', error)
-      router.push('/dashboard/dispensaries')
-    }
-  }
+  // Roles that can add dispensaries: sales, management, admin
+  const userRole = user?.role || 'standard'
+  const canAddDispensary = ['sales', 'management', 'admin'].includes(userRole)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -59,6 +34,9 @@ export default function NewDispensaryPage() {
     setError(null)
 
     try {
+      // Auto-assign to sales user if they're the one creating
+      const assignedSalesId = userRole === 'sales' ? user?.id : null
+
       const { error } = await supabase
         .from('customers')
         .insert({
@@ -67,7 +45,8 @@ export default function NewDispensaryPage() {
           phone_number: phoneNumber || null,
           email: email || null,
           omma_license: ommaLicense || null,
-          ob_license: obLicense || null
+          ob_license: obLicense || null,
+          assigned_sales_id: assignedSalesId
         })
 
       if (error) throw error
@@ -80,10 +59,10 @@ export default function NewDispensaryPage() {
     }
   }
 
-  if (userRole !== 'management' && userRole !== 'admin') {
+  if (!canAddDispensary) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-muted-foreground">Checking permissions...</div>
+        <div className="text-muted-foreground">You don't have permission to add dispensaries.</div>
       </div>
     )
   }

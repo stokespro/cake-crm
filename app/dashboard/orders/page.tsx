@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { useAuth } from '@/lib/auth-context'
+import { useAuth, canApproveOrder, canEditOrder, canDeleteOrder } from '@/lib/auth-context'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -302,8 +302,9 @@ export default function OrdersPage() {
     }
   }
 
-  const canApproveOrders = userRole === 'management' || userRole === 'admin'
-  const canEditOrders = userRole === 'management' || userRole === 'admin'
+  const canApproveOrders = canApproveOrder(userRole)
+  const canEditOrders = canEditOrder(userRole)
+  const canDeleteOrders = canDeleteOrder(userRole)
 
   const confirmOrder = async (orderId: string) => {
     if (!canApproveOrders || !user) return
@@ -899,7 +900,7 @@ export default function OrdersPage() {
                     ${(order.total_price || 0).toFixed(2)}
                   </TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
-                    {canEditOrders && (
+                    {(canEditOrders || canDeleteOrders) && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -907,24 +908,28 @@ export default function OrdersPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => {
-                            setSelectedOrder(order)
-                            startSheetEditing(order)
-                            setSheetOpen(true)
-                          }}>
-                            <Edit2 className="h-4 w-4 mr-2" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => {
-                              setDeleteOrderId(order.id)
-                              setDeleteOrderNumber(order.order_number || order.id.slice(0, 8))
-                            }}
-                            className="text-red-600 focus:text-red-600"
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete
-                          </DropdownMenuItem>
+                          {canEditOrders && (
+                            <DropdownMenuItem onClick={() => {
+                              setSelectedOrder(order)
+                              startSheetEditing(order)
+                              setSheetOpen(true)
+                            }}>
+                              <Edit2 className="h-4 w-4 mr-2" />
+                              Edit
+                            </DropdownMenuItem>
+                          )}
+                          {canDeleteOrders && (
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setDeleteOrderId(order.id)
+                                setDeleteOrderNumber(order.order_number || order.id.slice(0, 8))
+                              }}
+                              className="text-red-600 focus:text-red-600"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     )}
@@ -1173,28 +1178,28 @@ export default function OrdersPage() {
                       </Button>
                     )}
                     {canEditOrders && (
-                      <>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => startEditing(order)}
-                        >
-                          <Edit2 className="h-4 w-4 mr-2" />
-                          Edit Order
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                          onClick={() => {
-                            setDeleteOrderId(order.id)
-                            setDeleteOrderNumber(order.order_number || order.id.slice(0, 8))
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Delete
-                        </Button>
-                      </>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => startEditing(order)}
+                      >
+                        <Edit2 className="h-4 w-4 mr-2" />
+                        Edit Order
+                      </Button>
+                    )}
+                    {canDeleteOrders && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        onClick={() => {
+                          setDeleteOrderId(order.id)
+                          setDeleteOrderNumber(order.order_number || order.id.slice(0, 8))
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete
+                      </Button>
                     )}
                   </div>
                 )}
@@ -1315,26 +1320,30 @@ export default function OrdersPage() {
               )}
 
               {/* Actions */}
-              {canEditOrders && (
+              {(canEditOrders || canDeleteOrders) && (
                 <div className="flex gap-2 pt-4 border-t">
-                  <Button
-                    className="flex-1"
-                    onClick={() => startSheetEditing(selectedOrder)}
-                  >
-                    <Edit2 className="h-4 w-4 mr-2" />
-                    Edit Order
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                    onClick={() => {
-                      setSheetOpen(false)
-                      setDeleteOrderId(selectedOrder.id)
-                      setDeleteOrderNumber(selectedOrder.order_number || selectedOrder.id.slice(0, 8))
-                    }}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  {canEditOrders && (
+                    <Button
+                      className="flex-1"
+                      onClick={() => startSheetEditing(selectedOrder)}
+                    >
+                      <Edit2 className="h-4 w-4 mr-2" />
+                      Edit Order
+                    </Button>
+                  )}
+                  {canDeleteOrders && (
+                    <Button
+                      variant="outline"
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      onClick={() => {
+                        setSheetOpen(false)
+                        setDeleteOrderId(selectedOrder.id)
+                        setDeleteOrderNumber(selectedOrder.order_number || selectedOrder.id.slice(0, 8))
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
               )}
             </div>

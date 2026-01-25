@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/lib/auth-context'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -29,50 +30,18 @@ export default function DispensariesPage() {
   const [filteredDispensaries, setFilteredDispensaries] = useState<DispensaryProfile[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
-  const [userRole, setUserRole] = useState<string>('')
-  const [roleLoading, setRoleLoading] = useState(true)
   const supabase = createClient()
+  const { user, isLoading: authLoading } = useAuth()
+
+  const userRole = user?.role || 'standard'
 
   useEffect(() => {
-    const loadData = async () => {
-      await fetchUserRole()
-      await fetchDispensaries()
-    }
-    loadData()
+    fetchDispensaries()
   }, [])
 
   useEffect(() => {
     filterDispensaries()
   }, [dispensaries, searchTerm])
-
-  const fetchUserRole = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        setRoleLoading(false)
-        return
-      }
-
-      // Query the users table for role
-      const { data, error } = await supabase
-        .from('users')
-        .select('role')
-        .eq('id', user.id)
-        .single()
-
-      if (data) {
-        setUserRole(data.role)
-      } else if (error) {
-        console.error('Error fetching user role:', error)
-        setUserRole('agent') // fallback
-      }
-    } catch (error) {
-      console.error('Error fetching user role:', error)
-      setUserRole('agent') // fallback
-    } finally {
-      setRoleLoading(false)
-    }
-  }
 
   const fetchDispensaries = async () => {
     try {
@@ -107,14 +76,13 @@ export default function DispensariesPage() {
     setFilteredDispensaries(filtered)
   }
 
-  const canManageDispensaries = userRole === 'management' || userRole === 'admin'
+  const canManageDispensaries = ['management', 'admin'].includes(userRole)
+  const canAddDispensary = ['sales', 'management', 'admin'].includes(userRole)
 
-  if (loading || roleLoading) {
+  if (loading || authLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-muted-foreground">
-          {roleLoading ? 'Loading permissions...' : 'Loading dispensaries...'}
-        </div>
+        <div className="text-muted-foreground">Loading dispensaries...</div>
       </div>
     )
   }
@@ -127,7 +95,7 @@ export default function DispensariesPage() {
           <h1 className="text-2xl md:text-3xl font-bold">Dispensaries</h1>
           <p className="text-muted-foreground mt-1">Manage customer profiles and information</p>
         </div>
-        {canManageDispensaries && (
+        {canAddDispensary && (
           <Button asChild>
             <Link href="/dashboard/dispensaries/new">
               <Plus className="mr-2 h-4 w-4" />
@@ -167,7 +135,7 @@ export default function DispensariesPage() {
               <p className="text-muted-foreground mb-4">
                 {searchTerm ? 'No dispensaries found matching your search' : 'No dispensaries added yet'}
               </p>
-              {canManageDispensaries && !searchTerm && (
+              {canAddDispensary && !searchTerm && (
                 <Button asChild>
                   <Link href="/dashboard/dispensaries/new">
                     <Plus className="mr-2 h-4 w-4" />
@@ -299,11 +267,11 @@ export default function DispensariesPage() {
         </CardContent>
       </Card>
 
-      {!canManageDispensaries && (
+      {!canManageDispensaries && !canAddDispensary && (
         <Card>
           <CardContent className="py-4">
             <p className="text-sm text-muted-foreground text-center">
-              Note: Only management and admin users can add or edit dispensaries.
+              Note: Only sales, management and admin users can add dispensaries.
             </p>
           </CardContent>
         </Card>

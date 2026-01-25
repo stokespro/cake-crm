@@ -24,7 +24,7 @@ export default function NewUserPage() {
     email: '',
     full_name: '',
     phone_number: '',
-    role: 'agent',
+    role: 'standard',
     temporary_password: '',
     notes: ''
   })
@@ -147,14 +147,16 @@ export default function NewUserPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="agent">Agent</SelectItem>
+                  <SelectItem value="standard">Standard</SelectItem>
+                  <SelectItem value="sales">Sales</SelectItem>
                   <SelectItem value="management">Management</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
                 </SelectContent>
               </Select>
               <div className="text-sm text-muted-foreground space-y-1">
-                <p><strong>Agent:</strong> Can manage their own tasks, communications, and orders</p>
-                <p><strong>Management:</strong> Can view all data and manage dispensaries</p>
+                <p><strong>Standard:</strong> Access to Vault and Packaging only</p>
+                <p><strong>Sales:</strong> Access to Dispensaries and Orders. Can create orders for assigned accounts</p>
+                <p><strong>Management:</strong> Full access to all sections. Can approve and edit orders</p>
                 <p><strong>Admin:</strong> Full system access including user management</p>
               </div>
             </div>

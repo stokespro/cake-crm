@@ -8,9 +8,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { ArrowLeft, Building2, Phone, Mail, MapPin, FileText, MessageSquare, ShoppingCart, BarChart3, Plus, Edit, MoreHorizontal, Trash2, Search } from 'lucide-react'
+import { ArrowLeft, Building2, Phone, Mail, MapPin, FileText, MessageSquare, ShoppingCart, BarChart3, Plus, Edit, MoreHorizontal, Trash2, Search, Users } from 'lucide-react'
 import Link from 'next/link'
-import { useAuth } from '@/lib/auth-context'
+import { useAuth, canCreateOrder, canEditOrder, canDeleteOrder, canAssignSales } from '@/lib/auth-context'
 import {
   Table,
   TableBody,
@@ -57,6 +57,13 @@ interface DispensaryProfileWithStats extends DispensaryProfile {
   total_orders_count?: number
   total_communications_count?: number
   total_revenue?: number
+  assigned_sales_id?: string | null
+  assigned_sales?: { id: string; name: string } | null
+}
+
+interface SalesUser {
+  id: string
+  name: string
 }
 
 interface SupabaseProfile {
@@ -90,6 +97,8 @@ export default function DispensaryDetailPage() {
   const [selectedOrder, setSelectedOrder] = useState<OrderWithAgent | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
+  const [salesUsers, setSalesUsers] = useState<SalesUser[]>([])
+  const [updatingSales, setUpdatingSales] = useState(false)
   const supabase = createClient()
   const { user } = useAuth()
 
@@ -100,7 +109,10 @@ export default function DispensaryDetailPage() {
     try {
       const { data, error } = await supabase
         .from('customers')
-        .select('*')
+        .select(`
+          *,
+          assigned_sales:users!customers_assigned_sales_id_fkey(id, name)
+        `)
         .eq('id', dispensaryId)
         .single()
 
@@ -182,14 +194,30 @@ export default function DispensaryDetailPage() {
     }
   }, [supabase, dispensaryId])
 
+  const fetchSalesUsers = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, name')
+        .in('role', ['sales', 'management', 'admin'])
+        .order('name')
+
+      if (error) throw error
+      setSalesUsers(data || [])
+    } catch (error) {
+      console.error('Error fetching sales users:', error)
+    }
+  }, [supabase])
+
   useEffect(() => {
     const loadData = async () => {
       await fetchDispensary()
       await fetchCommunications()
       await fetchOrders()
+      await fetchSalesUsers()
     }
     loadData()
-  }, [fetchDispensary, fetchCommunications, fetchOrders])
+  }, [fetchDispensary, fetchCommunications, fetchOrders, fetchSalesUsers])
 
   useEffect(() => {
     filterOrders()
@@ -239,6 +267,38 @@ export default function DispensaryDetailPage() {
   }
 
   const canManageDispensaries = ['management', 'admin'].includes(userRole)
+
+  // Permission checks
+  const userCanCreateOrder = canCreateOrder(userRole)
+  const userCanEditOrder = canEditOrder(userRole)
+  const userCanDeleteOrder = canDeleteOrder(userRole)
+  const userCanAssignSales = canAssignSales(userRole)
+
+  // Sales users can only create orders for dispensaries they're assigned to
+  const isAssignedToDispensary = dispensary?.assigned_sales_id === user?.id
+  const canAddOrderForThisDispensary = userRole === 'sales'
+    ? isAssignedToDispensary
+    : userCanCreateOrder
+
+  const handleSalesAssignment = async (salesId: string | null) => {
+    setUpdatingSales(true)
+    try {
+      const { error } = await supabase
+        .from('customers')
+        .update({ assigned_sales_id: salesId === 'unassigned' ? null : salesId })
+        .eq('id', dispensaryId)
+
+      if (error) throw error
+
+      toast.success('Sales assignment updated')
+      fetchDispensary()
+    } catch (error) {
+      console.error('Error updating sales assignment:', error)
+      toast.error('Failed to update sales assignment')
+    } finally {
+      setUpdatingSales(false)
+    }
+  }
 
   const handleDeleteOrder = async (order: OrderWithAgent) => {
     try {
@@ -395,6 +455,37 @@ export default function DispensaryDetailPage() {
                 </div>
               </div>
             </div>
+
+            {/* Sales Assignment */}
+            <div className="flex items-start gap-2">
+              <Users className="h-4 w-4 text-muted-foreground mt-1" />
+              <div className="flex-1">
+                <p className="text-sm font-medium mb-1">Assigned Sales</p>
+                {userCanAssignSales ? (
+                  <Select
+                    value={dispensary.assigned_sales_id || 'unassigned'}
+                    onValueChange={(value) => handleSalesAssignment(value)}
+                    disabled={updatingSales}
+                  >
+                    <SelectTrigger className="w-[180px] h-8 text-xs">
+                      <SelectValue placeholder="Select sales rep" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="unassigned">Unassigned</SelectItem>
+                      {salesUsers.map((salesUser) => (
+                        <SelectItem key={salesUser.id} value={salesUser.id}>
+                          {salesUser.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    {dispensary.assigned_sales?.name || 'Unassigned'}
+                  </p>
+                )}
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -528,10 +619,12 @@ export default function DispensaryDetailPage() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-lg">Recent Orders</CardTitle>
-                  <Button variant="outline" size="sm" onClick={() => setOrderSheetOpen(true)}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add
-                  </Button>
+                  {canAddOrderForThisDispensary && (
+                    <Button variant="outline" size="sm" onClick={() => setOrderSheetOpen(true)}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add
+                    </Button>
+                  )}
                 </div>
               </CardHeader>
               <CardContent>
@@ -649,10 +742,12 @@ export default function DispensaryDetailPage() {
         <TabsContent value="orders" className="space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-medium">All Orders ({filteredOrders.length})</h3>
-            <Button onClick={() => { setSelectedOrder(null); setOrderSheetOpen(true); }}>
-              <Plus className="mr-2 h-4 w-4" />
-              Create Order
-            </Button>
+            {canAddOrderForThisDispensary && (
+              <Button onClick={() => { setSelectedOrder(null); setOrderSheetOpen(true); }}>
+                <Plus className="mr-2 h-4 w-4" />
+                Create Order
+              </Button>
+            )}
           </div>
           
           {/* Search and Filters */}
@@ -694,14 +789,16 @@ export default function DispensaryDetailPage() {
               <CardContent className="py-12 text-center">
                 <ShoppingCart className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <p className="text-muted-foreground mb-4">
-                  {searchTerm || filterStatus !== 'all' 
-                    ? 'No orders found matching your filters' 
+                  {searchTerm || filterStatus !== 'all'
+                    ? 'No orders found matching your filters'
                     : 'No orders placed yet'}
                 </p>
-                <Button onClick={() => { setSelectedOrder(null); setOrderSheetOpen(true); }}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Create First Order
-                </Button>
+                {canAddOrderForThisDispensary && (
+                  <Button onClick={() => { setSelectedOrder(null); setOrderSheetOpen(true); }}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create First Order
+                  </Button>
+                )}
               </CardContent>
             </Card>
           ) : (
@@ -764,52 +861,58 @@ export default function DispensaryDetailPage() {
                             )}
                           </TableCell>
                           <TableCell>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8 w-8 p-0"
-                                >
-                                  <MoreHorizontal className="h-4 w-4" />
-                                  <span className="sr-only">Open menu</span>
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => handleEditOrder(order)}>
-                                  <Edit className="h-4 w-4 mr-2" />
-                                  Edit Order
-                                </DropdownMenuItem>
-                                <AlertDialog>
-                                  <AlertDialogTrigger asChild>
-                                    <DropdownMenuItem
-                                      className="text-red-600 focus:text-red-600"
-                                      onSelect={(e) => e.preventDefault()}
-                                    >
-                                      <Trash2 className="h-4 w-4 mr-2" />
-                                      Delete Order
+                            {(userCanEditOrder || userCanDeleteOrder) && (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0"
+                                  >
+                                    <MoreHorizontal className="h-4 w-4" />
+                                    <span className="sr-only">Open menu</span>
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  {userCanEditOrder && (
+                                    <DropdownMenuItem onClick={() => handleEditOrder(order)}>
+                                      <Edit className="h-4 w-4 mr-2" />
+                                      Edit Order
                                     </DropdownMenuItem>
-                                  </AlertDialogTrigger>
-                                  <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                      <AlertDialogTitle>Delete Order</AlertDialogTitle>
-                                      <AlertDialogDescription>
-                                        Are you sure you want to delete this order ({order.order_id || 'Untitled Order'})? This action cannot be undone and will remove all order items as well.
-                                      </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                      <AlertDialogAction
-                                        onClick={() => handleDeleteOrder(order)}
-                                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                      >
-                                        Delete Order
-                                      </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                                  )}
+                                  {userCanDeleteOrder && (
+                                    <AlertDialog>
+                                      <AlertDialogTrigger asChild>
+                                        <DropdownMenuItem
+                                          className="text-red-600 focus:text-red-600"
+                                          onSelect={(e) => e.preventDefault()}
+                                        >
+                                          <Trash2 className="h-4 w-4 mr-2" />
+                                          Delete Order
+                                        </DropdownMenuItem>
+                                      </AlertDialogTrigger>
+                                      <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                          <AlertDialogTitle>Delete Order</AlertDialogTitle>
+                                          <AlertDialogDescription>
+                                            Are you sure you want to delete this order ({order.order_id || 'Untitled Order'})? This action cannot be undone and will remove all order items as well.
+                                          </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                          <AlertDialogAction
+                                            onClick={() => handleDeleteOrder(order)}
+                                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                          >
+                                            Delete Order
+                                          </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                      </AlertDialogContent>
+                                    </AlertDialog>
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            )}
                           </TableCell>
                         </TableRow>
                       ))}

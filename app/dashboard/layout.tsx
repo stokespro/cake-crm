@@ -27,20 +27,20 @@ import {
 const allNavigation = [
   { name: 'Dashboard', href: '/dashboard', icon: Home, roles: [] },
 
-  // Vault section - vault, packaging, management, admin
-  { name: 'Vault', href: '/dashboard/vault', icon: Warehouse, roles: ['vault', 'packaging', 'management', 'admin'] },
+  // Vault section - standard, vault, packaging, management, admin
+  { name: 'Vault', href: '/dashboard/vault', icon: Warehouse, roles: ['standard', 'vault', 'packaging', 'management', 'admin'] },
 
-  // Packaging section - packaging, vault, management, admin
-  { name: 'Packaging', href: '/dashboard/packaging', icon: ClipboardList, roles: ['packaging', 'vault', 'management', 'admin'] },
+  // Packaging section - standard, packaging, vault, management, admin
+  { name: 'Packaging', href: '/dashboard/packaging', icon: ClipboardList, roles: ['standard', 'packaging', 'vault', 'management', 'admin'] },
 
-  // CRM section - agent, management, admin
-  { name: 'Orders', href: '/dashboard/orders', icon: ShoppingCart, roles: ['agent', 'management', 'admin'] },
-  { name: 'Dispensaries', href: '/dashboard/dispensaries', icon: Building2, roles: ['agent', 'management', 'admin'] },
-  { name: 'Communications', href: '/dashboard/communications', icon: MessageSquare, roles: ['agent', 'management', 'admin'] },
-  { name: 'Tasks', href: '/dashboard/tasks', icon: CheckSquare, roles: ['agent', 'management', 'admin'] },
+  // CRM section - sales, agent, management, admin
+  { name: 'Orders', href: '/dashboard/orders', icon: ShoppingCart, roles: ['sales', 'agent', 'management', 'admin'] },
+  { name: 'Dispensaries', href: '/dashboard/dispensaries', icon: Building2, roles: ['sales', 'agent', 'management', 'admin'] },
+  { name: 'Communications', href: '/dashboard/communications', icon: MessageSquare, roles: ['sales', 'agent', 'management', 'admin'] },
+  { name: 'Tasks', href: '/dashboard/tasks', icon: CheckSquare, roles: ['sales', 'agent', 'management', 'admin'] },
 
-  // Shared - all roles
-  { name: 'Products', href: '/dashboard/products', icon: Package, roles: [] },
+  // Shared - only for management/admin and warehouse
+  { name: 'Products', href: '/dashboard/products', icon: Package, roles: ['standard', 'vault', 'packaging', 'management', 'admin'] },
 
   // Admin only
   { name: 'Users', href: '/dashboard/users', icon: Users, roles: ['admin'] },

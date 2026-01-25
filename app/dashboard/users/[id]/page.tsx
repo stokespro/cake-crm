@@ -137,6 +137,8 @@ export default function UserDetailPage() {
     switch (role) {
       case 'admin': return 'destructive'
       case 'management': return 'default'
+      case 'sales': return 'secondary'
+      case 'standard': return 'outline'
       case 'agent': return 'secondary'
       default: return 'outline'
     }
