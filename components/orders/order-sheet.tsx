@@ -21,8 +21,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Loader2, Plus, Trash2, DollarSign } from 'lucide-react'
-import type { Customer, SKU, Order } from '@/types/database'
+import { Loader2, Plus, Trash2 } from 'lucide-react'
+import type { Customer, Order } from '@/types/database'
 
 interface CustomerPricingData {
   sku_id: string | null
@@ -32,9 +32,22 @@ interface CustomerPricingData {
 
 interface OrderItem {
   sku_id: string
+  sku_code: string
   sku_name: string
-  quantity: number
+  cases: number              // number of cases ordered
+  units_per_case: number     // units per case for this SKU
+  quantity: number           // total units (cases * units_per_case)
   unit_price: number | null  // null means manual entry required
+  line_total: number         // total price (quantity * unit_price)
+}
+
+interface SkuOption {
+  id: string
+  name: string
+  code: string
+  product_type_id?: string
+  units_per_case: number
+  price_per_unit?: number | null
 }
 
 interface OrderSheetProps {
@@ -47,7 +60,7 @@ interface OrderSheetProps {
 
 export function OrderSheet({ open, onClose, customerId, onSuccess, order }: OrderSheetProps) {
   const [customers, setCustomers] = useState<Customer[]>([])
-  const [skus, setSkus] = useState<(SKU & { product_type_id?: string })[]>([])
+  const [skus, setSkus] = useState<SkuOption[]>([])
   const [customerPricing, setCustomerPricing] = useState<CustomerPricingData[]>([])
   const [selectedCustomerId, setSelectedCustomerId] = useState(customerId || order?.customer_id || '')
   const [orderItems, setOrderItems] = useState<OrderItem[]>([])
@@ -139,10 +152,14 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
   // Update prices when pricing data changes
   useEffect(() => {
     if (customerPricing.length > 0 && orderItems.length > 0) {
-      setOrderItems(prev => prev.map(item => ({
-        ...item,
-        unit_price: getPriceForSku(item.sku_id)
-      })))
+      setOrderItems(prev => prev.map(item => {
+        const newPrice = getPriceForSku(item.sku_id)
+        return {
+          ...item,
+          unit_price: newPrice,
+          line_total: newPrice !== null ? item.quantity * newPrice : 0
+        }
+      }))
     }
   }, [customerPricing, getPriceForSku])
 
@@ -151,11 +168,20 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
     if (order && order.order_items && skus.length > 0 && orderItems.length === 0) {
       const formOrderItems = order.order_items.map(item => {
         const sku = skus.find(s => s.id === item.sku_id)
+        const unitsPerCase = sku?.units_per_case || 32
+        const cases = Math.round(item.quantity / unitsPerCase)
+        const unitPrice = item.unit_price ?? getPriceForSku(item.sku_id)
+        const lineTotal = unitPrice !== null ? item.quantity * unitPrice : 0
+
         return {
           sku_id: item.sku_id,
+          sku_code: sku?.code || '',
           sku_name: sku?.name || 'Unknown SKU',
+          cases: cases,
+          units_per_case: unitsPerCase,
           quantity: item.quantity,
-          unit_price: item.unit_price ?? getPriceForSku(item.sku_id)
+          unit_price: unitPrice,
+          line_total: lineTotal
         }
       })
       setOrderItems(formOrderItems)
@@ -194,9 +220,9 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
     try {
       const { data, error } = await supabase
         .from('skus')
-        .select('*, product_type_id')
+        .select('id, name, code, product_type_id, units_per_case, price_per_unit')
         .eq('in_stock', true)
-        .order('name')
+        .order('code')
 
       if (error) throw error
       setSkus(data || [])
@@ -210,14 +236,22 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
 
     const firstSku = skus[0]
     const price = getPriceForSku(firstSku.id)
+    const unitsPerCase = firstSku.units_per_case || 32
+    const cases = 1
+    const quantity = cases * unitsPerCase
+    const lineTotal = price !== null ? quantity * price : 0
 
     setOrderItems([
       ...orderItems,
       {
         sku_id: firstSku.id,
+        sku_code: firstSku.code,
         sku_name: firstSku.name,
-        quantity: 1,
-        unit_price: price
+        cases: cases,
+        units_per_case: unitsPerCase,
+        quantity: quantity,
+        unit_price: price,
+        line_total: lineTotal
       }
     ])
   }
@@ -227,11 +261,32 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
     updated[index] = { ...updated[index], [field]: value }
 
     if (field === 'sku_id') {
+      // SKU changed - update all related fields
       const sku = skus.find(s => s.id === value)
       if (sku) {
+        updated[index].sku_code = sku.code
         updated[index].sku_name = sku.name
+        updated[index].units_per_case = sku.units_per_case || 32
         updated[index].unit_price = getPriceForSku(sku.id)
+        // Recalculate quantity and line_total based on current cases
+        updated[index].quantity = updated[index].cases * updated[index].units_per_case
+        updated[index].line_total = updated[index].unit_price !== null
+          ? updated[index].quantity * updated[index].unit_price
+          : 0
       }
+    } else if (field === 'cases') {
+      // Cases changed - recalculate quantity and line_total
+      const cases = value as number
+      updated[index].quantity = cases * updated[index].units_per_case
+      updated[index].line_total = updated[index].unit_price !== null
+        ? updated[index].quantity * updated[index].unit_price
+        : 0
+    } else if (field === 'unit_price') {
+      // Unit price changed - recalculate line_total
+      const price = value as number | null
+      updated[index].line_total = price !== null
+        ? updated[index].quantity * price
+        : 0
     }
 
     setOrderItems(updated)
@@ -242,12 +297,7 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
   }
 
   // Calculate order total
-  const orderTotal = orderItems.reduce((sum, item) => {
-    if (item.unit_price !== null) {
-      return sum + (item.unit_price * item.quantity)
-    }
-    return sum
-  }, 0)
+  const orderTotal = orderItems.reduce((sum, item) => sum + item.line_total, 0)
 
   const hasUnpricedItems = orderItems.some(item => item.unit_price === null)
 
@@ -489,38 +539,54 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
             ) : (
               <div className="space-y-3">
                 {orderItems.map((item, index) => (
-                  <div key={index} className="flex items-center gap-2 p-3 border rounded-lg">
-                    <div className="flex-1 min-w-0">
+                  <div key={index} className="p-3 border rounded-lg bg-muted/50 space-y-2">
+                    {/* SKU Selection Row */}
+                    <div className="flex items-center gap-2">
                       <Select
                         value={item.sku_id}
                         onValueChange={(value) => updateOrderItem(index, 'sku_id', value)}
                         disabled={loading}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger className="flex-1">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
                           {skus.map((sku) => (
                             <SelectItem key={sku.id} value={sku.id}>
-                              {sku.name}
+                              {sku.code} - {sku.name}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
-                    </div>
-                    <div className="w-20">
-                      <Input
-                        type="number"
-                        min="1"
-                        value={item.quantity}
-                        onChange={(e) => updateOrderItem(index, 'quantity', parseInt(e.target.value) || 1)}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeOrderItem(index)}
                         disabled={loading}
-                        placeholder="Qty"
-                      />
+                        className="h-8 w-8 shrink-0"
+                      >
+                        <Trash2 className="h-4 w-4 text-red-500" />
+                      </Button>
                     </div>
-                    <div className="w-28">
-                      <div className="relative">
-                        <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    {/* Cases, Unit Price, Total Row */}
+                    <div className="flex items-center gap-2 text-sm">
+                      <div className="flex items-center gap-1">
+                        <Input
+                          type="number"
+                          min="1"
+                          value={item.cases}
+                          onChange={(e) => updateOrderItem(index, 'cases', parseInt(e.target.value) || 1)}
+                          disabled={loading}
+                          className="w-16 h-8"
+                        />
+                        <span className="text-muted-foreground whitespace-nowrap">
+                          cases ({item.quantity} units)
+                        </span>
+                      </div>
+                      <span className="text-muted-foreground">×</span>
+                      <div className="flex items-center gap-1">
+                        <span className="text-muted-foreground">$</span>
                         <Input
                           type="number"
                           step="0.01"
@@ -528,25 +594,15 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
                           value={item.unit_price ?? ''}
                           onChange={(e) => updateOrderItem(index, 'unit_price', e.target.value ? parseFloat(e.target.value) : null)}
                           disabled={loading}
-                          placeholder="Price"
-                          className={`pl-7 ${item.unit_price === null ? 'border-amber-400' : ''}`}
+                          className={`w-20 h-8 ${item.unit_price === null ? 'border-amber-400' : ''}`}
                         />
+                        <span className="text-muted-foreground">/unit</span>
                       </div>
+                      <span className="text-muted-foreground">=</span>
+                      <span className="font-semibold whitespace-nowrap">
+                        {item.unit_price !== null ? `$${item.line_total.toFixed(2)}` : '-'}
+                      </span>
                     </div>
-                    <div className="w-24 text-right font-medium text-sm">
-                      {item.unit_price !== null
-                        ? `$${(item.unit_price * item.quantity).toFixed(2)}`
-                        : '-'}
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removeOrderItem(index)}
-                      disabled={loading}
-                    >
-                      <Trash2 className="h-4 w-4 text-red-500" />
-                    </Button>
                   </div>
                 ))}
 
