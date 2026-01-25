@@ -35,7 +35,6 @@ interface UserRecord {
   pin: string
   role: string
   created_at: string
-  is_active: boolean
 }
 
 export default function UsersPage() {
@@ -61,7 +60,7 @@ export default function UsersPage() {
     try {
       const { data, error } = await supabase
         .from('users')
-        .select('id, name, pin, role, created_at, is_active')
+        .select('id, name, pin, role, created_at')
         .order('name')
 
       if (error) throw error
@@ -87,19 +86,19 @@ export default function UsersPage() {
     setFilteredUsers(filtered)
   }
 
-  const handleToggleActive = async (userId: string, currentActive: boolean) => {
+  const handleDeleteUser = async (userId: string) => {
     setDeleteLoading(userId)
     try {
       const { error } = await supabase
         .from('users')
-        .update({ is_active: !currentActive })
+        .delete()
         .eq('id', userId)
 
       if (error) throw error
       await fetchUsers()
     } catch (error) {
-      console.error('Error updating user:', error)
-      alert('Error updating user. Please try again.')
+      console.error('Error deleting user:', error)
+      alert('Error deleting user. Please try again.')
     } finally {
       setDeleteLoading(null)
     }
@@ -134,8 +133,8 @@ export default function UsersPage() {
     )
   }
 
-  const activeUsers = filteredUsers.filter(user => user.is_active !== false)
-  const inactiveUsers = filteredUsers.filter(user => user.is_active === false)
+  // All users are active (no is_active column in users table)
+  const activeUsers = filteredUsers
 
   return (
     <div className="space-y-6">
@@ -179,8 +178,6 @@ export default function UsersPage() {
             />
           </div>
           <div className="flex gap-4 mt-2 text-sm text-muted-foreground">
-            <span>Active: {activeUsers.length}</span>
-            {inactiveUsers.length > 0 && <span>Inactive: {inactiveUsers.length}</span>}
             <span>Total: {filteredUsers.length}</span>
           </div>
         </CardContent>
@@ -258,24 +255,24 @@ export default function UsersPage() {
                                   onSelect={(e) => e.preventDefault()}
                                 >
                                   <Trash2 className="mr-2 h-4 w-4" />
-                                  Deactivate User
+                                  Delete User
                                 </DropdownMenuItem>
                               </AlertDialogTrigger>
                               <AlertDialogContent>
                                 <AlertDialogHeader>
-                                  <AlertDialogTitle>Deactivate User</AlertDialogTitle>
+                                  <AlertDialogTitle>Delete User</AlertDialogTitle>
                                   <AlertDialogDescription>
-                                    Are you sure you want to deactivate {user.name}? They will no longer be able to log in.
+                                    Are you sure you want to delete {user.name}? This action cannot be undone.
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                   <AlertDialogCancel>Cancel</AlertDialogCancel>
                                   <AlertDialogAction
-                                    onClick={() => handleToggleActive(user.id, true)}
+                                    onClick={() => handleDeleteUser(user.id)}
                                     disabled={deleteLoading === user.id}
                                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                   >
-                                    {deleteLoading === user.id ? 'Deactivating...' : 'Deactivate User'}
+                                    {deleteLoading === user.id ? 'Deleting...' : 'Delete User'}
                                   </AlertDialogAction>
                                 </AlertDialogFooter>
                               </AlertDialogContent>
@@ -291,57 +288,7 @@ export default function UsersPage() {
           </CardContent>
         </Card>
 
-        {/* Inactive Users (if any) */}
-        {inactiveUsers.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Trash2 className="h-5 w-5 text-muted-foreground" />
-                Inactive Users ({inactiveUsers.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {inactiveUsers.map((user) => (
-                  <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg bg-muted/30">
-                    <div className="flex items-center gap-4 flex-1 min-w-0 opacity-60">
-                      <div className="flex-shrink-0">
-                        <div className="w-10 h-10 bg-muted rounded-full flex items-center justify-center">
-                          <User className="h-5 w-5 text-muted-foreground" />
-                        </div>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <p className="font-medium truncate">{user.name || 'No name set'}</p>
-                          <Badge variant="outline" className="opacity-60">
-                            {user.role}
-                          </Badge>
-                          <Badge variant="outline" className="text-destructive">
-                            Inactive
-                          </Badge>
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          PIN: {user.pin}
-                        </div>
-                      </div>
-                    </div>
-                    {userCanManageUsers && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleToggleActive(user.id, false)}
-                        disabled={deleteLoading === user.id}
-                      >
-                        {deleteLoading === user.id ? 'Activating...' : 'Reactivate'}
-                      </Button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-      </div>
+        </div>
 
       {!userCanManageUsers && (
         <Card>
