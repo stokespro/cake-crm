@@ -46,19 +46,34 @@ export interface SKU {
   pricing?: SKUPricing[]
 }
 
-// Legacy Product type for backward compatibility
+// Product type - view on skus table
 export interface Product {
   id: string
-  strain_name: string
-  price_per_unit: number
+  item_name: string           // Primary field (aliased from skus.name)
+  strain_name: string         // Backward compatibility alias
+  code: string
   description?: string
-  thc_percentage?: number
-  cbd_percentage?: number
-  category?: string
   in_stock: boolean
+  product_type_id?: string
+  product_type_name?: string  // Joined from product_types
+  units_per_case?: number
+  strain_id?: string
+  strain_raw_name?: string    // Joined from strains
   created_at: string
   updated_at: string
+  // Deprecated fields (still in view for backward compatibility)
+  price_per_unit?: number
+  thc_percentage?: number
+  cbd_percentage?: number
+  category?: string           // Alias of product_type_name
   pricing?: ProductPricing[]
+}
+
+// Product type for dropdown options
+export interface ProductType {
+  id: string
+  name: string
+  created_at: string
 }
 
 export interface ProductPricing {

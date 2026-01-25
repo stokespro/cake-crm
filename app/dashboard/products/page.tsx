@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Plus, Search, Package, DollarSign, Leaf, CheckCircle, XCircle, MoreHorizontal, Edit } from 'lucide-react'
+import { Plus, Search, Package, Leaf, CheckCircle, XCircle, MoreHorizontal, Edit } from 'lucide-react'
 import type { Product } from '@/types/database'
 import {
   Table,
@@ -37,7 +37,7 @@ export default function ProductsPage() {
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
-  const [filterCategory, setFilterCategory] = useState('all')
+  const [filterType, setFilterType] = useState('all')
   const [filterStock, setFilterStock] = useState('all')
   const [sheetOpen, setSheetOpen] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<Product | undefined>(undefined)
@@ -54,73 +54,23 @@ export default function ProductsPage() {
 
   useEffect(() => {
     filterProducts()
-  }, [products, searchTerm, filterCategory, filterStock])
+  }, [products, searchTerm, filterType, filterStock])
 
   const fetchProducts = async () => {
     try {
-      setError(null) // Reset error state
-      console.log('Starting to fetch products...')
-      console.log('User authentication status:', await supabase.auth.getUser())
-      
-      // First, try a simple query without JOIN to test basic access
-      const { data: simpleData, error: simpleError } = await supabase
+      setError(null)
+
+      const { data, error: queryError } = await supabase
         .from('products')
         .select('*')
-        .order('strain_name')
+        .order('item_name')
 
-      console.log('Simple products query:', { data: simpleData, error: simpleError })
-
-      if (simpleError) {
-        console.error('Simple query failed:', simpleError)
-        throw simpleError
+      if (queryError) {
+        console.error('Error fetching products:', queryError)
+        throw queryError
       }
 
-      // If we have products from the simple query, use those and try to enhance with pricing
-      if (simpleData && simpleData.length > 0) {
-        console.log('Simple query succeeded with', simpleData.length, 'products')
-        
-        // Try to add pricing data - but don't fail if pricing table doesn't exist
-        try {
-          const { data: productsWithPricing, error: joinError } = await supabase
-            .from('products')
-            .select(`
-              *,
-              product_pricing(
-                id,
-                min_quantity,
-                price
-              )
-            `)
-            .order('strain_name')
-
-          console.log('JOIN query result:', { data: productsWithPricing, error: joinError })
-
-          // Check if the error is specifically about the product_pricing table not existing
-          if (joinError) {
-            console.warn('JOIN query failed, using simple product data:', joinError)
-            
-            // Check if it's a "relation does not exist" error which means table doesn't exist yet
-            const errorMessage = joinError.message?.toLowerCase() || ''
-            if (errorMessage.includes('does not exist') || errorMessage.includes('relation') || errorMessage.includes('product_pricing')) {
-              console.info('Product pricing table does not exist yet - this is expected before migration is run')
-            }
-            
-            // Use the simple data without pricing
-            setProducts(simpleData)
-          } else {
-            console.log('JOIN query succeeded with pricing data')
-            console.log('Products with pricing:', productsWithPricing?.filter(p => p.product_pricing && p.product_pricing.length > 0).length || 0)
-            setProducts(productsWithPricing || [])
-          }
-        } catch (joinError) {
-          console.warn('Error with pricing JOIN, falling back to simple product data:', joinError)
-          setProducts(simpleData)
-        }
-      } else {
-        console.log('No products found in simple query')
-        setProducts([])
-      }
-      
+      setProducts(data || [])
     } catch (error) {
       console.error('Error fetching products:', error)
       setError(`Database connection error: ${error instanceof Error ? error.message : 'Unknown error'}`)
@@ -135,14 +85,14 @@ export default function ProductsPage() {
 
     if (searchTerm) {
       filtered = filtered.filter(product =>
-        product.strain_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (product.item_name || product.strain_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         product.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        product.category?.toLowerCase().includes(searchTerm.toLowerCase())
+        product.code?.toLowerCase().includes(searchTerm.toLowerCase())
       )
     }
 
-    if (filterCategory !== 'all') {
-      filtered = filtered.filter(product => product.category === filterCategory)
+    if (filterType !== 'all') {
+      filtered = filtered.filter(product => product.product_type_name === filterType)
     }
 
     if (filterStock === 'in-stock') {
@@ -158,8 +108,9 @@ export default function ProductsPage() {
     if (userRole !== 'management' && userRole !== 'admin') return
 
     try {
+      // Update skus table directly (products is a view)
       const { error } = await supabase
-        .from('products')
+        .from('skus')
         .update({ in_stock: !currentStock })
         .eq('id', productId)
 
@@ -189,43 +140,12 @@ export default function ProductsPage() {
   }
 
   const handleSheetSuccess = () => {
-    fetchProducts() // Refresh products after create/edit
+    fetchProducts()
     closeSheet()
   }
 
-  // Calculate pricing range for display
-  const getPricingRange = (product: Product) => {
-    // Check both pricing (old format) and product_pricing (new format)
-    const pricingData = (product as { product_pricing?: { price: number }[] }).product_pricing || product.pricing || []
-    const basePrice = product.price_per_unit ?? 0
-
-    if (!pricingData || pricingData.length === 0) {
-      return `$${basePrice.toFixed(2)}`
-    }
-
-    try {
-      const prices = pricingData.map((p: { price: number }) => p.price).filter((price: number) => price != null && !isNaN(price)).sort((a: number, b: number) => a - b)
-
-      if (prices.length === 0) {
-        return `$${basePrice.toFixed(2)}`
-      }
-
-      const minPrice = Math.min(prices[0], basePrice)
-      const maxPrice = Math.max(prices[prices.length - 1], basePrice)
-
-      if (minPrice === maxPrice) {
-        return `$${minPrice.toFixed(2)}`
-      }
-
-      return `$${minPrice.toFixed(2)} - $${maxPrice.toFixed(2)}`
-    } catch (error) {
-      console.warn('Error calculating pricing range:', error)
-      return `$${basePrice.toFixed(2)}`
-    }
-  }
-
-  // Get unique categories from products
-  const categories = Array.from(new Set(products.map(p => p.category).filter(Boolean)))
+  // Get unique product types from products
+  const productTypes = Array.from(new Set(products.map(p => p.product_type_name).filter(Boolean)))
 
   if (loading) {
     return (
@@ -241,7 +161,7 @@ export default function ProductsPage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold">Products</h1>
-          <p className="text-muted-foreground mt-1">Cannabis strains and pricing catalog</p>
+          <p className="text-muted-foreground mt-1">Product catalog and inventory management</p>
         </div>
         {canManageProducts && (
           <Button onClick={openCreateSheet}>
@@ -261,21 +181,21 @@ export default function ProductsPage() {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search strains..."
+                placeholder="Search products..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-9"
               />
             </div>
-            <Select value={filterCategory} onValueChange={setFilterCategory}>
+            <Select value={filterType} onValueChange={setFilterType}>
               <SelectTrigger>
-                <SelectValue placeholder="Category" />
+                <SelectValue placeholder="Type" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                {categories.map(category => (
-                  <SelectItem key={category} value={category!}>
-                    {category}
+                <SelectItem value="all">All Types</SelectItem>
+                {productTypes.map(type => (
+                  <SelectItem key={type} value={type!}>
+                    {type}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -320,11 +240,11 @@ export default function ProductsPage() {
             <div className="py-12 text-center">
               <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-muted-foreground mb-4">
-                {searchTerm || filterCategory !== 'all' || filterStock !== 'all' 
-                  ? 'No products found matching your filters' 
+                {searchTerm || filterType !== 'all' || filterStock !== 'all'
+                  ? 'No products found matching your filters'
                   : 'No products added yet'}
               </p>
-              {canManageProducts && !searchTerm && filterCategory === 'all' && filterStock === 'all' && (
+              {canManageProducts && !searchTerm && filterType === 'all' && filterStock === 'all' && (
                 <Button onClick={openCreateSheet}>
                   <Plus className="mr-2 h-4 w-4" />
                   Add First Product
@@ -337,9 +257,9 @@ export default function ProductsPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Product Name</TableHead>
-                    <TableHead className="hidden md:table-cell">Category</TableHead>
-                    <TableHead>Price Range</TableHead>
-                    <TableHead className="hidden lg:table-cell">THC/CBD</TableHead>
+                    <TableHead>Code</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead className="text-right">Units/Case</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="w-[50px]">Actions</TableHead>
                   </TableRow>
@@ -351,7 +271,7 @@ export default function ProductsPage() {
                         <div className="flex items-center gap-2">
                           <Leaf className="h-4 w-4 text-green-600" />
                           <div>
-                            <div className="font-medium">{product.strain_name}</div>
+                            <div className="font-medium">{product.item_name || product.strain_name}</div>
                             {product.description && (
                               <div className="text-sm text-muted-foreground line-clamp-1 max-w-[200px]">
                                 {product.description}
@@ -360,31 +280,18 @@ export default function ProductsPage() {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        {product.category && (
+                      <TableCell>
+                        <span className="font-mono text-sm">{product.code}</span>
+                      </TableCell>
+                      <TableCell>
+                        {product.product_type_name && (
                           <Badge variant="outline" className="text-xs">
-                            {product.category}
+                            {product.product_type_name}
                           </Badge>
                         )}
                       </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1 font-medium">
-                          <DollarSign className="h-4 w-4" />
-                          {getPricingRange(product)}
-                        </div>
-                      </TableCell>
-                      <TableCell className="hidden lg:table-cell">
-                        <div className="space-y-1 text-sm">
-                          {product.thc_percentage && (
-                            <div>THC: {product.thc_percentage}%</div>
-                          )}
-                          {product.cbd_percentage && (
-                            <div>CBD: {product.cbd_percentage}%</div>
-                          )}
-                          {!product.thc_percentage && !product.cbd_percentage && (
-                            <span className="text-muted-foreground">-</span>
-                          )}
-                        </div>
+                      <TableCell className="text-right">
+                        <span className="font-medium">{product.units_per_case || '-'}</span>
                       </TableCell>
                       <TableCell>
                         {product.in_stock ? (
