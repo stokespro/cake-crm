@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -21,13 +21,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Loader2, Plus, Trash2 } from 'lucide-react'
+import { Loader2, Plus, Trash2, DollarSign } from 'lucide-react'
 import type { Customer, SKU, Order } from '@/types/database'
+
+interface CustomerPricingData {
+  sku_id: string | null
+  product_type_id: string | null
+  price_per_unit: number
+}
 
 interface OrderItem {
   sku_id: string
   sku_name: string
   quantity: number
+  unit_price: number | null  // null means manual entry required
 }
 
 interface OrderSheetProps {
@@ -40,7 +47,8 @@ interface OrderSheetProps {
 
 export function OrderSheet({ open, onClose, customerId, onSuccess, order }: OrderSheetProps) {
   const [customers, setCustomers] = useState<Customer[]>([])
-  const [skus, setSkus] = useState<SKU[]>([])
+  const [skus, setSkus] = useState<(SKU & { product_type_id?: string })[]>([])
+  const [customerPricing, setCustomerPricing] = useState<CustomerPricingData[]>([])
   const [selectedCustomerId, setSelectedCustomerId] = useState(customerId || order?.customer_id || '')
   const [orderItems, setOrderItems] = useState<OrderItem[]>([])
   const [orderNotes, setOrderNotes] = useState(order?.order_notes || '')
@@ -48,6 +56,49 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const supabase = createClient()
+
+  // Fetch customer pricing when customer changes
+  const fetchCustomerPricing = useCallback(async (custId: string) => {
+    if (!custId) {
+      setCustomerPricing([])
+      return
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('customer_pricing')
+        .select('sku_id, product_type_id, price_per_unit')
+        .eq('customer_id', custId)
+
+      if (error) throw error
+      setCustomerPricing(data || [])
+    } catch (error) {
+      console.error('Error fetching customer pricing:', error)
+      setCustomerPricing([])
+    }
+  }, [supabase])
+
+  // Get price for a SKU based on customer pricing rules
+  // Priority: item price > category price > null (manual)
+  const getPriceForSku = useCallback((skuId: string): number | null => {
+    // Check for item-specific price
+    const itemPrice = customerPricing.find(p => p.sku_id === skuId)
+    if (itemPrice) {
+      return itemPrice.price_per_unit
+    }
+
+    // Check for category price
+    const sku = skus.find(s => s.id === skuId)
+    if (sku?.product_type_id) {
+      const categoryPrice = customerPricing.find(p => p.product_type_id === sku.product_type_id)
+      if (categoryPrice) {
+        return categoryPrice.price_per_unit
+      }
+    }
+
+    // No pricing found
+    return null
+  }, [customerPricing, skus])
 
   useEffect(() => {
     if (open) {
@@ -60,6 +111,7 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
         setSelectedCustomerId(order.customer_id)
         setOrderNotes(order.order_notes || '')
         setRequestedDeliveryDate(order.requested_delivery_date || '')
+        fetchCustomerPricing(order.customer_id)
 
         // Order items will be loaded in separate useEffect after skus are loaded
       } else {
@@ -71,10 +123,28 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
         // Set customer if provided
         if (customerId) {
           setSelectedCustomerId(customerId)
+          fetchCustomerPricing(customerId)
         }
       }
     }
-  }, [open, customerId, order])
+  }, [open, customerId, order, fetchCustomerPricing])
+
+  // Fetch pricing when customer changes
+  useEffect(() => {
+    if (selectedCustomerId && open) {
+      fetchCustomerPricing(selectedCustomerId)
+    }
+  }, [selectedCustomerId, open, fetchCustomerPricing])
+
+  // Update prices when pricing data changes
+  useEffect(() => {
+    if (customerPricing.length > 0 && orderItems.length > 0) {
+      setOrderItems(prev => prev.map(item => ({
+        ...item,
+        unit_price: getPriceForSku(item.sku_id)
+      })))
+    }
+  }, [customerPricing, getPriceForSku])
 
   // Load order items when skus are loaded (for edit mode)
   useEffect(() => {
@@ -84,12 +154,13 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
         return {
           sku_id: item.sku_id,
           sku_name: sku?.name || 'Unknown SKU',
-          quantity: item.quantity
+          quantity: item.quantity,
+          unit_price: item.unit_price ?? getPriceForSku(item.sku_id)
         }
       })
       setOrderItems(formOrderItems)
     }
-  }, [skus, order])
+  }, [skus, order, getPriceForSku])
 
   // Reset form when sheet closes
   useEffect(() => {
@@ -98,6 +169,7 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
       setOrderItems([])
       setOrderNotes('')
       setError(null)
+      setCustomerPricing([])
       const defaultDate = new Date()
       defaultDate.setDate(defaultDate.getDate() + 7)
       setRequestedDeliveryDate(defaultDate.toISOString().split('T')[0])
@@ -122,7 +194,8 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
     try {
       const { data, error } = await supabase
         .from('skus')
-        .select('*')
+        .select('*, product_type_id')
+        .eq('in_stock', true)
         .order('name')
 
       if (error) throw error
@@ -136,17 +209,20 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
     if (skus.length === 0) return
 
     const firstSku = skus[0]
+    const price = getPriceForSku(firstSku.id)
+
     setOrderItems([
       ...orderItems,
       {
         sku_id: firstSku.id,
         sku_name: firstSku.name,
-        quantity: 1
+        quantity: 1,
+        unit_price: price
       }
     ])
   }
 
-  const updateOrderItem = (index: number, field: keyof OrderItem, value: string | number) => {
+  const updateOrderItem = (index: number, field: keyof OrderItem, value: string | number | null) => {
     const updated = [...orderItems]
     updated[index] = { ...updated[index], [field]: value }
 
@@ -154,6 +230,7 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
       const sku = skus.find(s => s.id === value)
       if (sku) {
         updated[index].sku_name = sku.name
+        updated[index].unit_price = getPriceForSku(sku.id)
       }
     }
 
@@ -163,6 +240,16 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
   const removeOrderItem = (index: number) => {
     setOrderItems(orderItems.filter((_, i) => i !== index))
   }
+
+  // Calculate order total
+  const orderTotal = orderItems.reduce((sum, item) => {
+    if (item.unit_price !== null) {
+      return sum + (item.unit_price * item.quantity)
+    }
+    return sum
+  }, 0)
+
+  const hasUnpricedItems = orderItems.some(item => item.unit_price === null)
 
   const validateForm = () => {
     if (!selectedCustomerId) {
@@ -193,6 +280,11 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
         setError(`Please enter a valid quantity greater than 0 for item ${i + 1}`)
         return false
       }
+
+      if (item.unit_price === null || item.unit_price <= 0) {
+        setError(`Please enter a valid price for item ${i + 1} (${item.sku_name})`)
+        return false
+      }
     }
 
     return true
@@ -209,11 +301,6 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
     setLoading(true)
 
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        throw new Error('Not authenticated. Please log in and try again.')
-      }
-
       const isEditMode = !!order
 
       if (isEditMode) {
@@ -224,8 +311,8 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
             customer_id: selectedCustomerId,
             order_notes: orderNotes || null,
             requested_delivery_date: requestedDeliveryDate,
-            last_edited_at: new Date().toISOString(),
-            last_edited_by: user.id
+            total_price: orderTotal,
+            updated_at: new Date().toISOString()
           })
           .eq('id', order.id)
 
@@ -247,7 +334,8 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
         const itemsToInsert = orderItems.map(item => ({
           order_id: order.id,
           sku_id: item.sku_id,
-          quantity: item.quantity
+          quantity: item.quantity,
+          unit_price: item.unit_price
         }))
 
         const { error: itemsError } = await supabase
@@ -262,11 +350,11 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
         const { data: newOrder, error: orderError } = await supabase
           .from('orders')
           .insert({
-            agent_id: user.id,
             customer_id: selectedCustomerId,
             order_notes: orderNotes || null,
             requested_delivery_date: requestedDeliveryDate,
             status: 'pending',
+            total_price: orderTotal,
             order_date: new Date().toISOString().split('T')[0]
           })
           .select()
@@ -284,7 +372,8 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
         const itemsToInsert = orderItems.map(item => ({
           order_id: newOrder.id,
           sku_id: item.sku_id,
-          quantity: item.quantity
+          quantity: item.quantity,
+          unit_price: item.unit_price
         }))
 
         const { error: itemsError } = await supabase
@@ -310,7 +399,7 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
 
   return (
     <Sheet open={open} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent className="sm:max-w-[600px] w-full overflow-y-auto">
+      <SheetContent className="sm:max-w-[700px] w-full overflow-y-auto">
         <SheetHeader>
           <SheetTitle>{order ? 'Edit Order' : 'Create New Order'}</SheetTitle>
           <SheetDescription>
@@ -400,8 +489,8 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
             ) : (
               <div className="space-y-3">
                 {orderItems.map((item, index) => (
-                  <div key={index} className="flex items-center gap-3 p-3 border rounded-lg">
-                    <div className="flex-1">
+                  <div key={index} className="flex items-center gap-2 p-3 border rounded-lg">
+                    <div className="flex-1 min-w-0">
                       <Select
                         value={item.sku_id}
                         onValueChange={(value) => updateOrderItem(index, 'sku_id', value)}
@@ -419,7 +508,7 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="w-24">
+                    <div className="w-20">
                       <Input
                         type="number"
                         min="1"
@@ -428,6 +517,26 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
                         disabled={loading}
                         placeholder="Qty"
                       />
+                    </div>
+                    <div className="w-28">
+                      <div className="relative">
+                        <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={item.unit_price ?? ''}
+                          onChange={(e) => updateOrderItem(index, 'unit_price', e.target.value ? parseFloat(e.target.value) : null)}
+                          disabled={loading}
+                          placeholder="Price"
+                          className={`pl-7 ${item.unit_price === null ? 'border-amber-400' : ''}`}
+                        />
+                      </div>
+                    </div>
+                    <div className="w-24 text-right font-medium text-sm">
+                      {item.unit_price !== null
+                        ? `$${(item.unit_price * item.quantity).toFixed(2)}`
+                        : '-'}
                     </div>
                     <Button
                       type="button"
@@ -440,7 +549,25 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
                     </Button>
                   </div>
                 ))}
+
+                {/* Order Total */}
+                <div className="flex justify-end items-center gap-4 pt-3 border-t">
+                  <span className="text-sm text-muted-foreground">Order Total:</span>
+                  <span className="text-lg font-bold">
+                    {hasUnpricedItems ? (
+                      <span className="text-amber-600">Incomplete pricing</span>
+                    ) : (
+                      `$${orderTotal.toFixed(2)}`
+                    )}
+                  </span>
+                </div>
               </div>
+            )}
+
+            {hasUnpricedItems && (
+              <p className="text-sm text-amber-600">
+                Some items need pricing. Enter prices manually or set up customer pricing defaults.
+              </p>
             )}
           </div>
 

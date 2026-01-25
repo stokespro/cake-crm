@@ -24,6 +24,23 @@ export interface Customer {
   ob_license?: string
   created_at: string
   updated_at: string
+  // Joined data
+  pricing?: CustomerPricing[]
+}
+
+// Customer-specific pricing (by item or category)
+// Item-level (sku_id) takes precedence over category-level (product_type_id)
+export interface CustomerPricing {
+  id: string
+  customer_id: string
+  sku_id?: string           // For item-specific pricing
+  product_type_id?: string  // For category-wide pricing
+  price_per_unit: number
+  created_at: string
+  updated_at: string
+  // Joined data for display
+  sku?: SKU
+  product_type?: ProductType
 }
 
 // Alias for backward compatibility during migration

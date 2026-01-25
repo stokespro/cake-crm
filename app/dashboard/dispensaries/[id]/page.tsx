@@ -45,6 +45,7 @@ import {
 import { EditDispensarySheet } from '@/components/dispensary/edit-dispensary-sheet'
 import { CommunicationSheet } from '@/components/communications/communication-sheet'
 import { OrderSheet } from '@/components/orders/order-sheet'
+import { CustomerPricingSection } from '@/components/dispensary/customer-pricing'
 import { DispensaryProfile, Order } from '@/types/database'
 import { toast } from 'sonner'
 
@@ -418,8 +419,9 @@ export default function DispensaryDetailPage() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="pricing">Pricing</TabsTrigger>
           <TabsTrigger value="communications">Communications</TabsTrigger>
           <TabsTrigger value="orders">Orders</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
@@ -593,6 +595,22 @@ export default function DispensaryDetailPage() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="pricing" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="text-lg font-medium">Default Pricing</h3>
+              <p className="text-sm text-muted-foreground">
+                Set custom pricing for this customer. Item prices override category prices.
+              </p>
+            </div>
+          </div>
+
+          <CustomerPricingSection
+            customerId={dispensaryId}
+            canManage={canManageDispensaries}
+          />
         </TabsContent>
 
         <TabsContent value="communications" className="space-y-4">
