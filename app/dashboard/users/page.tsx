@@ -3,12 +3,13 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { useAuth, canManageUsers } from '@/lib/auth-context'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { Plus, Search, User, Mail, Shield, Eye, Trash2, MoreHorizontal, Activity } from 'lucide-react'
-import { 
+import { Plus, Search, User, Shield, Eye, Trash2, MoreHorizontal, Activity } from 'lucide-react'
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -28,85 +29,40 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 
-interface UserProfile {
+interface UserRecord {
   id: string
-  email: string
-  full_name: string
-  phone_number?: string
+  name: string
+  pin: string
   role: string
   created_at: string
-  last_login_at?: string
-  login_count?: number
-  deleted_at?: string
+  is_active: boolean
 }
 
 export default function UsersPage() {
-  const [users, setUsers] = useState<UserProfile[]>([])
-  const [filteredUsers, setFilteredUsers] = useState<UserProfile[]>([])
+  const [users, setUsers] = useState<UserRecord[]>([])
+  const [filteredUsers, setFilteredUsers] = useState<UserRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
-  const [userRole, setUserRole] = useState<string>('')
-  const [roleLoading, setRoleLoading] = useState(true)
   const [deleteLoading, setDeleteLoading] = useState<string | null>(null)
   const supabase = createClient()
+  const { user: currentUser, isLoading: authLoading } = useAuth()
+
+  const userRole = currentUser?.role || 'standard'
 
   useEffect(() => {
-    const loadData = async () => {
-      await fetchUserRole()
-      await fetchUsers()
-    }
-    loadData()
+    fetchUsers()
   }, [])
 
   useEffect(() => {
     filterUsers()
   }, [users, searchTerm])
 
-  const fetchUserRole = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        setRoleLoading(false)
-        return
-      }
-
-      // Try to use the new secure function first
-      const { data: profileData, error: functionError } = await supabase
-        .rpc('get_user_profile', { user_id: user.id })
-
-      if (!functionError && profileData) {
-        setUserRole(profileData.role || 'agent')
-        setRoleLoading(false)
-        return
-      }
-
-      // Fallback to direct query
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single()
-
-      if (data) {
-        setUserRole(data.role)
-      } else if (error) {
-        console.error('Error fetching user role:', error)
-        setUserRole('agent') // fallback
-      }
-    } catch (error) {
-      console.error('Error fetching user role:', error)
-      setUserRole('agent') // fallback
-    } finally {
-      setRoleLoading(false)
-    }
-  }
-
   const fetchUsers = async () => {
     try {
       const { data, error } = await supabase
-        .from('profiles')
-        .select('id, email, full_name, phone_number, role, created_at, last_login_at, login_count, deleted_at')
-        .order('created_at', { ascending: false })
+        .from('users')
+        .select('id, name, pin, role, created_at, is_active')
+        .order('name')
 
       if (error) throw error
       setUsers(data || [])
@@ -124,34 +80,26 @@ export default function UsersPage() {
     }
 
     const filtered = users.filter(user =>
-      user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.role.toLowerCase().includes(searchTerm.toLowerCase())
     )
 
     setFilteredUsers(filtered)
   }
 
-  const handleSoftDelete = async (userId: string) => {
+  const handleToggleActive = async (userId: string, currentActive: boolean) => {
     setDeleteLoading(userId)
     try {
-      // For now, we'll mark the user as deleted in the UI
-      // In a full implementation, this would call the soft_delete_user function
       const { error } = await supabase
-        .from('profiles')
-        .update({ 
-          deleted_at: new Date().toISOString(),
-          deleted_by: (await supabase.auth.getUser()).data.user?.id
-        })
+        .from('users')
+        .update({ is_active: !currentActive })
         .eq('id', userId)
 
       if (error) throw error
-
-      // Refresh the users list
       await fetchUsers()
     } catch (error) {
-      console.error('Error deleting user:', error)
-      alert('Error deleting user. Please try again.')
+      console.error('Error updating user:', error)
+      alert('Error updating user. Please try again.')
     } finally {
       setDeleteLoading(null)
     }
@@ -161,7 +109,8 @@ export default function UsersPage() {
     switch (role) {
       case 'admin': return 'destructive'
       case 'management': return 'default'
-      case 'agent': return 'secondary'
+      case 'sales': return 'secondary'
+      case 'standard': return 'outline'
       default: return 'outline'
     }
   }
@@ -175,21 +124,18 @@ export default function UsersPage() {
     })
   }
 
-  const isAdmin = userRole === 'admin'
-  const canManageUsers = isAdmin
+  const userCanManageUsers = canManageUsers(userRole)
 
-  if (loading || roleLoading) {
+  if (loading || authLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-muted-foreground">
-          {roleLoading ? 'Loading permissions...' : 'Loading users...'}
-        </div>
+        <div className="text-muted-foreground">Loading users...</div>
       </div>
     )
   }
 
-  const activeUsers = filteredUsers.filter(user => !user.deleted_at)
-  const deletedUsers = filteredUsers.filter(user => user.deleted_at)
+  const activeUsers = filteredUsers.filter(user => user.is_active !== false)
+  const inactiveUsers = filteredUsers.filter(user => user.is_active === false)
 
   return (
     <div className="space-y-6">
@@ -199,7 +145,7 @@ export default function UsersPage() {
           <h1 className="text-2xl md:text-3xl font-bold">User Management</h1>
           <p className="text-muted-foreground mt-1">Manage system users and permissions</p>
         </div>
-        {canManageUsers && (
+        {userCanManageUsers && (
           <div className="flex gap-2">
             <Button variant="outline" asChild>
               <Link href="/dashboard/users/activity">
@@ -234,7 +180,7 @@ export default function UsersPage() {
           </div>
           <div className="flex gap-4 mt-2 text-sm text-muted-foreground">
             <span>Active: {activeUsers.length}</span>
-            {deletedUsers.length > 0 && <span>Deleted: {deletedUsers.length}</span>}
+            {inactiveUsers.length > 0 && <span>Inactive: {inactiveUsers.length}</span>}
             <span>Total: {filteredUsers.length}</span>
           </div>
         </CardContent>
@@ -270,24 +216,19 @@ export default function UsersPage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <p className="font-medium truncate">{user.full_name || 'No name set'}</p>
+                          <p className="font-medium truncate">{user.name || 'No name set'}</p>
                           <Badge variant={getRoleBadgeVariant(user.role)}>
                             {user.role}
                           </Badge>
                         </div>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Mail className="h-3 w-3" />
-                          <span className="truncate">{user.email}</span>
-                        </div>
                         <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
-                          <span>Joined: {formatDate(user.created_at)}</span>
-                          <span>Last login: {formatDate(user.last_login_at)}</span>
-                          {user.login_count && <span>Logins: {user.login_count}</span>}
+                          <span>PIN: {user.pin}</span>
+                          <span>Added: {formatDate(user.created_at)}</span>
                         </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      {canManageUsers && (
+                      {userCanManageUsers && (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" className="h-8 w-8 p-0">
@@ -317,24 +258,24 @@ export default function UsersPage() {
                                   onSelect={(e) => e.preventDefault()}
                                 >
                                   <Trash2 className="mr-2 h-4 w-4" />
-                                  Delete User
+                                  Deactivate User
                                 </DropdownMenuItem>
                               </AlertDialogTrigger>
                               <AlertDialogContent>
                                 <AlertDialogHeader>
-                                  <AlertDialogTitle>Delete User</AlertDialogTitle>
+                                  <AlertDialogTitle>Deactivate User</AlertDialogTitle>
                                   <AlertDialogDescription>
-                                    Are you sure you want to delete {user.full_name || user.email}? This action will deactivate the user account but preserve their data for audit purposes.
+                                    Are you sure you want to deactivate {user.name}? They will no longer be able to log in.
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                   <AlertDialogCancel>Cancel</AlertDialogCancel>
                                   <AlertDialogAction
-                                    onClick={() => handleSoftDelete(user.id)}
+                                    onClick={() => handleToggleActive(user.id, true)}
                                     disabled={deleteLoading === user.id}
                                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                   >
-                                    {deleteLoading === user.id ? 'Deleting...' : 'Delete User'}
+                                    {deleteLoading === user.id ? 'Deactivating...' : 'Deactivate User'}
                                   </AlertDialogAction>
                                 </AlertDialogFooter>
                               </AlertDialogContent>
@@ -350,18 +291,18 @@ export default function UsersPage() {
           </CardContent>
         </Card>
 
-        {/* Deleted Users (if any) */}
-        {deletedUsers.length > 0 && (
+        {/* Inactive Users (if any) */}
+        {inactiveUsers.length > 0 && (
           <Card>
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
                 <Trash2 className="h-5 w-5 text-muted-foreground" />
-                Deleted Users ({deletedUsers.length})
+                Inactive Users ({inactiveUsers.length})
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {deletedUsers.map((user) => (
+                {inactiveUsers.map((user) => (
                   <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg bg-muted/30">
                     <div className="flex items-center gap-4 flex-1 min-w-0 opacity-60">
                       <div className="flex-shrink-0">
@@ -371,23 +312,29 @@ export default function UsersPage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <p className="font-medium truncate line-through">{user.full_name || 'No name set'}</p>
+                          <p className="font-medium truncate">{user.name || 'No name set'}</p>
                           <Badge variant="outline" className="opacity-60">
                             {user.role}
                           </Badge>
                           <Badge variant="outline" className="text-destructive">
-                            Deleted
+                            Inactive
                           </Badge>
                         </div>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Mail className="h-3 w-3" />
-                          <span className="truncate">{user.email}</span>
-                        </div>
                         <div className="text-xs text-muted-foreground">
-                          Deleted: {formatDate(user.deleted_at)}
+                          PIN: {user.pin}
                         </div>
                       </div>
                     </div>
+                    {userCanManageUsers && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleToggleActive(user.id, false)}
+                        disabled={deleteLoading === user.id}
+                      >
+                        {deleteLoading === user.id ? 'Activating...' : 'Reactivate'}
+                      </Button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -396,7 +343,7 @@ export default function UsersPage() {
         )}
       </div>
 
-      {!canManageUsers && (
+      {!userCanManageUsers && (
         <Card>
           <CardContent className="py-4">
             <p className="text-sm text-muted-foreground text-center">
