@@ -333,3 +333,108 @@ export async function addStagedInventory(
 
   return { success: true }
 }
+
+// Update inventory levels directly (for manual adjustments)
+export async function updateInventory(
+  sku: string,
+  updates: { cased?: number; filled?: number; staged?: number }
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient()
+
+  // Get SKU ID
+  const { data: skuData, error: skuError } = await supabase
+    .from('skus')
+    .select('id')
+    .eq('code', sku)
+    .single()
+
+  if (skuError || !skuData) {
+    return { success: false, error: 'SKU not found' }
+  }
+
+  // Build update object with only provided fields
+  const updateData: Record<string, number> = {}
+  if (updates.cased !== undefined) updateData.cased = updates.cased
+  if (updates.filled !== undefined) updateData.filled = updates.filled
+  if (updates.staged !== undefined) updateData.staged = updates.staged
+
+  if (Object.keys(updateData).length === 0) {
+    return { success: false, error: 'No updates provided' }
+  }
+
+  const { error: updateError } = await supabase
+    .from('inventory')
+    .update(updateData)
+    .eq('sku_id', skuData.id)
+
+  if (updateError) {
+    return { success: false, error: updateError.message }
+  }
+
+  // Log the adjustment
+  await supabase.from('inventory_log').insert({
+    sku_id: skuData.id,
+    change_type: 'manual_adjustment',
+    cased_change: updates.cased !== undefined ? updates.cased : null,
+    filled_change: updates.filled !== undefined ? updates.filled : null,
+    staged_change: updates.staged !== undefined ? updates.staged : null,
+    notes: 'Manual adjustment via CRM',
+  })
+
+  return { success: true }
+}
+
+// Get demand summary (aggregate order quantities by SKU)
+export async function getDemandSummary(): Promise<{
+  success: boolean
+  demand?: Record<string, { total: number; urgent: number; tomorrow: number }>
+  error?: string
+}> {
+  const supabase = await createClient()
+
+  const today = new Date()
+  const tomorrow = new Date(today)
+  tomorrow.setDate(tomorrow.getDate() + 1)
+
+  const { data: orders, error } = await supabase
+    .from('orders')
+    .select(`
+      requested_delivery_date,
+      order_items (
+        quantity,
+        sku:skus(code)
+      )
+    `)
+    .in('status', ['confirmed', 'pending'])
+
+  if (error) {
+    return { success: false, error: error.message }
+  }
+
+  const demand: Record<string, { total: number; urgent: number; tomorrow: number }> = {}
+
+  orders.forEach(order => {
+    const deliveryDate = order.requested_delivery_date
+      ? new Date(order.requested_delivery_date + 'T00:00:00')
+      : null
+
+    const isUrgent = deliveryDate && deliveryDate <= today
+    const isTomorrow = deliveryDate &&
+      deliveryDate.toDateString() === tomorrow.toDateString()
+
+    order.order_items.forEach((item: { quantity: number; sku: { code: string } | null }) => {
+      const skuCode = item.sku?.code
+      if (!skuCode) return
+
+      if (!demand[skuCode]) {
+        demand[skuCode] = { total: 0, urgent: 0, tomorrow: 0 }
+      }
+
+      demand[skuCode].total += item.quantity
+      if (isUrgent) demand[skuCode].urgent += item.quantity
+      if (isTomorrow) demand[skuCode].tomorrow += item.quantity
+    })
+  })
+
+  return { success: true, demand }
+}
