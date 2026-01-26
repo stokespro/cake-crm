@@ -1,5 +1,19 @@
 # Progress Log
 
+## Session - 2026-01-26
+
+### Completed - UX Improvements
+
+77. **Searchable Customer Combobox** - Communications & Tasks forms:
+    - Updated `app/dashboard/communications/new/page.tsx`
+    - Updated `app/dashboard/tasks/new/page.tsx`
+    - Replaced basic Select with Popover + Command pattern (matching Orders page)
+    - Enables search/filter for 70+ customers
+    - Commit: `465309d`
+    - Deployed to production ✅
+
+---
+
 ## Session - 2026-01-16
 
 ### Completed - Infrastructure
