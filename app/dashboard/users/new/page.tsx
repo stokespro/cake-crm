@@ -7,7 +7,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
   SelectContent,
@@ -15,20 +14,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { ArrowLeft, Save, User } from 'lucide-react'
+import { ArrowLeft, Save, User, RefreshCw } from 'lucide-react'
 import Link from 'next/link'
+
+// Generate a random 4-digit PIN
+const generatePin = () => {
+  return Math.floor(1000 + Math.random() * 9000).toString()
+}
 
 export default function NewUserPage() {
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
-    email: '',
-    full_name: '',
-    phone_number: '',
-    role: 'standard',
-    temporary_password: '',
-    notes: ''
+    name: '',
+    pin: generatePin(),
+    role: 'standard'
   })
-  
+
   const router = useRouter()
   const supabase = createClient()
 
@@ -37,16 +38,27 @@ export default function NewUserPage() {
     setLoading(true)
 
     try {
-      // In a full implementation, this would use Supabase Auth Admin functions
-      // to create a user account and send invitation email
-      // For now, we'll create a profile entry directly
-      
+      // Validate PIN is 4 digits
+      if (!/^\d{4}$/.test(formData.pin)) {
+        throw new Error('PIN must be exactly 4 digits')
+      }
+
+      // Check if PIN is already in use
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('id')
+        .eq('pin', formData.pin)
+        .single()
+
+      if (existingUser) {
+        throw new Error('This PIN is already in use. Please generate a new one.')
+      }
+
       const { error } = await supabase
-        .from('profiles')
+        .from('users')
         .insert({
-          email: formData.email,
-          full_name: formData.full_name,
-          phone_number: formData.phone_number || null,
+          name: formData.name,
+          pin: formData.pin,
           role: formData.role
         })
 
@@ -65,6 +77,13 @@ export default function NewUserPage() {
     setFormData(prev => ({
       ...prev,
       [field]: value
+    }))
+  }
+
+  const regeneratePin = () => {
+    setFormData(prev => ({
+      ...prev,
+      pin: generatePin()
     }))
   }
 
@@ -93,48 +112,45 @@ export default function NewUserPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Email */}
+            {/* Name */}
             <div className="space-y-2">
-              <Label htmlFor="email">
-                Email Address <span className="text-destructive">*</span>
+              <Label htmlFor="name">
+                Name <span className="text-destructive">*</span>
               </Label>
               <Input
-                id="email"
-                type="email"
-                placeholder="user@example.com"
-                value={formData.email}
-                onChange={(e) => handleInputChange('email', e.target.value)}
-                required
-              />
-              <p className="text-sm text-muted-foreground">
-                This will be used for login and system notifications
-              </p>
-            </div>
-
-            {/* Full Name */}
-            <div className="space-y-2">
-              <Label htmlFor="full_name">
-                Full Name <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="full_name"
+                id="name"
                 placeholder="John Doe"
-                value={formData.full_name}
-                onChange={(e) => handleInputChange('full_name', e.target.value)}
+                value={formData.name}
+                onChange={(e) => handleInputChange('name', e.target.value)}
                 required
               />
             </div>
 
-            {/* Phone Number */}
+            {/* PIN */}
             <div className="space-y-2">
-              <Label htmlFor="phone_number">Phone Number</Label>
-              <Input
-                id="phone_number"
-                type="tel"
-                placeholder="(555) 123-4567"
-                value={formData.phone_number}
-                onChange={(e) => handleInputChange('phone_number', e.target.value)}
-              />
+              <Label htmlFor="pin">
+                Login PIN <span className="text-destructive">*</span>
+              </Label>
+              <div className="flex gap-2">
+                <Input
+                  id="pin"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="\d{4}"
+                  maxLength={4}
+                  placeholder="4-digit PIN"
+                  value={formData.pin}
+                  onChange={(e) => handleInputChange('pin', e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  className="font-mono text-lg tracking-widest"
+                  required
+                />
+                <Button type="button" variant="outline" onClick={regeneratePin}>
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                This 4-digit PIN will be used for login. Share it securely with the user.
+              </p>
             </div>
 
             {/* Role */}
@@ -159,33 +175,6 @@ export default function NewUserPage() {
                 <p><strong>Management:</strong> Full access to all sections. Can approve and edit orders</p>
                 <p><strong>Admin:</strong> Full system access including user management</p>
               </div>
-            </div>
-
-            {/* Temporary Password */}
-            <div className="space-y-2">
-              <Label htmlFor="temporary_password">Temporary Password</Label>
-              <Input
-                id="temporary_password"
-                type="password"
-                placeholder="Enter temporary password"
-                value={formData.temporary_password}
-                onChange={(e) => handleInputChange('temporary_password', e.target.value)}
-              />
-              <p className="text-sm text-muted-foreground">
-                If provided, user will be able to login immediately. Otherwise, an invitation email will be sent.
-              </p>
-            </div>
-
-            {/* Notes */}
-            <div className="space-y-2">
-              <Label htmlFor="notes">Notes</Label>
-              <Textarea
-                id="notes"
-                placeholder="Any additional notes about this user..."
-                value={formData.notes}
-                onChange={(e) => handleInputChange('notes', e.target.value)}
-                rows={3}
-              />
             </div>
 
             {/* Actions */}
@@ -214,11 +203,10 @@ export default function NewUserPage() {
           <CardTitle className="text-base">User Creation Process</CardTitle>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground space-y-2">
-          <p>1. Fill out the required user information above</p>
-          <p>2. Select the appropriate role based on their responsibilities</p>
-          <p>3. If providing a temporary password, the user can login immediately</p>
-          <p>4. Without a password, an invitation email will be sent to the user</p>
-          <p>5. Users can update their own profile information after first login</p>
+          <p>1. Enter the user's name</p>
+          <p>2. A 4-digit PIN is auto-generated (you can regenerate or edit it)</p>
+          <p>3. Select the appropriate role based on their responsibilities</p>
+          <p>4. Share the PIN securely with the user for login</p>
         </CardContent>
       </Card>
     </div>
