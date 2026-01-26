@@ -330,12 +330,14 @@ export default function OrdersPage() {
   const startEditing = (order: Order) => {
     setEditingOrder(order.id)
 
-    // Convert order items to edit format with case calculation
+    // Convert order items to edit format
+    // Database stores CASES in quantity field, not units
     const editItems: EditOrderItem[] = (order.order_items || []).map(item => {
       // Find the SKU to get units_per_case
       const sku = skus.find(s => s.id === item.sku_id)
       const unitsPerCase = sku?.units_per_case || 32 // default to 32 if not found
-      const cases = Math.round(item.quantity / unitsPerCase) // convert units to cases
+      const cases = item.quantity // quantity IS cases (not units)
+      const totalUnits = cases * unitsPerCase // calculate total units for display
 
       return {
         id: item.id,
@@ -344,9 +346,9 @@ export default function OrdersPage() {
         sku_name: item.sku?.name || '',
         cases: cases,
         units_per_case: unitsPerCase,
-        quantity: item.quantity,
+        quantity: totalUnits, // total units for display/pricing calculation
         unit_price: item.unit_price || 0,
-        line_total: item.line_total || 0,
+        line_total: item.line_total || (totalUnits * (item.unit_price || 0)),
       }
     })
 
@@ -603,13 +605,14 @@ export default function OrdersPage() {
       }
 
       // Update existing items (line_total is a generated column, don't include it)
+      // Store CASES in quantity, not units
       const existingItems = items.filter(item => item.id && !item._deleted)
       for (const item of existingItems) {
         const { error } = await supabase
           .from('order_items')
           .update({
             sku_id: item.sku_id,
-            quantity: item.quantity,
+            quantity: item.cases,  // Store cases, not units
             unit_price: item.unit_price || null,
           })
           .eq('id', item.id!)
@@ -620,6 +623,7 @@ export default function OrdersPage() {
       }
 
       // Insert new items (line_total is a generated column, don't include it)
+      // Store CASES in quantity, not units
       const newItems = items.filter(item => !item.id && !item._deleted)
       if (newItems.length > 0) {
         const { error } = await supabase
@@ -627,7 +631,7 @@ export default function OrdersPage() {
           .insert(newItems.map(item => ({
             order_id: orderId,
             sku_id: item.sku_id,
-            quantity: item.quantity,
+            quantity: item.cases,  // Store cases, not units
             unit_price: item.unit_price || null,
           })))
         if (error) {

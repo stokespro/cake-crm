@@ -196,11 +196,11 @@ export default function NewOrderPage() {
 
       if (orderError) throw orderError
 
-      // Create order items
+      // Create order items - store CASES in quantity, not units
       const itemsToInsert = orderItems.map(item => ({
         order_id: order.id,
         sku_id: item.sku_id,
-        quantity: item.quantity,
+        quantity: item.cases,  // Store cases, not units
         unit_price: item.unit_price
       }))
 
