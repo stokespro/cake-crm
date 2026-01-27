@@ -940,7 +940,7 @@ export default function VaultPage() {
                 <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
                   <Command>
                     <CommandInput placeholder="Search batches..." />
-                    <CommandList>
+                    <CommandList className="max-h-[200px] overflow-y-auto">
                       <CommandEmpty>No batch found.</CommandEmpty>
                       <CommandGroup>
                         {batches.map((batch) => (
