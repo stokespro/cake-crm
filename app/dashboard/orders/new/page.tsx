@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -34,6 +34,12 @@ import { ArrowLeft, Loader2, Plus, Trash2, DollarSign, Check, ChevronsUpDown } f
 import { cn } from '@/lib/utils'
 import type { Customer, SKU } from '@/types/database'
 
+interface CustomerPricingData {
+  sku_id: string | null
+  product_type_id: string | null
+  price_per_unit: number
+}
+
 interface OrderItem {
   sku_id: string
   sku_code: string
@@ -49,6 +55,7 @@ export default function NewOrderPage() {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [skus, setSkus] = useState<SKU[]>([])
   const [customerId, setCustomerId] = useState('')
+  const [customerPricing, setCustomerPricing] = useState<CustomerPricingData[]>([])
   const [orderItems, setOrderItems] = useState<OrderItem[]>([])
   const [orderNotes, setOrderNotes] = useState('')
   const [requestedDeliveryDate, setRequestedDeliveryDate] = useState('')
@@ -102,6 +109,71 @@ export default function NewOrderPage() {
     }
   }
 
+  const fetchCustomerPricing = useCallback(async (custId: string) => {
+    if (!custId) {
+      setCustomerPricing([])
+      return
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('customer_pricing')
+        .select('sku_id, product_type_id, price_per_unit')
+        .eq('customer_id', custId)
+
+      if (error) throw error
+      setCustomerPricing(data || [])
+    } catch (error) {
+      console.error('Error fetching customer pricing:', error)
+      setCustomerPricing([])
+    }
+  }, [supabase])
+
+  // Get price for a SKU based on customer pricing rules
+  // Priority: item price > category price > base price ($0)
+  const getPriceForSku = useCallback((skuId: string, skuList: SKU[]): number => {
+    // Check for item-specific price
+    const itemPrice = customerPricing.find(p => p.sku_id === skuId)
+    if (itemPrice) {
+      return itemPrice.price_per_unit
+    }
+
+    // Check for category price
+    const sku = skuList.find(s => s.id === skuId)
+    if (sku?.product_type_id) {
+      const categoryPrice = customerPricing.find(p => p.product_type_id === sku.product_type_id)
+      if (categoryPrice) {
+        return categoryPrice.price_per_unit
+      }
+    }
+
+    // Default to base price or 0
+    return sku?.price_per_unit || 0
+  }, [customerPricing])
+
+  // Fetch customer pricing when customer changes
+  useEffect(() => {
+    if (customerId) {
+      fetchCustomerPricing(customerId)
+    } else {
+      setCustomerPricing([])
+    }
+  }, [customerId, fetchCustomerPricing])
+
+  // Update existing line item prices when customer pricing changes
+  useEffect(() => {
+    if (orderItems.length > 0 && skus.length > 0) {
+      setOrderItems(prev => prev.map(item => {
+        const newPrice = getPriceForSku(item.sku_id, skus)
+        return {
+          ...item,
+          unit_price: newPrice,
+          line_total: item.quantity * newPrice
+        }
+      }))
+    }
+  }, [customerPricing, skus])
+
   const addOrderItem = () => {
     if (skus.length === 0) return
 
@@ -109,7 +181,7 @@ export default function NewOrderPage() {
     const unitsPerCase = firstSku.units_per_case || 32
     const cases = 1
     const quantity = cases * unitsPerCase
-    const unitPrice = firstSku.price_per_unit || 0
+    const unitPrice = getPriceForSku(firstSku.id, skus)
     const lineTotal = quantity * unitPrice
 
     setOrderItems([
@@ -138,7 +210,7 @@ export default function NewOrderPage() {
         updated[index].sku_code = sku.code
         updated[index].sku_name = sku.name
         updated[index].units_per_case = sku.units_per_case || 32
-        updated[index].unit_price = sku.price_per_unit || 0
+        updated[index].unit_price = getPriceForSku(sku.id, skus)
         // Recalculate quantity and line_total based on current cases
         updated[index].quantity = updated[index].cases * updated[index].units_per_case
         updated[index].line_total = updated[index].quantity * updated[index].unit_price
