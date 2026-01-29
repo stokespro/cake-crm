@@ -164,7 +164,29 @@ export default function NewOrderPage() {
   useEffect(() => {
     if (orderItems.length > 0 && skus.length > 0) {
       setOrderItems(prev => prev.map(item => {
-        const newPrice = getPriceForSku(item.sku_id, skus)
+        // Inline pricing logic to avoid stale closure from getPriceForSku
+        // Priority: item price > category price > base price
+        let newPrice = 0
+        
+        // Check for item-specific price
+        const itemPrice = customerPricing.find(p => p.sku_id === item.sku_id)
+        if (itemPrice) {
+          newPrice = itemPrice.price_per_unit
+        } else {
+          // Check for category price
+          const sku = skus.find(s => s.id === item.sku_id)
+          if (sku?.product_type_id) {
+            const categoryPrice = customerPricing.find(p => p.product_type_id === sku.product_type_id)
+            if (categoryPrice) {
+              newPrice = categoryPrice.price_per_unit
+            } else {
+              newPrice = sku?.price_per_unit || 0
+            }
+          } else {
+            newPrice = sku?.price_per_unit || 0
+          }
+        }
+        
         return {
           ...item,
           unit_price: newPrice,

@@ -28,6 +28,7 @@ export interface VaultPackage {
   strain_id?: string
   type_id: string
   current_weight: number
+  is_active: boolean
   created_by: string
   created_at: string
   updated_at: string

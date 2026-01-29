@@ -34,7 +34,7 @@ export async function getPackage(tagId: string): Promise<{
 }
 
 // Get filtered packages
-export async function getFilteredPackages(filters: PackageFilters): Promise<{
+export async function getFilteredPackages(filters: PackageFilters & { activeOnly?: boolean }): Promise<{
   success: boolean
   packages?: VaultPackage[]
   error?: string
@@ -62,6 +62,11 @@ export async function getFilteredPackages(filters: PackageFilters): Promise<{
     query = query.in('type_id', filters.typeIds)
   }
 
+  // Filter by active status if requested (default to true for backwards compatibility)
+  if (filters.activeOnly !== false) {
+    query = query.eq('is_active', true)
+  }
+
   const { data, error } = await query.order('batch', { ascending: true })
 
   if (error) {
@@ -72,21 +77,27 @@ export async function getFilteredPackages(filters: PackageFilters): Promise<{
 }
 
 // Get all packages (for summary view)
-export async function getAllPackages(): Promise<{
+export async function getAllPackages(options?: { activeOnly?: boolean }): Promise<{
   success: boolean
   packages?: VaultPackage[]
   error?: string
 }> {
   const supabase = await createClient()
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('packages')
     .select(`
       *,
       type:product_types(*),
       strain_info:strains(*)
     `)
-    .order('strain', { ascending: true })
+
+  // Filter by active status if requested (default to true for backwards compatibility)
+  if (options?.activeOnly !== false) {
+    query = query.eq('is_active', true)
+  }
+
+  const { data, error } = await query.order('strain', { ascending: true })
 
   if (error) {
     return { success: false, error: error.message }
@@ -312,6 +323,32 @@ export async function createPackage(
     })
 
   return { success: true, package: packageData as VaultPackage }
+}
+
+// Toggle package active status
+export async function togglePackageActive(
+  tagId: string,
+  isActive: boolean
+): Promise<{ success: boolean; package?: VaultPackage; error?: string }> {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from('packages')
+    .update({ is_active: isActive, updated_at: new Date().toISOString() })
+    .eq('tag_id', tagId)
+    .select(`
+      *,
+      type:product_types(*),
+      strain_info:strains(*),
+      creator:users(id, name)
+    `)
+    .single()
+
+  if (error) {
+    return { success: false, error: error.message }
+  }
+
+  return { success: true, package: data as VaultPackage }
 }
 
 // Update an existing package

@@ -655,17 +655,24 @@ export default function VaultPage() {
               <button
                 key={pkg.tag_id}
                 onClick={() => handleSelectPackage(pkg)}
-                className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors text-left"
+                className={`w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors text-left ${!pkg.is_active ? 'opacity-60' : ''}`}
               >
                 <div className="flex-1 min-w-0">
-                  <p className="font-mono text-sm font-medium truncate">{pkg.tag_id}</p>
+                  <div className="flex items-center gap-2">
+                    <p className={`font-mono text-sm font-medium truncate ${!pkg.is_active ? 'line-through text-muted-foreground' : ''}`}>{pkg.tag_id}</p>
+                    {!pkg.is_active && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+                        Inactive
+                      </span>
+                    )}
+                  </div>
                   <p className="text-sm text-muted-foreground truncate">
                     {pkg.batch} • {pkg.strain} • {pkg.type?.name || '-'}
                   </p>
                 </div>
                 <div className="flex items-center gap-3 ml-4">
                   <div className="text-right">
-                    <p className="font-semibold text-green-600">{pkg.current_weight.toFixed(2)}g</p>
+                    <p className={`font-semibold ${!pkg.is_active ? 'text-gray-400' : 'text-green-600'}`}>{pkg.current_weight.toFixed(2)}g</p>
                     <p className="text-xs text-muted-foreground">
                       {(pkg.current_weight / GRAMS_PER_LB).toFixed(2)} lb
                     </p>
@@ -719,11 +726,21 @@ export default function VaultPage() {
 
           {selectedPackage && (
             <div className="space-y-6">
+              {/* Deactivated Warning */}
+              {!selectedPackage.is_active && (
+                <div className="flex items-center justify-center gap-2 p-3 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
+                  <span className="text-sm font-medium">This tag is deactivated</span>
+                </div>
+              )}
+
               {/* Meta Row */}
               <div className="flex flex-wrap justify-center gap-2 text-sm">
                 <Badge variant="secondary">{selectedPackage.batch}</Badge>
                 <Badge variant="secondary">{selectedPackage.strain}</Badge>
                 <Badge variant="outline">{selectedPackage.type?.name || '-'}</Badge>
+                {!selectedPackage.is_active && (
+                  <Badge variant="outline" className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">Inactive</Badge>
+                )}
               </div>
 
               {/* Current Balance */}

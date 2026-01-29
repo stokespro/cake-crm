@@ -54,8 +54,10 @@ import {
   createProductType,
   updateProductType,
   deleteProductType,
+  getAllPackages,
+  togglePackageActive,
 } from '@/actions/vault'
-import type { Strain, Batch, ProductType } from '@/types/vault'
+import type { Strain, Batch, ProductType, VaultPackage } from '@/types/vault'
 
 export default function VaultAdminPage() {
   const [activeTab, setActiveTab] = useState('strains')
@@ -95,11 +97,18 @@ export default function VaultAdminPage() {
   const [deleteTypeId, setDeleteTypeId] = useState<string | null>(null)
   const [typeDeleting, setTypeDeleting] = useState(false)
 
+  // Package Tags state
+  const [packages, setPackages] = useState<VaultPackage[]>([])
+  const [packagesLoading, setPackagesLoading] = useState(true)
+  const [togglingPackageId, setTogglingPackageId] = useState<string | null>(null)
+  const [packageSearch, setPackageSearch] = useState('')
+
   // Load data
   useEffect(() => {
     loadStrains()
     loadBatches()
     loadProductTypes()
+    loadPackages()
   }, [])
 
   async function loadStrains() {
@@ -128,6 +137,38 @@ export default function VaultAdminPage() {
     }
     setTypesLoading(false)
   }
+
+  async function loadPackages() {
+    setPackagesLoading(true)
+    const result = await getAllPackages({ activeOnly: false })
+    if (result.success && result.packages) {
+      setPackages(result.packages)
+    }
+    setPackagesLoading(false)
+  }
+
+  async function handleTogglePackageActive(pkg: VaultPackage) {
+    setTogglingPackageId(pkg.tag_id)
+    const result = await togglePackageActive(pkg.tag_id, !pkg.is_active)
+    if (result.success) {
+      loadPackages()
+    } else {
+      alert(result.error || 'Failed to toggle package status')
+    }
+    setTogglingPackageId(null)
+  }
+
+  // Filter packages by search
+  const filteredPackages = packages.filter(pkg => {
+    if (!packageSearch.trim()) return true
+    const search = packageSearch.toLowerCase()
+    return (
+      pkg.tag_id.toLowerCase().includes(search) ||
+      pkg.batch.toLowerCase().includes(search) ||
+      pkg.strain.toLowerCase().includes(search) ||
+      pkg.type?.name?.toLowerCase().includes(search)
+    )
+  })
 
   // Strain handlers
   function openStrainDialog(strain?: Strain) {
@@ -294,6 +335,7 @@ export default function VaultAdminPage() {
           <TabsTrigger value="strains">Strains</TabsTrigger>
           <TabsTrigger value="batches">Batches</TabsTrigger>
           <TabsTrigger value="types">Product Types</TabsTrigger>
+          <TabsTrigger value="packages">Package Tags</TabsTrigger>
         </TabsList>
 
         {/* Strains Tab */}
@@ -519,6 +561,92 @@ export default function VaultAdminPage() {
                                 <Trash2 className="h-4 w-4 text-destructive" />
                               </Button>
                             </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Package Tags Tab */}
+        <TabsContent value="packages" className="space-y-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+              <div>
+                <CardTitle>Package Tags</CardTitle>
+                <CardDescription>Manage package tag activation status. Deactivated tags are hidden from lists but preserved in the system.</CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="mb-4">
+                <Input
+                  placeholder="Search by tag ID, batch, strain, or type..."
+                  value={packageSearch}
+                  onChange={(e) => setPackageSearch(e.target.value)}
+                  className="max-w-sm"
+                />
+              </div>
+              {packagesLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Tag ID</TableHead>
+                      <TableHead>Batch</TableHead>
+                      <TableHead>Strain</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Weight</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="w-[80px]">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredPackages.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center text-muted-foreground">
+                          {packageSearch ? 'No packages match your search' : 'No packages found'}
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredPackages.map((pkg) => (
+                        <TableRow key={pkg.tag_id} className={!pkg.is_active ? 'opacity-60' : ''}>
+                          <TableCell className="font-mono text-sm">{pkg.tag_id}</TableCell>
+                          <TableCell>{pkg.batch}</TableCell>
+                          <TableCell>{pkg.strain}</TableCell>
+                          <TableCell>{pkg.type?.name || '-'}</TableCell>
+                          <TableCell>{pkg.current_weight.toFixed(2)}g</TableCell>
+                          <TableCell>
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                              pkg.is_active
+                                ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                                : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                            }`}>
+                              {pkg.is_active ? 'Active' : 'Inactive'}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleTogglePackageActive(pkg)}
+                              disabled={togglingPackageId === pkg.tag_id}
+                              title={pkg.is_active ? 'Deactivate tag' : 'Activate tag'}
+                            >
+                              {togglingPackageId === pkg.tag_id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : pkg.is_active ? (
+                                <ToggleRight className="h-4 w-4 text-green-600" />
+                              ) : (
+                                <ToggleLeft className="h-4 w-4 text-gray-400" />
+                              )}
+                            </Button>
                           </TableCell>
                         </TableRow>
                       ))
