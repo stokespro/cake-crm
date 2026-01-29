@@ -114,6 +114,7 @@ export default function OrdersPage() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
   const [sheetEditMode, setSheetEditMode] = useState(false)
+  const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set())
   const supabase = createClient()
   const { user } = useAuth()
 
@@ -283,6 +284,15 @@ export default function OrdersPage() {
     setSelectedOrder(order)
     setSheetEditMode(false)
     setSheetOpen(true)
+  }
+
+  const toggleCardExpanded = (orderId: string) => {
+    setExpandedCards(prev => {
+      const next = new Set(prev)
+      if (next.has(orderId)) next.delete(orderId)
+      else next.add(orderId)
+      return next
+    })
   }
 
   const getStatusBadge = (status: string) => {
@@ -856,129 +866,133 @@ export default function OrdersPage() {
         /* Card View */
         <div className="space-y-4">
           {filteredOrders.map((order) => (
-            <Card key={order.id} className="hover:shadow-md transition-shadow">
-              <CardHeader>
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                  <div>
+            <Card
+              key={order.id}
+              className="hover:shadow-md transition-shadow cursor-pointer"
+              onClick={() => toggleCardExpanded(order.id)}
+            >
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between gap-4">
+                  {/* Left side: Customer name, order number, delivery date */}
+                  <div className="flex-1 min-w-0">
                     <CardTitle className="text-lg">
                       {order.customer?.business_name || 'Unknown Customer'}
                     </CardTitle>
-                    <div className="flex flex-wrap items-center gap-4 mt-2 text-sm text-muted-foreground">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-sm text-muted-foreground">
                       {order.order_number && (
                         <span className="font-medium">#{order.order_number}</span>
                       )}
-                      <div className="flex items-center gap-1">
-                        <Calendar className="h-4 w-4" />
-                        Created: {format(new Date(order.order_date), 'MMM d, yyyy')}
-                      </div>
                       {order.requested_delivery_date && (
                         <div className="flex items-center gap-1">
                           <Truck className="h-4 w-4" />
-                          Delivery: {format(new Date(order.requested_delivery_date), 'MMM d, yyyy')}
+                          {format(new Date(order.requested_delivery_date), 'MMM d, yyyy')}
                         </div>
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  {/* Right side: Status badge, Price, and 3-dot menu */}
+                  <div className="flex items-center gap-3">
                     {getStatusBadge(order.status)}
-                    <div className="text-right">
-                      <div className="text-lg font-semibold flex items-center">
-                        <DollarSign className="h-5 w-5" />
-                        {(order.total_price || 0).toFixed(2)}
-                      </div>
-                      {order.last_edited_at && (
-                        <div className="text-xs text-muted-foreground mt-1">
-                          Edited {format(new Date(order.last_edited_at), 'MMM d, yyyy')}
-                        </div>
-                      )}
+                    <div className="text-lg font-semibold flex items-center">
+                      <DollarSign className="h-5 w-5" />
+                      {(order.total_price || 0).toFixed(2)}
                     </div>
+                    {(canApproveOrders || canEditOrders || canDeleteOrders) && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {order.status === 'pending' && canApproveOrders && (
+                            <DropdownMenuItem onClick={(e) => {
+                              e.stopPropagation()
+                              confirmOrder(order.id)
+                            }}>
+                              Confirm Order
+                            </DropdownMenuItem>
+                          )}
+                          {canEditOrders && (
+                            <DropdownMenuItem onClick={(e) => {
+                              e.stopPropagation()
+                              setSelectedOrder(order)
+                              startSheetEditing(order)
+                              setSheetOpen(true)
+                            }}>
+                              <Edit2 className="h-4 w-4 mr-2" />
+                              Edit Order
+                            </DropdownMenuItem>
+                          )}
+                          {canDeleteOrders && (
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setDeleteOrderId(order.id)
+                                setDeleteOrderNumber(order.order_number || order.id.slice(0, 8))
+                              }}
+                              className="text-red-600 focus:text-red-600"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-3">
-                {/* Order Items (View Mode) */}
-                {editingOrder !== order.id && order.order_items && order.order_items.length > 0 && (
-                  <div className="space-y-2">
-                    <div className="text-sm font-medium flex items-center gap-1">
-                      <Package className="h-4 w-4" />
-                      Order Items:
-                    </div>
-                    <div className="pl-5 space-y-1">
-                      {order.order_items.map((item) => {
-                        const sku = skus.find(s => s.id === item.sku_id)
-                        const unitsPerCase = sku?.units_per_case || 32
-                        const cases = item.quantity
-                        return (
-                          <div key={item.id} className="text-sm text-muted-foreground flex justify-between">
-                            <span>{item.sku?.code || 'Unknown'} × {cases} {cases === 1 ? 'case' : 'cases'}</span>
-                            <span>${(item.line_total || 0).toFixed(2)}</span>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
 
-                {/* Delivered Date (View Mode) - only show if order was delivered */}
-                {editingOrder !== order.id && order.delivered_at && (
-                  <div className="flex flex-wrap gap-4 text-sm">
-                    <div className="flex items-center gap-1">
-                      <Truck className="h-4 w-4 text-green-600" />
-                      <span className="text-green-600">
-                        Delivered: {format(new Date(order.delivered_at), 'MMM d, yyyy')}
-                      </span>
+              {/* Collapsible Content */}
+              {expandedCards.has(order.id) && (
+                <CardContent className="pt-0 space-y-3">
+                  {/* Order Items */}
+                  {order.order_items && order.order_items.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="text-sm font-medium flex items-center gap-1">
+                        <Package className="h-4 w-4" />
+                        Order Items:
+                      </div>
+                      <div className="pl-5 space-y-1">
+                        {order.order_items.map((item) => {
+                          const cases = item.quantity
+                          return (
+                            <div key={item.id} className="text-sm text-muted-foreground flex justify-between">
+                              <span>{item.sku?.code || 'Unknown'} × {cases} {cases === 1 ? 'case' : 'cases'}</span>
+                              <span>${(item.line_total || 0).toFixed(2)}</span>
+                            </div>
+                          )
+                        })}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {/* Order Notes (View Mode) */}
-                {editingOrder !== order.id && order.order_notes && (
-                  <p className="text-sm text-muted-foreground">
-                    {order.order_notes}
-                  </p>
-                )}
+                  {/* Delivered Date - only show if order was delivered */}
+                  {order.delivered_at && (
+                    <div className="flex flex-wrap gap-4 text-sm">
+                      <div className="flex items-center gap-1">
+                        <Truck className="h-4 w-4 text-green-600" />
+                        <span className="text-green-600">
+                          Delivered: {format(new Date(order.delivered_at), 'MMM d, yyyy')}
+                        </span>
+                      </div>
+                    </div>
+                  )}
 
-                {/* Actions */}
-                <div className="flex gap-2 pt-2">
-                    {order.status === 'pending' && canApproveOrders && (
-                      <Button
-                        size="sm"
-                        onClick={() => confirmOrder(order.id)}
-                        className="bg-green-600 hover:bg-green-700"
-                      >
-                        Confirm Order
-                      </Button>
-                    )}
-                    {canEditOrders && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setSelectedOrder(order)
-                          startSheetEditing(order)
-                          setSheetOpen(true)
-                        }}
-                      >
-                        <Edit2 className="h-4 w-4 mr-2" />
-                        Edit Order
-                      </Button>
-                    )}
-                    {canDeleteOrders && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        onClick={() => {
-                          setDeleteOrderId(order.id)
-                          setDeleteOrderNumber(order.order_number || order.id.slice(0, 8))
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete
-                      </Button>
-                    )}
-                  </div>
-              </CardContent>
+                  {/* Order Notes */}
+                  {order.order_notes && (
+                    <p className="text-sm text-muted-foreground">
+                      {order.order_notes}
+                    </p>
+                  )}
+                </CardContent>
+              )}
             </Card>
           ))}
         </div>
