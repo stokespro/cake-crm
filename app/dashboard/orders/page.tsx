@@ -419,7 +419,7 @@ export default function OrdersPage() {
           .from('order_items')
           .update({
             sku_id: item.sku_id,
-            quantity: item.quantity,
+            quantity: item.cases,
             unit_price: item.unit_price || null,
             line_total: item.line_total,
           })
@@ -435,7 +435,7 @@ export default function OrdersPage() {
           .insert(newItems.map(item => ({
             order_id: selectedOrder.id,
             sku_id: item.sku_id,
-            quantity: item.quantity,
+            quantity: item.cases,
             unit_price: item.unit_price || null,
             line_total: item.line_total,
           })))
