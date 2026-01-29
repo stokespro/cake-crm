@@ -380,13 +380,18 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
           throw new Error(`Failed to delete existing order items: ${deleteError.message}`)
         }
 
-        // Insert updated order items
-        const itemsToInsert = orderItems.map(item => ({
-          order_id: order.id,
-          sku_id: item.sku_id,
-          quantity: item.quantity,
-          unit_price: item.unit_price
-        }))
+        // Insert updated order items - calculate line_total at save time to avoid NaN issues
+        const itemsToInsert = orderItems.map(item => {
+          const unitPrice = item.unit_price ?? 0
+          const lineTotal = item.quantity * unitPrice
+          return {
+            order_id: order.id,
+            sku_id: item.sku_id,
+            quantity: item.quantity,
+            unit_price: unitPrice,
+            line_total: Number.isFinite(lineTotal) ? lineTotal : 0
+          }
+        })
 
         const { error: itemsError } = await supabase
           .from('order_items')
@@ -418,13 +423,18 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
           throw new Error('Order was not created successfully')
         }
 
-        // Create order items
-        const itemsToInsert = orderItems.map(item => ({
-          order_id: newOrder.id,
-          sku_id: item.sku_id,
-          quantity: item.quantity,
-          unit_price: item.unit_price
-        }))
+        // Create order items - calculate line_total at save time to avoid NaN issues
+        const itemsToInsert = orderItems.map(item => {
+          const unitPrice = item.unit_price ?? 0
+          const lineTotal = item.quantity * unitPrice
+          return {
+            order_id: newOrder.id,
+            sku_id: item.sku_id,
+            quantity: item.quantity,
+            unit_price: unitPrice,
+            line_total: Number.isFinite(lineTotal) ? lineTotal : 0
+          }
+        })
 
         const { error: itemsError } = await supabase
           .from('order_items')
@@ -592,7 +602,10 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
                           step="0.01"
                           min="0"
                           value={item.unit_price ?? ''}
-                          onChange={(e) => updateOrderItem(index, 'unit_price', e.target.value ? parseFloat(e.target.value) : null)}
+                          onChange={(e) => {
+                            const parsed = parseFloat(e.target.value)
+                            updateOrderItem(index, 'unit_price', Number.isFinite(parsed) ? parsed : null)
+                          }}
                           disabled={loading}
                           className={`w-20 h-8 ${item.unit_price === null ? 'border-amber-400' : ''}`}
                         />

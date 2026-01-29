@@ -291,12 +291,18 @@ export default function NewOrderPage() {
       if (orderError) throw orderError
 
       // Create order items - store CASES in quantity, not units
-      const itemsToInsert = orderItems.map(item => ({
-        order_id: order.id,
-        sku_id: item.sku_id,
-        quantity: item.cases,  // Store cases, not units
-        unit_price: item.unit_price
-      }))
+      // Calculate line_total at save time to avoid NaN issues
+      const itemsToInsert = orderItems.map(item => {
+        const unitPrice = item.unit_price || 0
+        const lineTotal = item.quantity * unitPrice  // Use full quantity (units) for pricing
+        return {
+          order_id: order.id,
+          sku_id: item.sku_id,
+          quantity: item.cases,  // Store cases, not units
+          unit_price: unitPrice,
+          line_total: Number.isFinite(lineTotal) ? lineTotal : 0
+        }
+      })
 
       const { error: itemsError } = await supabase
         .from('order_items')

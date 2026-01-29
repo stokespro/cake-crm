@@ -421,6 +421,7 @@ export default function OrdersPage() {
             sku_id: item.sku_id,
             quantity: item.quantity,
             unit_price: item.unit_price || null,
+            line_total: item.line_total,
           })
           .eq('id', item.id!)
         if (error) throw error
@@ -436,6 +437,7 @@ export default function OrdersPage() {
             sku_id: item.sku_id,
             quantity: item.quantity,
             unit_price: item.unit_price || null,
+            line_total: item.line_total,
           })))
         if (error) throw error
       }
@@ -604,7 +606,7 @@ export default function OrdersPage() {
         if (error) throw error
       }
 
-      // Update existing items (line_total is a generated column, don't include it)
+      // Update existing items
       // Store CASES in quantity, not units
       const existingItems = items.filter(item => item.id && !item._deleted)
       for (const item of existingItems) {
@@ -614,6 +616,7 @@ export default function OrdersPage() {
             sku_id: item.sku_id,
             quantity: item.cases,  // Store cases, not units
             unit_price: item.unit_price || null,
+            line_total: item.line_total,
           })
           .eq('id', item.id!)
         if (error) {
@@ -622,7 +625,7 @@ export default function OrdersPage() {
         }
       }
 
-      // Insert new items (line_total is a generated column, don't include it)
+      // Insert new items
       // Store CASES in quantity, not units
       const newItems = items.filter(item => !item.id && !item._deleted)
       if (newItems.length > 0) {
@@ -633,6 +636,7 @@ export default function OrdersPage() {
             sku_id: item.sku_id,
             quantity: item.cases,  // Store cases, not units
             unit_price: item.unit_price || null,
+            line_total: item.line_total,
           })))
         if (error) {
           console.error('Error inserting new order items:', error)
