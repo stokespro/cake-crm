@@ -169,9 +169,11 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
       const formOrderItems = order.order_items.map(item => {
         const sku = skus.find(s => s.id === item.sku_id)
         const unitsPerCase = sku?.units_per_case || 32
-        const cases = Math.round(item.quantity / unitsPerCase)
+        // DB stores cases in quantity field, not units
+        const cases = item.quantity
+        const totalUnits = cases * unitsPerCase
         const unitPrice = item.unit_price ?? getPriceForSku(item.sku_id)
-        const lineTotal = unitPrice !== null ? item.quantity * unitPrice : 0
+        const lineTotal = unitPrice !== null ? totalUnits * unitPrice : 0
 
         return {
           sku_id: item.sku_id,
@@ -179,7 +181,7 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
           sku_name: sku?.name || 'Unknown SKU',
           cases: cases,
           units_per_case: unitsPerCase,
-          quantity: item.quantity,
+          quantity: totalUnits,  // Total units for UI display and pricing
           unit_price: unitPrice,
           line_total: lineTotal
         }
@@ -380,14 +382,14 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
           throw new Error(`Failed to delete existing order items: ${deleteError.message}`)
         }
 
-        // Insert updated order items - calculate line_total at save time to avoid NaN issues
+        // Insert updated order items - save cases (not units), calculate line_total from units
         const itemsToInsert = orderItems.map(item => {
           const unitPrice = item.unit_price ?? 0
-          const lineTotal = item.quantity * unitPrice
+          const lineTotal = item.quantity * unitPrice  // quantity = total units for pricing
           return {
             order_id: order.id,
             sku_id: item.sku_id,
-            quantity: item.quantity,
+            quantity: item.cases,  // Store cases, not units
             unit_price: unitPrice,
             line_total: Number.isFinite(lineTotal) ? lineTotal : 0
           }
@@ -423,14 +425,14 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
           throw new Error('Order was not created successfully')
         }
 
-        // Create order items - calculate line_total at save time to avoid NaN issues
+        // Create order items - save cases (not units), calculate line_total from units
         const itemsToInsert = orderItems.map(item => {
           const unitPrice = item.unit_price ?? 0
-          const lineTotal = item.quantity * unitPrice
+          const lineTotal = item.quantity * unitPrice  // quantity = total units for pricing
           return {
             order_id: newOrder.id,
             sku_id: item.sku_id,
-            quantity: item.quantity,
+            quantity: item.cases,  // Store cases, not units
             unit_price: unitPrice,
             line_total: Number.isFinite(lineTotal) ? lineTotal : 0
           }
