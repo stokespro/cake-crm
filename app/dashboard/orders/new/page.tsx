@@ -172,7 +172,7 @@ export default function NewOrderPage() {
         }
       }))
     }
-  }, [customerPricing, skus, getPriceForSku])
+  }, [customerPricing, skus])
 
   const addOrderItem = () => {
     if (skus.length === 0) return
