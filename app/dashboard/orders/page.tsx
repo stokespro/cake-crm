@@ -480,11 +480,6 @@ export default function OrdersPage() {
     }
   }
 
-  const cancelEditing = () => {
-    setEditingOrder(null)
-    setEditForm({} as EditFormData)
-  }
-
   // Calculate edit form total
   const getEditTotal = () => {
     return editForm.order_items
@@ -563,96 +558,6 @@ export default function OrdersPage() {
       }
       return { ...prev, order_items: items }
     })
-  }
-
-  const saveOrder = async (orderId: string) => {
-    if (!user) return
-    setSaving(true)
-    try {
-      const newTotal = getEditTotal()
-
-      // Update order details
-      const updateData: UpdateData = {
-        status: editForm.status,
-        order_notes: editForm.order_notes,
-        requested_delivery_date: editForm.requested_delivery_date || null,
-        total_price: newTotal,
-        last_edited_by: user.id,
-        last_edited_at: new Date().toISOString()
-      }
-
-      // Auto-set delivered_at when status changes to delivered
-      if (editForm.status === 'delivered') {
-        updateData.delivered_at = new Date().toISOString()
-      }
-
-      const { error: orderError } = await supabase
-        .from('orders')
-        .update(updateData)
-        .eq('id', orderId)
-
-      if (orderError) throw orderError
-
-      // Handle order items changes
-      const items = editForm.order_items || []
-
-      // Delete removed items
-      const deletedItems = items.filter(item => item._deleted && item.id)
-      for (const item of deletedItems) {
-        const { error } = await supabase
-          .from('order_items')
-          .delete()
-          .eq('id', item.id)
-        if (error) throw error
-      }
-
-      // Update existing items
-      // Store CASES in quantity, not units
-      const existingItems = items.filter(item => item.id && !item._deleted)
-      for (const item of existingItems) {
-        const { error } = await supabase
-          .from('order_items')
-          .update({
-            sku_id: item.sku_id,
-            quantity: item.cases,  // Store cases, not units
-            unit_price: item.unit_price || null,
-            line_total: item.line_total,
-          })
-          .eq('id', item.id!)
-        if (error) {
-          console.error('Error updating order item:', item.id, error)
-          throw error
-        }
-      }
-
-      // Insert new items
-      // Store CASES in quantity, not units
-      const newItems = items.filter(item => !item.id && !item._deleted)
-      if (newItems.length > 0) {
-        const { error } = await supabase
-          .from('order_items')
-          .insert(newItems.map(item => ({
-            order_id: orderId,
-            sku_id: item.sku_id,
-            quantity: item.cases,  // Store cases, not units
-            unit_price: item.unit_price || null,
-            line_total: item.line_total,
-          })))
-        if (error) {
-          console.error('Error inserting new order items:', error)
-          throw error
-        }
-      }
-
-      setEditingOrder(null)
-      setEditForm({} as EditFormData)
-      fetchOrders()
-    } catch (error) {
-      console.error('Error saving order:', error)
-      alert('Error saving order. Please try again.')
-    } finally {
-      setSaving(false)
-    }
   }
 
   const updateEditForm = <K extends keyof EditFormData>(field: K, value: EditFormData[K]) => {
@@ -1033,149 +938,8 @@ export default function OrdersPage() {
                   </p>
                 )}
 
-                {/* Inline Editing */}
-                {editingOrder === order.id ? (
-                  <div className="space-y-4 p-4 border rounded-lg bg-muted/50">
-                    {/* Order Details */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Status</label>
-                        <Select
-                          value={editForm.status}
-                          onValueChange={(value) => updateEditForm('status', value as OrderStatus)}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="pending">Pending</SelectItem>
-                            <SelectItem value="confirmed">Confirmed</SelectItem>
-                            <SelectItem value="packed">Packed</SelectItem>
-                            <SelectItem value="delivered">Delivered</SelectItem>
-                            <SelectItem value="cancelled">Cancelled</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Requested Delivery Date</label>
-                        <Input
-                          type="date"
-                          value={editForm.requested_delivery_date}
-                          onChange={(e) => updateEditForm('requested_delivery_date', e.target.value)}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Order Items Edit */}
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <label className="text-sm font-medium flex items-center gap-1">
-                          <Package className="h-4 w-4" />
-                          Order Items
-                        </label>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={addEditItem}
-                          disabled={skus.length === 0}
-                        >
-                          <Plus className="h-4 w-4 mr-1" />
-                          Add Item
-                        </Button>
-                      </div>
-
-                      {editForm.order_items?.filter(item => !item._deleted).length === 0 ? (
-                        <div className="text-sm text-muted-foreground text-center py-4 border rounded-md">
-                          No items. Click "Add Item" to add products.
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          {editForm.order_items?.map((item, index) => (
-                            !item._deleted && (
-                              <div key={index} className="flex items-center gap-2 p-2 border rounded-md bg-background">
-                                <Select
-                                  value={item.sku_id}
-                                  onValueChange={(value) => updateEditItem(index, 'sku_id', value)}
-                                >
-                                  <SelectTrigger className="flex-1">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {skus.map((sku) => (
-                                      <SelectItem key={sku.id} value={sku.id}>
-                                        {sku.code} - {sku.name}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                                <Input
-                                  type="number"
-                                  min="1"
-                                  value={item.quantity}
-                                  onChange={(e) => updateEditItem(index, 'quantity', parseInt(e.target.value) || 1)}
-                                  className="w-20"
-                                />
-                                <div className="w-24 text-right text-sm font-medium">
-                                  ${item.line_total.toFixed(2)}
-                                </div>
-                                <Button
-                                  type="button"
-                                  size="icon"
-                                  variant="ghost"
-                                  onClick={() => removeEditItem(index)}
-                                >
-                                  <Trash2 className="h-4 w-4 text-red-500" />
-                                </Button>
-                              </div>
-                            )
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Edit Total */}
-                      <div className="flex justify-end pt-2 border-t">
-                        <div className="text-sm font-medium">
-                          Total: <span className="text-lg">${getEditTotal().toFixed(2)}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Order Notes */}
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Order Notes</label>
-                      <Textarea
-                        value={editForm.order_notes}
-                        onChange={(e) => updateEditForm('order_notes', e.target.value)}
-                        placeholder="Order notes..."
-                        rows={3}
-                      />
-                    </div>
-
-                    {/* Save/Cancel Buttons */}
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        onClick={() => saveOrder(order.id)}
-                        disabled={saving}
-                      >
-                        <Save className="h-4 w-4 mr-2" />
-                        {saving ? 'Saving...' : 'Save Changes'}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={cancelEditing}
-                        disabled={saving}
-                      >
-                        <X className="h-4 w-4 mr-2" />
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  /* Actions */
-                  <div className="flex gap-2 pt-2">
+                {/* Actions */}
+                <div className="flex gap-2 pt-2">
                     {order.status === 'pending' && canApproveOrders && (
                       <Button
                         size="sm"
@@ -1189,7 +953,11 @@ export default function OrdersPage() {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => startEditing(order)}
+                        onClick={() => {
+                          setSelectedOrder(order)
+                          startSheetEditing(order)
+                          setSheetOpen(true)
+                        }}
                       >
                         <Edit2 className="h-4 w-4 mr-2" />
                         Edit Order
@@ -1210,7 +978,6 @@ export default function OrdersPage() {
                       </Button>
                     )}
                   </div>
-                )}
               </CardContent>
             </Card>
           ))}
