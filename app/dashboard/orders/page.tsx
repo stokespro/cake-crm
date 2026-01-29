@@ -1002,7 +1002,7 @@ export default function OrdersPage() {
                       {order.order_items.map((item) => {
                         const sku = skus.find(s => s.id === item.sku_id)
                         const unitsPerCase = sku?.units_per_case || 32
-                        const cases = Math.round(item.quantity / unitsPerCase)
+                        const cases = item.quantity
                         return (
                           <div key={item.id} className="text-sm text-muted-foreground flex justify-between">
                             <span>{item.sku?.code || 'Unknown'} × {cases} {cases === 1 ? 'case' : 'cases'}</span>
@@ -1282,10 +1282,11 @@ export default function OrdersPage() {
                 {selectedOrder.order_items && selectedOrder.order_items.length > 0 ? (
                   <div className="border rounded-lg divide-y">
                     {selectedOrder.order_items.map((item) => {
-                      // Calculate cases from quantity
+                      // quantity stores cases, not units
                       const sku = skus.find(s => s.id === item.sku_id)
                       const unitsPerCase = sku?.units_per_case || 32
-                      const cases = Math.round(item.quantity / unitsPerCase)
+                      const cases = item.quantity
+                      const totalUnits = cases * unitsPerCase
 
                       return (
                         <div key={item.id} className="p-3">
@@ -1297,7 +1298,7 @@ export default function OrdersPage() {
                             <p className="font-semibold">${(item.line_total || 0).toFixed(2)}</p>
                           </div>
                           <p className="text-sm text-muted-foreground mt-1">
-                            {cases} {cases === 1 ? 'case' : 'cases'} ({item.quantity} units) × ${(item.unit_price || 0).toFixed(2)}/unit
+                            {cases} {cases === 1 ? 'case' : 'cases'} ({totalUnits} units) × ${(item.unit_price || 0).toFixed(2)}/unit
                           </p>
                         </div>
                       )
