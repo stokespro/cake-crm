@@ -12,7 +12,6 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarHeader,
-  SidebarInset,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -184,9 +183,9 @@ export default function DashboardLayout({
   return (
     <SidebarProvider>
       <AppSidebar />
-      <SidebarInset>
+      <div className="flex flex-1 flex-col">
         {/* Header with sidebar trigger */}
-        <header className="flex h-14 items-center gap-4 border-b bg-background px-4">
+        <header className="flex h-14 shrink-0 items-center gap-4 border-b bg-background px-4">
           <SidebarTrigger className="-ml-1" />
           <div className="flex-1" />
         </header>
@@ -197,7 +196,7 @@ export default function DashboardLayout({
             {children}
           </div>
         </main>
-      </SidebarInset>
+      </div>
     </SidebarProvider>
   )
 }
