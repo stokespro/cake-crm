@@ -728,8 +728,8 @@ export default function OrdersPage() {
         </Card>
       ) : viewMode === 'table' ? (
         /* Table View */
-        <Card>
-          <CardContent className="p-0">
+        <Card className="overflow-hidden">
+          <CardContent className="p-0 min-w-0">
             <div className="overflow-auto">
               <Table>
             <TableHeader>
