@@ -118,16 +118,13 @@ export default function DashboardLayout({
           })}
         </nav>
         <div className="border-t p-3">
-          <Link
-            href="/dashboard/profile"
-            className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors cursor-pointer"
-          >
+          <div className="flex items-center gap-3 rounded-lg px-3 py-2">
             <User className="h-5 w-5 text-zinc-500" />
             <div className="flex-1">
               <p className="text-sm font-medium">{user.name}</p>
               <p className="text-xs text-zinc-500 capitalize">{user.role}</p>
             </div>
-          </Link>
+          </div>
           <div className="flex items-center justify-between gap-2 mt-2">
             <Button
               variant="ghost"
