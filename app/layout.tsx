@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Cake CRM",
+  title: "Cake",
   description: "Customer Relationship Management System",
 };
 
