@@ -161,7 +161,7 @@ export default function DashboardLayout({
       </Sheet>
 
       {/* Main Content */}
-      <div className="flex flex-1 flex-col">
+      <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
         {/* Mobile Header */}
         <header className="md:hidden flex items-center justify-between h-16 px-4 border-b bg-white dark:bg-zinc-950">
           <Button
