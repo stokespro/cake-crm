@@ -729,7 +729,9 @@ export default function OrdersPage() {
       ) : viewMode === 'table' ? (
         /* Table View */
         <Card>
-          <Table>
+          <CardContent className="p-0">
+            <div className="overflow-auto">
+              <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>
@@ -861,6 +863,8 @@ export default function OrdersPage() {
               ))}
             </TableBody>
           </Table>
+            </div>
+          </CardContent>
         </Card>
       ) : (
         /* Card View */
@@ -871,32 +875,91 @@ export default function OrdersPage() {
               className="hover:shadow-md transition-shadow cursor-pointer"
               onClick={() => toggleCardExpanded(order.id)}
             >
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between gap-4">
+              <CardContent className="p-4 md:p-6">
+                <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                   {/* Left side: Customer name, order number, delivery date */}
-                  <div className="flex-1 min-w-0">
-                    <CardTitle className="text-lg">
-                      {order.customer?.business_name || 'Unknown Customer'}
-                    </CardTitle>
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-sm text-muted-foreground">
-                      {order.order_number && (
-                        <span className="font-medium">#{order.order_number}</span>
-                      )}
-                      {order.requested_delivery_date && (
-                        <div className="flex items-center gap-1">
-                          <Truck className="h-4 w-4" />
-                          {format(new Date(order.requested_delivery_date), 'MMM d, yyyy')}
+                  <div className="flex-1 min-w-0 space-y-2">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h3 className="font-semibold text-lg">
+                          {order.customer?.business_name || 'Unknown Customer'}
+                        </h3>
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-sm text-muted-foreground">
+                          {order.order_number && (
+                            <span className="font-medium">#{order.order_number}</span>
+                          )}
+                          {order.requested_delivery_date && (
+                            <div className="flex items-center gap-1">
+                              <Truck className="h-4 w-4" />
+                              {format(new Date(order.requested_delivery_date), 'MMM d, yyyy')}
+                            </div>
+                          )}
                         </div>
-                      )}
+                      </div>
+                      {/* Mobile: 3-dot menu in top right */}
+                      <div className="md:hidden">
+                        {(canApproveOrders || canEditOrders || canDeleteOrders) && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              {order.status === 'pending' && canApproveOrders && (
+                                <DropdownMenuItem onClick={(e) => {
+                                  e.stopPropagation()
+                                  confirmOrder(order.id)
+                                }}>
+                                  Confirm Order
+                                </DropdownMenuItem>
+                              )}
+                              {canEditOrders && (
+                                <DropdownMenuItem onClick={(e) => {
+                                  e.stopPropagation()
+                                  setSelectedOrder(order)
+                                  startSheetEditing(order)
+                                  setSheetOpen(true)
+                                }}>
+                                  <Edit2 className="h-4 w-4 mr-2" />
+                                  Edit Order
+                                </DropdownMenuItem>
+                              )}
+                              {canDeleteOrders && (
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    setDeleteOrderId(order.id)
+                                    setDeleteOrderNumber(order.order_number || order.id.slice(0, 8))
+                                  }}
+                                  className="text-red-600 focus:text-red-600"
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Delete
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-4 text-sm">
+                      {getStatusBadge(order.status)}
+                      <div className="font-semibold flex items-center">
+                        <DollarSign className="h-4 w-4" />
+                        {(order.total_price || 0).toFixed(2)}
+                      </div>
                     </div>
                   </div>
-                  {/* Right side: Status badge, Price, and 3-dot menu */}
-                  <div className="flex items-center gap-3">
-                    {getStatusBadge(order.status)}
-                    <div className="text-lg font-semibold flex items-center">
-                      <DollarSign className="h-5 w-5" />
-                      {(order.total_price || 0).toFixed(2)}
-                    </div>
+
+                  {/* Desktop: Right side actions */}
+                  <div className="hidden md:flex items-center gap-3">
                     {(canApproveOrders || canEditOrders || canDeleteOrders) && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -947,11 +1010,11 @@ export default function OrdersPage() {
                     )}
                   </div>
                 </div>
-              </CardHeader>
+              </CardContent>
 
               {/* Collapsible Content */}
               {expandedCards.has(order.id) && (
-                <CardContent className="pt-0 space-y-3">
+                <div className="px-4 pb-4 md:px-6 md:pb-6 pt-0 space-y-3">
                   {/* Order Items */}
                   {order.order_items && order.order_items.length > 0 && (
                     <div className="space-y-2">
@@ -991,7 +1054,7 @@ export default function OrdersPage() {
                       {order.order_notes}
                     </p>
                   )}
-                </CardContent>
+                </div>
               )}
             </Card>
           ))}
