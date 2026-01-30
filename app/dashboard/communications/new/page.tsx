@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/lib/auth-context'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -48,6 +49,7 @@ export default function NewCommunicationPage() {
   const [customerOpen, setCustomerOpen] = useState(false)
   const router = useRouter()
   const supabase = createClient()
+  const { user } = useAuth()
 
   const fetchCustomers = useCallback(async () => {
     try {
@@ -73,8 +75,10 @@ export default function NewCommunicationPage() {
     setError(null)
 
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('Not authenticated')
+      if (!user) {
+        setError('Not authenticated')
+        return
+      }
 
       const { error } = await supabase
         .from('communications')

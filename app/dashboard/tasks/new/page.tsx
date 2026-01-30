@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/lib/auth-context'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -45,6 +46,7 @@ export default function NewTaskPage() {
   const [customerOpen, setCustomerOpen] = useState(false)
   const router = useRouter()
   const supabase = createClient()
+  const { user } = useAuth()
 
   useEffect(() => {
     fetchCustomers()
@@ -74,8 +76,10 @@ export default function NewTaskPage() {
     setError(null)
 
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('Not authenticated')
+      if (!user) {
+        setError('Not authenticated')
+        return
+      }
 
       const { error } = await supabase
         .from('sales_tasks')
