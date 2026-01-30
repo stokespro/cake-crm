@@ -48,6 +48,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { DateRangePicker } from '@/components/date-range-picker'
 import { format } from 'date-fns'
 import type { Order, OrderStatus } from '@/types/database'
 
@@ -692,17 +693,15 @@ export default function OrdersPage() {
                 <SelectItem value="cancelled">Cancelled</SelectItem>
               </SelectContent>
             </Select>
-            <Input
-              type="date"
-              value={filterDeliveryFrom}
-              onChange={(e) => setFilterDeliveryFrom(e.target.value)}
-              placeholder="Delivery from"
-            />
-            <Input
-              type="date"
-              value={filterDeliveryTo}
-              onChange={(e) => setFilterDeliveryTo(e.target.value)}
-              placeholder="Delivery to"
+            <DateRangePicker
+              initialDateFrom={filterDeliveryFrom || undefined}
+              initialDateTo={filterDeliveryTo || undefined}
+              onUpdate={({ range }) => {
+                setFilterDeliveryFrom(format(range.from, 'yyyy-MM-dd'))
+                setFilterDeliveryTo(range.to ? format(range.to, 'yyyy-MM-dd') : '')
+              }}
+              align="start"
+              className="lg:col-span-2"
             />
           </div>
         </CardContent>
