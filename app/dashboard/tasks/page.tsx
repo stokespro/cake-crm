@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/lib/auth-context'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -26,20 +27,23 @@ export default function TasksPage() {
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterPriority, setFilterPriority] = useState('all')
   const supabase = createClient()
+  const { user } = useAuth()
 
   useEffect(() => {
     fetchTasks()
-  }, [])
+  }, [user])
 
   useEffect(() => {
     filterTasks()
   }, [tasks, searchTerm, filterStatus, filterPriority])
 
   const fetchTasks = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+    if (!user) {
+      setLoading(false)
+      return
+    }
 
+    try {
       const { data, error } = await supabase
         .from('sales_tasks')
         .select(`
@@ -84,14 +88,14 @@ export default function TasksPage() {
     try {
       const { error } = await supabase
         .from('sales_tasks')
-        .update({ 
+        .update({
           status: 'complete',
           completed_at: new Date().toISOString()
         })
         .eq('id', taskId)
 
       if (error) throw error
-      fetchTasks()
+      await fetchTasks()
     } catch (error) {
       console.error('Error updating task:', error)
     }

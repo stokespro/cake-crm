@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/lib/auth-context'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -41,43 +42,28 @@ export default function CommunicationsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [filterMethod, setFilterMethod] = useState('all')
   const [filterFollowUp, setFilterFollowUp] = useState('all')
-  const [userRole, setUserRole] = useState<string>('agent')
   const [editingComm, setEditingComm] = useState<string | null>(null)
   const [editForm, setEditForm] = useState<EditFormData>({} as EditFormData)
   const [saving, setSaving] = useState(false)
   const supabase = createClient()
+  const { user } = useAuth()
+
+  // Get user role from auth context
+  const userRole = user?.role || 'agent'
 
   useEffect(() => {
-    fetchUserRole()
+    if (!user) return
     fetchCommunications()
-  }, [])
-
-  const fetchUserRole = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      const { data } = await supabase
-        .from('users')
-        .select('role')
-        .eq('id', user.id)
-        .single()
-
-      if (data) setUserRole(data.role)
-    } catch (error) {
-      console.error('Error fetching user role:', error)
-    }
-  }
+  }, [user])
 
   useEffect(() => {
     filterCommunications()
   }, [communications, searchTerm, filterMethod, filterFollowUp])
 
   const fetchCommunications = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+    if (!user) return
 
+    try {
       let query = supabase
         .from('communications')
         .select(`
@@ -178,11 +164,10 @@ export default function CommunicationsPage() {
   }
 
   const saveCommunication = async (commId: string) => {
+    if (!user) return
+
     setSaving(true)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
       const updateData: UpdateData = {
         ...editForm,
         last_edited_by: user.id,
