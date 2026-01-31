@@ -17,6 +17,7 @@ import {
   SidebarMenuItem,
   SidebarProvider,
   SidebarTrigger,
+  useSidebar,
 } from '@/components/ui/sidebar'
 import {
   MessageSquare,
@@ -68,6 +69,14 @@ function AppSidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const { user, logout } = useAuth()
+  const { setOpenMobile, isMobile } = useSidebar()
+
+  // Close mobile sidebar when navigating
+  const handleNavClick = () => {
+    if (isMobile) {
+      setOpenMobile(false)
+    }
+  }
 
   if (!user) return null
 
@@ -94,7 +103,7 @@ function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
-              <Link href="/dashboard">
+              <Link href="/dashboard" onClick={handleNavClick}>
                 <div className="flex aspect-square size-8 items-center justify-center">
                   <img
                     src="/cake-icon-black.svg"
@@ -129,7 +138,7 @@ function AppSidebar() {
                     isActive={isActive}
                     tooltip={item.name}
                   >
-                    <Link href={item.href}>
+                    <Link href={item.href} onClick={handleNavClick}>
                       <item.icon className="h-4 w-4" />
                       <span>{item.name}</span>
                     </Link>
