@@ -29,7 +29,8 @@ import {
   User,
   Users,
   Warehouse,
-  ClipboardList
+  ClipboardList,
+  BarChart3
 } from 'lucide-react'
 
 // Navigation items with role restrictions
@@ -42,6 +43,9 @@ const allNavigation = [
 
   // Packaging section - standard, packaging, vault, management, admin
   { name: 'Packaging', href: '/dashboard/packaging', icon: ClipboardList, roles: ['standard', 'packaging', 'vault', 'management', 'admin'] },
+
+  // Inventory dashboard - vault, packaging, management, admin
+  { name: 'Inventory', href: '/dashboard/inventory', icon: BarChart3, roles: ['vault', 'packaging', 'management', 'admin'] },
 
   // CRM section - sales, agent, management, admin
   { name: 'Orders', href: '/dashboard/orders', icon: ShoppingCart, roles: ['sales', 'agent', 'management', 'admin'] },
