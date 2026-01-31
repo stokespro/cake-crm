@@ -215,6 +215,7 @@ export function SkuMaterials({ skuId, skuName, readOnly = false }: SkuMaterialsP
           </p>
           {!readOnly && availableMaterials.length > 0 && (
             <Button
+              type="button"
               variant="outline"
               size="sm"
               onClick={() => setShowAddForm(true)}
@@ -273,6 +274,7 @@ export function SkuMaterials({ skuId, skuName, readOnly = false }: SkuMaterialsP
                         {editingId === sm.material_id ? (
                           <div className="flex items-center gap-1">
                             <Button
+                              type="button"
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8"
@@ -282,6 +284,7 @@ export function SkuMaterials({ skuId, skuName, readOnly = false }: SkuMaterialsP
                               <Check className="h-4 w-4 text-green-600" />
                             </Button>
                             <Button
+                              type="button"
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8"
@@ -294,6 +297,7 @@ export function SkuMaterials({ skuId, skuName, readOnly = false }: SkuMaterialsP
                         ) : (
                           <div className="flex items-center gap-1">
                             <Button
+                              type="button"
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8"
@@ -302,6 +306,7 @@ export function SkuMaterials({ skuId, skuName, readOnly = false }: SkuMaterialsP
                               <Edit2 className="h-4 w-4" />
                             </Button>
                             <Button
+                              type="button"
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8 text-red-600 hover:text-red-700"
@@ -352,6 +357,7 @@ export function SkuMaterials({ skuId, skuName, readOnly = false }: SkuMaterialsP
                         className="w-16 h-8 text-right"
                       />
                       <Button
+                        type="button"
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8"
@@ -361,6 +367,7 @@ export function SkuMaterials({ skuId, skuName, readOnly = false }: SkuMaterialsP
                         <Check className="h-4 w-4 text-green-600" />
                       </Button>
                       <Button
+                        type="button"
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8"
@@ -378,6 +385,7 @@ export function SkuMaterials({ skuId, skuName, readOnly = false }: SkuMaterialsP
                       {!readOnly && (
                         <>
                           <Button
+                            type="button"
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8"
@@ -386,6 +394,7 @@ export function SkuMaterials({ skuId, skuName, readOnly = false }: SkuMaterialsP
                             <Edit2 className="h-4 w-4" />
                           </Button>
                           <Button
+                            type="button"
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 text-red-600"
@@ -407,6 +416,7 @@ export function SkuMaterials({ skuId, skuName, readOnly = false }: SkuMaterialsP
       {/* Add Button */}
       {!readOnly && !showAddForm && availableMaterials.length > 0 && skuMaterials.length > 0 && (
         <Button
+          type="button"
           variant="outline"
           size="sm"
           onClick={() => setShowAddForm(true)}
@@ -423,6 +433,7 @@ export function SkuMaterials({ skuId, skuName, readOnly = false }: SkuMaterialsP
           <div className="flex items-center justify-between">
             <Label className="text-base font-medium">Add Material</Label>
             <Button
+              type="button"
               variant="ghost"
               size="icon"
               className="h-8 w-8"
@@ -490,6 +501,7 @@ export function SkuMaterials({ skuId, skuName, readOnly = false }: SkuMaterialsP
 
               <div className="flex justify-end gap-2">
                 <Button
+                  type="button"
                   variant="outline"
                   onClick={() => {
                     setShowAddForm(false)
@@ -501,6 +513,7 @@ export function SkuMaterials({ skuId, skuName, readOnly = false }: SkuMaterialsP
                   Cancel
                 </Button>
                 <Button
+                  type="button"
                   onClick={handleAdd}
                   disabled={saving || !selectedMaterialId || !quantityPerUnit}
                 >
