@@ -19,42 +19,42 @@ import {
   SidebarTrigger,
 } from '@/components/ui/sidebar'
 import {
-  Home,
   MessageSquare,
   CheckSquare,
-  ShoppingCart,
-  Building2,
-  Package,
   LogOut,
   User,
   Users,
-  Warehouse,
-  ClipboardList,
-  BarChart3
+  BarChart3,
+  Vault,
+  Store,
+  BadgeDollarSign,
+  Package,
+  Leaf,
+  CircleGauge
 } from 'lucide-react'
 
 // Navigation items with role restrictions
 // roles: which roles can see this item (empty = all roles)
 const allNavigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: Home, roles: [] },
+  { name: 'Dashboard', href: '/dashboard', icon: CircleGauge, roles: [] },
 
   // Vault section - standard, vault, packaging, management, admin
-  { name: 'Vault', href: '/dashboard/vault', icon: Warehouse, roles: ['standard', 'vault', 'packaging', 'management', 'admin'] },
+  { name: 'Vault', href: '/dashboard/vault', icon: Vault, roles: ['standard', 'vault', 'packaging', 'management', 'admin'] },
 
   // Packaging section - standard, packaging, vault, management, admin
-  { name: 'Packaging', href: '/dashboard/packaging', icon: ClipboardList, roles: ['standard', 'packaging', 'vault', 'management', 'admin'] },
+  { name: 'Packaging', href: '/dashboard/packaging', icon: Package, roles: ['standard', 'packaging', 'vault', 'management', 'admin'] },
 
   // Inventory dashboard - vault, packaging, management, admin
   { name: 'Inventory', href: '/dashboard/inventory', icon: BarChart3, roles: ['vault', 'packaging', 'management', 'admin'] },
 
   // CRM section - sales, agent, management, admin
-  { name: 'Orders', href: '/dashboard/orders', icon: ShoppingCart, roles: ['sales', 'agent', 'management', 'admin'] },
-  { name: 'Dispensaries', href: '/dashboard/dispensaries', icon: Building2, roles: ['sales', 'agent', 'management', 'admin'] },
+  { name: 'Orders', href: '/dashboard/orders', icon: BadgeDollarSign, roles: ['sales', 'agent', 'management', 'admin'] },
+  { name: 'Dispensaries', href: '/dashboard/dispensaries', icon: Store, roles: ['sales', 'agent', 'management', 'admin'] },
   { name: 'Communications', href: '/dashboard/communications', icon: MessageSquare, roles: ['sales', 'agent', 'management', 'admin'] },
   { name: 'Tasks', href: '/dashboard/tasks', icon: CheckSquare, roles: ['sales', 'agent', 'management', 'admin'] },
 
   // Shared - only for management/admin and warehouse
-  { name: 'Products', href: '/dashboard/products', icon: Package, roles: ['standard', 'vault', 'packaging', 'management', 'admin'] },
+  { name: 'Products', href: '/dashboard/products', icon: Leaf, roles: ['standard', 'vault', 'packaging', 'management', 'admin'] },
 
   // Admin only
   { name: 'Users', href: '/dashboard/users', icon: Users, roles: ['admin'] },
