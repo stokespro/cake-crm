@@ -493,13 +493,15 @@ export default function DispensaryDetailPage() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="pricing">Pricing</TabsTrigger>
-          <TabsTrigger value="communications">Communications</TabsTrigger>
-          <TabsTrigger value="orders">Orders</TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
-        </TabsList>
+        <div className="relative rounded-md overflow-x-auto h-10 bg-muted">
+          <TabsList className="absolute flex flex-row justify-stretch w-max min-w-full">
+            <TabsTrigger value="overview" className="flex-1">Overview</TabsTrigger>
+            <TabsTrigger value="pricing" className="flex-1">Pricing</TabsTrigger>
+            <TabsTrigger value="communications" className="flex-1">Communications</TabsTrigger>
+            <TabsTrigger value="orders" className="flex-1">Orders</TabsTrigger>
+            <TabsTrigger value="analytics" className="flex-1">Analytics</TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="overview" className="space-y-6">
           {/* Quick Stats */}
