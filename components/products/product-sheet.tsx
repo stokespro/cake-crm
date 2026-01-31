@@ -22,8 +22,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Loader2 } from 'lucide-react'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
+import { Loader2, ChevronDown, ChevronUp, Package } from 'lucide-react'
 import type { Product, ProductType } from '@/types/database'
+import { SkuMaterials } from './sku-materials'
 
 interface ProductSheetProps {
   open: boolean
@@ -42,6 +48,7 @@ export function ProductSheet({ open, onClose, product, onSuccess }: ProductSheet
   const [loading, setLoading] = useState(false)
   const [loadingTypes, setLoadingTypes] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [materialsOpen, setMaterialsOpen] = useState(false)
   const supabase = createClient()
 
   // Fetch product types on mount
@@ -295,6 +302,35 @@ export function ProductSheet({ open, onClose, product, onSuccess }: ProductSheet
               />
             </div>
           </div>
+
+          {/* Materials Section - Only show when editing */}
+          {product && (
+            <Collapsible open={materialsOpen} onOpenChange={setMaterialsOpen}>
+              <CollapsibleTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full justify-between"
+                >
+                  <div className="flex items-center gap-2">
+                    <Package className="h-4 w-4" />
+                    <span>Materials</span>
+                  </div>
+                  {materialsOpen ? (
+                    <ChevronUp className="h-4 w-4" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="pt-4">
+                <SkuMaterials
+                  skuId={product.id}
+                  skuName={product.item_name || product.strain_name || ''}
+                />
+              </CollapsibleContent>
+            </Collapsible>
+          )}
 
           <SheetFooter>
             <Button

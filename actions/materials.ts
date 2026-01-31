@@ -42,6 +42,21 @@ export interface UpdateMaterialInput {
   low_stock_threshold?: number
 }
 
+// Types for SKU-Material assignments
+export interface SkuMaterial {
+  id: string
+  sku_id: string
+  material_id: string
+  quantity_per_unit: number
+  created_at: string
+  updated_at: string
+  material?: Material
+}
+
+export interface SkuMaterialWithDetails extends SkuMaterial {
+  material: Material
+}
+
 // ============================================
 // GET MATERIALS
 // ============================================
@@ -483,6 +498,328 @@ export async function adjustMaterialStock(
     })
 
     return { success: true, data }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    return { success: false, error: errorMessage }
+  }
+}
+
+// ============================================
+// SKU MATERIAL ASSIGNMENTS
+// ============================================
+
+export async function getSkuMaterials(skuId: string): Promise<{
+  success: boolean
+  data?: SkuMaterialWithDetails[]
+  error?: string
+}> {
+  try {
+    const supabase = await createClient()
+
+    const { data, error } = await supabase
+      .from('sku_materials')
+      .select(`
+        *,
+        material:materials(*)
+      `)
+      .eq('sku_id', skuId)
+      .order('created_at')
+
+    if (error) {
+      console.error('Error fetching SKU materials:', error)
+      return { success: false, error: error.message }
+    }
+
+    return { success: true, data: data || [] }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    return { success: false, error: errorMessage }
+  }
+}
+
+export async function assignMaterialToSku(
+  skuId: string,
+  materialId: string,
+  quantityPerUnit: number
+): Promise<{
+  success: boolean
+  data?: SkuMaterial
+  error?: string
+}> {
+  try {
+    if (quantityPerUnit <= 0) {
+      return { success: false, error: 'Quantity per unit must be greater than 0' }
+    }
+
+    const supabase = await createClient()
+
+    // Check if assignment already exists
+    const { data: existing } = await supabase
+      .from('sku_materials')
+      .select('id')
+      .eq('sku_id', skuId)
+      .eq('material_id', materialId)
+      .maybeSingle()
+
+    if (existing) {
+      return { success: false, error: 'This material is already assigned to this SKU' }
+    }
+
+    const { data, error } = await supabase
+      .from('sku_materials')
+      .insert({
+        sku_id: skuId,
+        material_id: materialId,
+        quantity_per_unit: quantityPerUnit,
+      })
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Error assigning material to SKU:', error)
+      return { success: false, error: error.message }
+    }
+
+    return { success: true, data }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    return { success: false, error: errorMessage }
+  }
+}
+
+export async function updateSkuMaterial(
+  skuId: string,
+  materialId: string,
+  quantityPerUnit: number
+): Promise<{
+  success: boolean
+  data?: SkuMaterial
+  error?: string
+}> {
+  try {
+    if (quantityPerUnit <= 0) {
+      return { success: false, error: 'Quantity per unit must be greater than 0' }
+    }
+
+    const supabase = await createClient()
+
+    const { data, error } = await supabase
+      .from('sku_materials')
+      .update({
+        quantity_per_unit: quantityPerUnit,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('sku_id', skuId)
+      .eq('material_id', materialId)
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Error updating SKU material:', error)
+      return { success: false, error: error.message }
+    }
+
+    return { success: true, data }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    return { success: false, error: errorMessage }
+  }
+}
+
+export async function removeSkuMaterial(
+  skuId: string,
+  materialId: string
+): Promise<{
+  success: boolean
+  error?: string
+}> {
+  try {
+    const supabase = await createClient()
+
+    const { error } = await supabase
+      .from('sku_materials')
+      .delete()
+      .eq('sku_id', skuId)
+      .eq('material_id', materialId)
+
+    if (error) {
+      console.error('Error removing SKU material:', error)
+      return { success: false, error: error.message }
+    }
+
+    return { success: true }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    return { success: false, error: errorMessage }
+  }
+}
+
+// ============================================
+// MATERIAL AVAILABILITY CHECK (for Packaging)
+// ============================================
+
+export interface MaterialAvailabilityResult {
+  available: boolean
+  materials: {
+    materialId: string
+    materialName: string
+    required: number
+    available: number
+    shortage: number
+  }[]
+}
+
+export async function checkMaterialAvailability(
+  skuId: string,
+  units: number
+): Promise<{
+  success: boolean
+  data?: MaterialAvailabilityResult
+  error?: string
+}> {
+  try {
+    const supabase = await createClient()
+
+    // Get materials required for this SKU
+    const { data: skuMaterials, error: skuError } = await supabase
+      .from('sku_materials')
+      .select(`
+        material_id,
+        quantity_per_unit,
+        material:materials(id, name, current_stock)
+      `)
+      .eq('sku_id', skuId)
+
+    if (skuError) {
+      console.error('Error checking material availability:', skuError)
+      return { success: false, error: skuError.message }
+    }
+
+    if (!skuMaterials || skuMaterials.length === 0) {
+      // No materials assigned - always available
+      return {
+        success: true,
+        data: { available: true, materials: [] }
+      }
+    }
+
+    const materials: MaterialAvailabilityResult['materials'] = []
+    let allAvailable = true
+
+    for (const sm of skuMaterials) {
+      // Supabase returns joined data as arrays, extract first element
+      const materialData = Array.isArray(sm.material) ? sm.material[0] : sm.material
+      if (!materialData) continue
+
+      const required = sm.quantity_per_unit * units
+      const available = materialData.current_stock
+      const shortage = Math.max(0, required - available)
+
+      if (shortage > 0) {
+        allAvailable = false
+      }
+
+      materials.push({
+        materialId: materialData.id,
+        materialName: materialData.name,
+        required,
+        available,
+        shortage,
+      })
+    }
+
+    return {
+      success: true,
+      data: { available: allAvailable, materials }
+    }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    return { success: false, error: errorMessage }
+  }
+}
+
+export async function deductMaterialsForCasing(
+  skuId: string,
+  units: number,
+  userId?: string
+): Promise<{
+  success: boolean
+  error?: string
+}> {
+  try {
+    const supabase = await createClient()
+
+    // Get materials required for this SKU
+    const { data: skuMaterials, error: skuError } = await supabase
+      .from('sku_materials')
+      .select(`
+        material_id,
+        quantity_per_unit,
+        material:materials(id, name, current_stock)
+      `)
+      .eq('sku_id', skuId)
+
+    if (skuError) {
+      console.error('Error fetching SKU materials:', skuError)
+      return { success: false, error: skuError.message }
+    }
+
+    if (!skuMaterials || skuMaterials.length === 0) {
+      // No materials assigned - nothing to deduct
+      return { success: true }
+    }
+
+    // Check availability first
+    for (const sm of skuMaterials) {
+      // Supabase returns joined data as arrays, extract first element
+      const materialData = Array.isArray(sm.material) ? sm.material[0] : sm.material
+      if (!materialData) continue
+
+      const required = sm.quantity_per_unit * units
+
+      if (materialData.current_stock < required) {
+        return {
+          success: false,
+          error: `Insufficient ${materialData.name}. Need ${required}, have ${materialData.current_stock}`
+        }
+      }
+    }
+
+    // Deduct all materials
+    for (const sm of skuMaterials) {
+      // Supabase returns joined data as arrays, extract first element
+      const materialData = Array.isArray(sm.material) ? sm.material[0] : sm.material
+      if (!materialData) continue
+
+      const deductAmount = sm.quantity_per_unit * units
+      const newStock = materialData.current_stock - deductAmount
+
+      // Update stock
+      const { error: updateError } = await supabase
+        .from('materials')
+        .update({
+          current_stock: newStock,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', materialData.id)
+
+      if (updateError) {
+        console.error('Error deducting material:', updateError)
+        return { success: false, error: `Failed to deduct ${materialData.name}: ${updateError.message}` }
+      }
+
+      // Log transaction
+      await supabase.from('material_transactions').insert({
+        material_id: materialData.id,
+        quantity: -deductAmount,
+        transaction_type: 'usage',
+        sku_id: skuId,
+        user_id: userId || null,
+        notes: `Casing: ${units} units`,
+      })
+    }
+
+    return { success: true }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     return { success: false, error: errorMessage }

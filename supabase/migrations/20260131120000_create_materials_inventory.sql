@@ -69,7 +69,7 @@ CREATE TABLE public.material_transactions (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
     material_id UUID NOT NULL REFERENCES public.materials(id) ON DELETE CASCADE,
     quantity INTEGER NOT NULL,
-    transaction_type TEXT NOT NULL CHECK (transaction_type IN ('usage', 'restock', 'adjustment')),
+    transaction_type TEXT NOT NULL CHECK (transaction_type IN ('usage', 'restock', 'adjustment', 'initial')),
     sku_id UUID REFERENCES public.skus(id) ON DELETE SET NULL,
     user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
     notes TEXT,
