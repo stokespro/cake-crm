@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useAuth } from '@/lib/auth-context'
 import { Contact, ContactRole } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 import { getContactsByDispensary, deleteContact, setPrimaryContact } from '@/actions/contacts'
@@ -186,16 +187,35 @@ async function fetchAvailableInventory(): Promise<AvailableItem[]> {
     .sort((a, b) => a.strainName.localeCompare(b.strainName))
 }
 
-function buildAvailabilityMessage(items: AvailableItem[]): string {
+function buildAvailabilityMessage(items: AvailableItem[], contactName: string, userName: string): string {
   if (items.length === 0) {
-    return "Hey! We're currently restocking - check back soon!\n\n- CAKE"
+    return `Hey ${contactName}.. we're currently restocking - check back soon!\n\n• ${userName}`
   }
 
-  const lines = items.map(item =>
-    `🌿 ${item.strainName} ${item.productTypeName} - ${item.available} cases`
-  )
+  // Group items by product type
+  const groupedByType = new Map<string, AvailableItem[]>()
+  for (const item of items) {
+    const existing = groupedByType.get(item.productTypeName) || []
+    existing.push(item)
+    groupedByType.set(item.productTypeName, existing)
+  }
 
-  return `Hey! Here is what we have available:\n\n${lines.join('\n')}\n\nLet me know what you would like!\n- CAKE`
+  // Build sections for each product type
+  const sections: string[] = []
+  for (const [typeName, typeItems] of groupedByType) {
+    const strainLines = typeItems.map(item => {
+      const caseWord = item.available === 1 ? 'case' : 'cases'
+      return `• ${item.strainName}: ${item.available} ${caseWord}`
+    })
+    sections.push(`${typeName}\n${strainLines.join('\n')}`)
+  }
+
+  const intro = `Hey ${contactName}.. here is our current menu.`
+  const body = sections.join('\n\n')
+  const closing = `This is our real time availability. Let me know what you need to restock and I'll get it locked in!`
+  const signOff = `• ${userName}`
+
+  return `${intro}\n\n${body}\n\n${closing}\n${signOff}`
 }
 
 function isMobileDevice(): boolean {
@@ -204,6 +224,7 @@ function isMobileDevice(): boolean {
 }
 
 export function DispensaryContacts({ dispensaryId, defaultOpen = true }: DispensaryContactsProps) {
+  const { user } = useAuth()
   const [contacts, setContacts] = useState<Contact[]>([])
   const [loading, setLoading] = useState(true)
   const [isOpen, setIsOpen] = useState(defaultOpen)
@@ -278,7 +299,9 @@ export function DispensaryContacts({ dispensaryId, defaultOpen = true }: Dispens
 
     try {
       const items = await fetchAvailableInventory()
-      const message = buildAvailabilityMessage(items)
+      const contactFirstName = contact.name.split(' ')[0]
+      const userName = user?.name || 'CAKE'
+      const message = buildAvailabilityMessage(items, contactFirstName, userName)
 
       if (isMobileDevice()) {
         // Open SMS app on mobile
