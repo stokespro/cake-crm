@@ -493,12 +493,12 @@ export default function DispensaryDetailPage() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="w-full justify-start overflow-x-auto flex-nowrap [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-          <TabsTrigger value="overview" className="flex-shrink-0">Overview</TabsTrigger>
-          <TabsTrigger value="pricing" className="flex-shrink-0">Pricing</TabsTrigger>
-          <TabsTrigger value="communications" className="flex-shrink-0">Communications</TabsTrigger>
-          <TabsTrigger value="orders" className="flex-shrink-0">Orders</TabsTrigger>
-          <TabsTrigger value="analytics" className="flex-shrink-0">Analytics</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="pricing">Pricing</TabsTrigger>
+          <TabsTrigger value="communications">Communications</TabsTrigger>
+          <TabsTrigger value="orders">Orders</TabsTrigger>
+          <TabsTrigger value="analytics">Analytics</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
