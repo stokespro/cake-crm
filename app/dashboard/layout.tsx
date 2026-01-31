@@ -30,7 +30,8 @@ import {
   BadgeDollarSign,
   Package,
   Leaf,
-  CircleGauge
+  CircleGauge,
+  Boxes
 } from 'lucide-react'
 
 // Navigation items with role restrictions
@@ -46,6 +47,9 @@ const allNavigation = [
 
   // Inventory dashboard - vault, packaging, management, admin
   { name: 'Inventory', href: '/dashboard/inventory', icon: BarChart3, roles: ['vault', 'packaging', 'management', 'admin'] },
+
+  // Materials inventory - packaging, management, admin
+  { name: 'Materials', href: '/dashboard/materials', icon: Boxes, roles: ['packaging', 'management', 'admin'] },
 
   // CRM section - sales, agent, management, admin
   { name: 'Orders', href: '/dashboard/orders', icon: BadgeDollarSign, roles: ['sales', 'agent', 'management', 'admin'] },
