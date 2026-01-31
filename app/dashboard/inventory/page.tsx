@@ -376,6 +376,60 @@ export default function InventoryPage() {
     return <span className="text-green-600 font-semibold">{available}</span>
   }
 
+  // Mobile card component for inventory items
+  const InventoryCard = ({ row }: { row: InventoryRow }) => (
+    <div
+      className={`p-4 border-b last:border-b-0 ${
+        row.isLowStock ? 'bg-amber-50 dark:bg-amber-950/20' : row.available <= 0 ? 'bg-red-50 dark:bg-red-950/20' : ''
+      }`}
+    >
+      {/* Header row with SKU and Available */}
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-semibold text-base">{row.skuCode}</span>
+            {getTypeBadge(row.productTypeName)}
+          </div>
+          <p className="text-sm text-muted-foreground mt-0.5 truncate">{row.skuName}</p>
+        </div>
+        <div className="text-right flex-shrink-0">
+          <div className="text-xs text-muted-foreground uppercase tracking-wide">Available</div>
+          <div className="text-xl font-bold">
+            {getAvailableDisplay(row.available, row.isLowStock)}
+          </div>
+        </div>
+      </div>
+
+      {/* Stats grid */}
+      <div className="grid grid-cols-4 gap-2 text-center">
+        <div className="bg-muted/50 rounded-md py-2 px-1">
+          <div className="text-xs text-muted-foreground">Vault</div>
+          <div className="font-semibold text-sm">{row.vaultCases}</div>
+        </div>
+        <div className="bg-muted/50 rounded-md py-2 px-1">
+          <div className="text-xs text-muted-foreground">Staged</div>
+          <div className="font-semibold text-sm">{row.staged}</div>
+        </div>
+        <div className="bg-muted/50 rounded-md py-2 px-1">
+          <div className="text-xs text-muted-foreground">Filled</div>
+          <div className="font-semibold text-sm">{row.filled}</div>
+        </div>
+        <div className="bg-muted/50 rounded-md py-2 px-1">
+          <div className="text-xs text-muted-foreground">Cased</div>
+          <div className="font-semibold text-sm">{row.cased}</div>
+        </div>
+      </div>
+
+      {/* Pending orders if any */}
+      {row.pendingOrders > 0 && (
+        <div className="mt-2 text-sm text-blue-600 flex items-center gap-1">
+          <ShoppingCart className="h-3.5 w-3.5" />
+          <span>{row.pendingOrders} pending orders</span>
+        </div>
+      )}
+    </div>
+  )
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -385,65 +439,66 @@ export default function InventoryPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold">Inventory</h1>
-          <p className="text-muted-foreground mt-1">Track available stock across all stages</p>
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold">Inventory</h1>
+          <p className="text-sm sm:text-base text-muted-foreground mt-1">Track available stock across all stages</p>
         </div>
         <Button
           onClick={handleRefresh}
           disabled={refreshing}
           variant="outline"
+          className="min-h-[44px] min-w-[44px] px-4"
         >
-          <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-          Refresh
+          <RefreshCw className={`h-4 w-4 sm:mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+          <span className="hidden sm:inline">Refresh</span>
         </Button>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Summary Cards - 1 col on xs, 2 cols on mobile, 4 cols on lg+ */}
+      <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Available</CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-4 sm:p-6 sm:pb-2">
+            <CardTitle className="text-xs sm:text-sm font-medium">Total Available</CardTitle>
+            <Package className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{summaryStats.totalAvailable.toLocaleString()}</div>
+          <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
+            <div className="text-xl sm:text-2xl font-bold">{summaryStats.totalAvailable.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">cases ready to sell</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Vault (Projected)</CardTitle>
-            <Warehouse className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-4 sm:p-6 sm:pb-2">
+            <CardTitle className="text-xs sm:text-sm font-medium">Vault (Projected)</CardTitle>
+            <Warehouse className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{summaryStats.totalVault.toLocaleString()}</div>
+          <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
+            <div className="text-xl sm:text-2xl font-bold">{summaryStats.totalVault.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">cases from bulk</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Orders</CardTitle>
-            <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-4 sm:p-6 sm:pb-2">
+            <CardTitle className="text-xs sm:text-sm font-medium">Pending Orders</CardTitle>
+            <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground flex-shrink-0" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{summaryStats.totalPendingOrders.toLocaleString()}</div>
+          <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
+            <div className="text-xl sm:text-2xl font-bold">{summaryStats.totalPendingOrders.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">cases committed</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Low Stock</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-amber-500" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-4 sm:p-6 sm:pb-2">
+            <CardTitle className="text-xs sm:text-sm font-medium">Low Stock</CardTitle>
+            <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-amber-500 flex-shrink-0" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-amber-600">{summaryStats.lowStockCount}</div>
+          <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
+            <div className="text-xl sm:text-2xl font-bold text-amber-600">{summaryStats.lowStockCount}</div>
             <p className="text-xs text-muted-foreground">
               {summaryStats.outOfStockCount > 0 && (
                 <span className="text-red-600">{summaryStats.outOfStockCount} out of stock</span>
@@ -454,74 +509,77 @@ export default function InventoryPage() {
         </Card>
       </div>
 
-      {/* Filters */}
+      {/* Filters - stacks on mobile */}
       <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base">Filters</CardTitle>
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-muted-foreground">
+        <CardHeader className="pb-3 p-4 sm:p-6 sm:pb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <CardTitle className="text-sm sm:text-base">Filters</CardTitle>
+            <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-4">
+              <span className="text-xs sm:text-sm text-muted-foreground">
                 {filteredAndSortedRows.length} of {inventoryRows.length} SKUs
               </span>
               {(searchTerm || filterType !== 'all' || filterStock !== 'all') && (
                 <Button
                   variant="ghost"
                   size="sm"
+                  className="min-h-[44px] px-3 text-xs sm:text-sm"
                   onClick={() => {
                     setSearchTerm('')
                     setFilterType('all')
                     setFilterStock('all')
                   }}
                 >
-                  Clear Filters
+                  Clear
                 </Button>
               )}
             </div>
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
+          <div className="flex flex-col gap-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search SKUs..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9"
+                className="pl-9 min-h-[44px] text-base sm:text-sm"
               />
             </div>
-            <Select value={filterType} onValueChange={setFilterType}>
-              <SelectTrigger>
-                <SelectValue placeholder="Product Type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                {productTypes.map(type => (
-                  <SelectItem key={type.id} value={type.id}>{type.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={filterStock} onValueChange={setFilterStock}>
-              <SelectTrigger>
-                <SelectValue placeholder="Stock Level" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Stock Levels</SelectItem>
-                <SelectItem value="in">In Stock</SelectItem>
-                <SelectItem value="low">Low Stock</SelectItem>
-                <SelectItem value="out">Out of Stock</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="grid grid-cols-2 gap-3">
+              <Select value={filterType} onValueChange={setFilterType}>
+                <SelectTrigger className="min-h-[44px] text-sm">
+                  <SelectValue placeholder="Product Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all" className="min-h-[44px]">All Types</SelectItem>
+                  {productTypes.map(type => (
+                    <SelectItem key={type.id} value={type.id} className="min-h-[44px]">{type.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={filterStock} onValueChange={setFilterStock}>
+                <SelectTrigger className="min-h-[44px] text-sm">
+                  <SelectValue placeholder="Stock Level" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all" className="min-h-[44px]">All Levels</SelectItem>
+                  <SelectItem value="in" className="min-h-[44px]">In Stock</SelectItem>
+                  <SelectItem value="low" className="min-h-[44px]">Low Stock</SelectItem>
+                  <SelectItem value="out" className="min-h-[44px]">Out of Stock</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Inventory Table */}
+      {/* Inventory Display */}
       {filteredAndSortedRows.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
             <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <p className="text-muted-foreground">
+            <p className="text-sm sm:text-base text-muted-foreground">
               {searchTerm || filterType !== 'all' || filterStock !== 'all'
                 ? 'No SKUs found matching your filters'
                 : 'No inventory data available'}
@@ -529,127 +587,153 @@ export default function InventoryPage() {
           </CardContent>
         </Card>
       ) : (
-        <Card className="overflow-hidden">
-          <CardContent className="p-0">
-            <div className="overflow-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>
-                      <button
-                        className="flex items-center font-medium hover:text-foreground"
-                        onClick={() => toggleSort('sku')}
-                      >
-                        SKU
-                        <SortIcon field="sku" />
-                      </button>
-                    </TableHead>
-                    <TableHead>
-                      <button
-                        className="flex items-center font-medium hover:text-foreground"
-                        onClick={() => toggleSort('type')}
-                      >
-                        Type
-                        <SortIcon field="type" />
-                      </button>
-                    </TableHead>
-                    <TableHead className="text-right">
-                      <button
-                        className="flex items-center font-medium hover:text-foreground ml-auto"
-                        onClick={() => toggleSort('vault')}
-                      >
-                        Vault
-                        <SortIcon field="vault" />
-                      </button>
-                    </TableHead>
-                    <TableHead className="text-right">
-                      <button
-                        className="flex items-center font-medium hover:text-foreground ml-auto"
-                        onClick={() => toggleSort('staged')}
-                      >
-                        Staged
-                        <SortIcon field="staged" />
-                      </button>
-                    </TableHead>
-                    <TableHead className="text-right">
-                      <button
-                        className="flex items-center font-medium hover:text-foreground ml-auto"
-                        onClick={() => toggleSort('filled')}
-                      >
-                        Filled
-                        <SortIcon field="filled" />
-                      </button>
-                    </TableHead>
-                    <TableHead className="text-right">
-                      <button
-                        className="flex items-center font-medium hover:text-foreground ml-auto"
-                        onClick={() => toggleSort('cased')}
-                      >
-                        Cased
-                        <SortIcon field="cased" />
-                      </button>
-                    </TableHead>
-                    <TableHead className="text-right">
-                      <button
-                        className="flex items-center font-medium hover:text-foreground ml-auto"
-                        onClick={() => toggleSort('orders')}
-                      >
-                        Orders
-                        <SortIcon field="orders" />
-                      </button>
-                    </TableHead>
-                    <TableHead className="text-right">
-                      <button
-                        className="flex items-center font-medium hover:text-foreground ml-auto"
-                        onClick={() => toggleSort('available')}
-                      >
-                        Available
-                        <SortIcon field="available" />
-                      </button>
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredAndSortedRows.map((row) => (
-                    <TableRow
-                      key={row.skuId}
-                      className={row.isLowStock ? 'bg-amber-50 dark:bg-amber-950/20' : row.available <= 0 ? 'bg-red-50 dark:bg-red-950/20' : ''}
-                    >
-                      <TableCell>
-                        <div>
-                          <span className="font-medium">{row.skuCode}</span>
-                          <p className="text-sm text-muted-foreground">{row.skuName}</p>
-                        </div>
-                      </TableCell>
-                      <TableCell>{getTypeBadge(row.productTypeName)}</TableCell>
-                      <TableCell className="text-right">
-                        <div>
-                          <span>{row.vaultCases}</span>
-                          {row.vaultGrams > 0 && (
-                            <p className="text-xs text-muted-foreground">{row.vaultGrams.toLocaleString()}g</p>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">{row.staged}</TableCell>
-                      <TableCell className="text-right">{row.filled}</TableCell>
-                      <TableCell className="text-right">{row.cased}</TableCell>
-                      <TableCell className="text-right">
-                        {row.pendingOrders > 0 ? (
-                          <span className="text-blue-600">-{row.pendingOrders}</span>
-                        ) : (
-                          <span className="text-muted-foreground">0</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {getAvailableDisplay(row.available, row.isLowStock)}
-                      </TableCell>
+        <>
+          {/* Mobile Card Layout - shown below md breakpoint */}
+          <Card className="md:hidden overflow-hidden">
+            <CardHeader className="p-4 pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm">Inventory Items</CardTitle>
+                <button
+                  className="flex items-center gap-1 text-xs text-muted-foreground min-h-[44px] px-2"
+                  onClick={() => toggleSort('available')}
+                >
+                  Sort by Available
+                  <SortIcon field="available" />
+                </button>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="divide-y">
+                {filteredAndSortedRows.map((row) => (
+                  <InventoryCard key={row.skuId} row={row} />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Desktop Table Layout - shown at md and above */}
+          <Card className="hidden md:block overflow-hidden">
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="min-w-[180px]">
+                        <button
+                          className="flex items-center font-medium hover:text-foreground min-h-[44px]"
+                          onClick={() => toggleSort('sku')}
+                        >
+                          SKU
+                          <SortIcon field="sku" />
+                        </button>
+                      </TableHead>
+                      <TableHead className="min-w-[100px]">
+                        <button
+                          className="flex items-center font-medium hover:text-foreground min-h-[44px]"
+                          onClick={() => toggleSort('type')}
+                        >
+                          Type
+                          <SortIcon field="type" />
+                        </button>
+                      </TableHead>
+                      <TableHead className="text-right min-w-[80px]">
+                        <button
+                          className="flex items-center font-medium hover:text-foreground ml-auto min-h-[44px]"
+                          onClick={() => toggleSort('vault')}
+                        >
+                          Vault
+                          <SortIcon field="vault" />
+                        </button>
+                      </TableHead>
+                      <TableHead className="text-right min-w-[80px]">
+                        <button
+                          className="flex items-center font-medium hover:text-foreground ml-auto min-h-[44px]"
+                          onClick={() => toggleSort('staged')}
+                        >
+                          Staged
+                          <SortIcon field="staged" />
+                        </button>
+                      </TableHead>
+                      <TableHead className="text-right min-w-[80px]">
+                        <button
+                          className="flex items-center font-medium hover:text-foreground ml-auto min-h-[44px]"
+                          onClick={() => toggleSort('filled')}
+                        >
+                          Filled
+                          <SortIcon field="filled" />
+                        </button>
+                      </TableHead>
+                      <TableHead className="text-right min-w-[80px]">
+                        <button
+                          className="flex items-center font-medium hover:text-foreground ml-auto min-h-[44px]"
+                          onClick={() => toggleSort('cased')}
+                        >
+                          Cased
+                          <SortIcon field="cased" />
+                        </button>
+                      </TableHead>
+                      <TableHead className="text-right min-w-[80px]">
+                        <button
+                          className="flex items-center font-medium hover:text-foreground ml-auto min-h-[44px]"
+                          onClick={() => toggleSort('orders')}
+                        >
+                          Orders
+                          <SortIcon field="orders" />
+                        </button>
+                      </TableHead>
+                      <TableHead className="text-right min-w-[100px]">
+                        <button
+                          className="flex items-center font-medium hover:text-foreground ml-auto min-h-[44px]"
+                          onClick={() => toggleSort('available')}
+                        >
+                          Available
+                          <SortIcon field="available" />
+                        </button>
+                      </TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredAndSortedRows.map((row) => (
+                      <TableRow
+                        key={row.skuId}
+                        className={row.isLowStock ? 'bg-amber-50 dark:bg-amber-950/20' : row.available <= 0 ? 'bg-red-50 dark:bg-red-950/20' : ''}
+                      >
+                        <TableCell>
+                          <div>
+                            <span className="font-medium">{row.skuCode}</span>
+                            <p className="text-sm text-muted-foreground">{row.skuName}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell>{getTypeBadge(row.productTypeName)}</TableCell>
+                        <TableCell className="text-right">
+                          <div>
+                            <span>{row.vaultCases}</span>
+                            {row.vaultGrams > 0 && (
+                              <p className="text-xs text-muted-foreground">{row.vaultGrams.toLocaleString()}g</p>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">{row.staged}</TableCell>
+                        <TableCell className="text-right">{row.filled}</TableCell>
+                        <TableCell className="text-right">{row.cased}</TableCell>
+                        <TableCell className="text-right">
+                          {row.pendingOrders > 0 ? (
+                            <span className="text-blue-600">-{row.pendingOrders}</span>
+                          ) : (
+                            <span className="text-muted-foreground">0</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {getAvailableDisplay(row.available, row.isLowStock)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </>
       )}
     </div>
   )
