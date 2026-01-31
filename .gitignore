@@ -40,3 +40,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .env*.local
+
+# serwist (PWA service worker)
+public/sw*
+public/swe-worker*
