@@ -47,6 +47,7 @@ import { EditDispensarySheet } from '@/components/dispensary/edit-dispensary-she
 import { CommunicationSheet } from '@/components/communications/communication-sheet'
 import { OrderSheet } from '@/components/orders/order-sheet'
 import { CustomerPricingSection } from '@/components/dispensary/customer-pricing'
+import { DispensaryContacts } from '@/components/dispensaries/dispensary-contacts'
 import { DispensaryProfile, Order } from '@/types/database'
 import { toast } from 'sonner'
 
@@ -559,6 +560,9 @@ export default function DispensaryDetailPage() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Contacts Section */}
+          <DispensaryContacts dispensaryId={dispensaryId} />
 
           {/* Recent Activity */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

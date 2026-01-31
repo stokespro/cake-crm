@@ -2,6 +2,7 @@ export type UserRole = 'agent' | 'management' | 'admin' | 'packaging' | 'vault'
 export type TaskStatus = 'pending' | 'complete'
 export type OrderStatus = 'pending' | 'confirmed' | 'packed' | 'delivered' | 'cancelled'
 export type ContactMethod = 'phone' | 'email' | 'in-person' | 'text'
+export type ContactRole = 'owner' | 'manager' | 'inventory_manager' | 'buyer' | 'other'
 
 export interface Profile {
   id: string
@@ -45,6 +46,24 @@ export interface CustomerPricing {
 
 // Alias for backward compatibility during migration
 export type DispensaryProfile = Customer
+
+// Contact for a dispensary
+export interface Contact {
+  id: string
+  dispensary_id: string
+  name: string
+  email?: string
+  phone?: string
+  role?: ContactRole
+  is_primary: boolean
+  comm_email: boolean
+  comm_sms: boolean
+  notes?: string
+  created_at: string
+  updated_at: string
+  // Joined data
+  dispensary?: Customer
+}
 
 // SKU (finished packaged products)
 export interface SKU {
