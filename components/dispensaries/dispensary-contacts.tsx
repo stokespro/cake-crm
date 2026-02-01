@@ -219,11 +219,21 @@ function buildAvailabilityMessage(items: AvailableItem[], contactName: string, u
     groupedByType.set(item.productTypeName, existing)
   }
 
-  // Build sections for each product type
+  // Build sections for each product type - order A Buds first, then B Buds
   const sections: string[] = []
-  for (const [typeName, typeItems] of groupedByType) {
-    const displayInfo = PRODUCT_TYPE_DISPLAY[typeName]
-    if (!displayInfo) continue // Skip unknown product types
+  const typeOrder = ['A Buds', 'B Buds']
+  
+  for (const targetType of typeOrder) {
+    // Find matching type (case-insensitive, trim whitespace)
+    const matchingEntry = Array.from(groupedByType.entries()).find(
+      ([typeName]) => typeName.trim().toLowerCase() === targetType.toLowerCase()
+    )
+    
+    if (!matchingEntry) continue
+    
+    const [typeName, typeItems] = matchingEntry
+    const displayInfo = PRODUCT_TYPE_DISPLAY[targetType]
+    if (!displayInfo) continue
 
     const strainLines = typeItems.map(item => {
       const caseWord = item.available === 1 ? 'case' : 'cases'
