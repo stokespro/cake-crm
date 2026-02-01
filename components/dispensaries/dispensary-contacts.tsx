@@ -187,70 +187,27 @@ async function fetchAvailableInventory(): Promise<AvailableItem[]> {
     .sort((a, b) => a.strainName.localeCompare(b.strainName))
 }
 
-// Product type display info mapping
-const PRODUCT_TYPE_DISPLAY: Record<string, { emoji: string; title: string; description: string; price: string }> = {
-  'A Buds': {
-    emoji: '🌿',
-    title: 'PREMIUM A BUDS',
-    description: 'Top-shelf flower in soft-touch Mylar w/ tray insert',
-    price: '$352/case (32 jars × 3.5g each)',
-  },
-  'B Buds': {
-    emoji: '🍪',
-    title: 'CAKE BITES',
-    description: 'Half-oz value packs',
-    price: '$400/case (16 bags × 14g each)',
-  },
-}
-
 function buildAvailabilityMessage(items: AvailableItem[], contactName: string, userName: string): string {
-  // Filter out items with 0 cases
-  const availableItems = items.filter(item => item.available > 0)
-
-  if (availableItems.length === 0) {
+  if (items.length === 0) {
     return `Hey ${contactName}.. we're currently restocking - check back soon!\n\n• ${userName}`
   }
 
   // Group items by product type
   const groupedByType = new Map<string, AvailableItem[]>()
-  for (const item of availableItems) {
+  for (const item of items) {
     const existing = groupedByType.get(item.productTypeName) || []
     existing.push(item)
     groupedByType.set(item.productTypeName, existing)
   }
 
-  // Build sections for each product type - order A Buds first, then B Buds
+  // Build sections for each product type
   const sections: string[] = []
-  const typeOrder = ['A Buds', 'B Buds']
-  
-  for (const targetType of typeOrder) {
-    // Find matching type (case-insensitive, trim whitespace)
-    const matchingEntry = Array.from(groupedByType.entries()).find(
-      ([typeName]) => typeName.trim().toLowerCase() === targetType.toLowerCase()
-    )
-    
-    if (!matchingEntry) continue
-    
-    const [typeName, typeItems] = matchingEntry
-    const displayInfo = PRODUCT_TYPE_DISPLAY[targetType]
-    if (!displayInfo) continue
-
+  for (const [typeName, typeItems] of groupedByType) {
     const strainLines = typeItems.map(item => {
       const caseWord = item.available === 1 ? 'case' : 'cases'
       return `• ${item.strainName}: ${item.available} ${caseWord}`
     })
-
-    const header = `${displayInfo.emoji} ${displayInfo.title}`
-    const description = displayInfo.description
-    const price = displayInfo.price
-    const strains = strainLines.join('\n')
-
-    sections.push(`${header}\n${description}\n${price}\n\n${strains}`)
-  }
-
-  // Only return message if we have at least one section
-  if (sections.length === 0) {
-    return `Hey ${contactName}.. we're currently restocking - check back soon!\n\n• ${userName}`
+    sections.push(`${typeName}\n${strainLines.join('\n')}`)
   }
 
   const intro = `Hey ${contactName}.. here is our current menu.`
