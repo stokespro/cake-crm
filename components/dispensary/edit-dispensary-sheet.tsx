@@ -26,6 +26,7 @@ interface EditDispensarySheetProps {
 
 interface FormData {
   business_name: string
+  license_name: string
   address: string
   phone_number: string
   email: string
@@ -41,6 +42,7 @@ export function EditDispensarySheet({
 }: EditDispensarySheetProps) {
   const [formData, setFormData] = useState<FormData>({
     business_name: dispensary?.business_name || '',
+    license_name: dispensary?.license_name || '',
     address: dispensary?.address || '',
     phone_number: dispensary?.phone_number || '',
     email: dispensary?.email || '',
@@ -55,6 +57,7 @@ export function EditDispensarySheet({
   const resetForm = () => {
     setFormData({
       business_name: dispensary?.business_name || '',
+      license_name: dispensary?.license_name || '',
       address: dispensary?.address || '',
       phone_number: dispensary?.phone_number || '',
       email: dispensary?.email || '',
@@ -116,6 +119,7 @@ export function EditDispensarySheet({
     try {
       const updateData = {
         business_name: formData.business_name.trim(),
+        license_name: formData.license_name.trim() || null,
         address: formData.address.trim() || null,
         phone_number: formData.phone_number.trim() || null,
         email: formData.email.trim() || null,
@@ -177,6 +181,18 @@ export function EditDispensarySheet({
               {errors.business_name && (
                 <p className="text-sm text-red-600">{errors.business_name}</p>
               )}
+            </div>
+
+            {/* License Name */}
+            <div className="space-y-2">
+              <Label htmlFor="license_name">License Name</Label>
+              <Input
+                id="license_name"
+                placeholder="Legal entity name (LLC)"
+                value={formData.license_name}
+                onChange={(e) => handleInputChange('license_name', e.target.value)}
+                disabled={loading}
+              />
             </div>
 
             {/* Address */}

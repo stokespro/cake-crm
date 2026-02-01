@@ -395,6 +395,11 @@ export default function DispensaryDetailPage() {
               <Badge variant="destructive">Inactive</Badge>
             )}
           </CardTitle>
+          {dispensary.license_name && (
+            <p className="text-sm text-muted-foreground">
+              License Name: {dispensary.license_name}
+            </p>
+          )}
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

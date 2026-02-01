@@ -18,6 +18,7 @@ export interface Profile {
 export interface Customer {
   id: string
   business_name: string
+  license_name?: string
   address?: string
   phone_number?: string
   email?: string

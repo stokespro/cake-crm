@@ -13,6 +13,7 @@ import { ArrowLeft, Loader2 } from 'lucide-react'
 
 export default function NewDispensaryPage() {
   const [businessName, setBusinessName] = useState('')
+  const [licenseName, setLicenseName] = useState('')
   const [address, setAddress] = useState('')
   const [phoneNumber, setPhoneNumber] = useState('')
   const [email, setEmail] = useState('')
@@ -41,6 +42,7 @@ export default function NewDispensaryPage() {
         .from('customers')
         .insert({
           business_name: businessName,
+          license_name: licenseName || null,
           address: address || null,
           phone_number: phoneNumber || null,
           email: email || null,
@@ -106,6 +108,18 @@ export default function NewDispensaryPage() {
                 value={businessName}
                 onChange={(e) => setBusinessName(e.target.value)}
                 required
+                disabled={loading}
+                className="h-12"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="licenseName">License Name</Label>
+              <Input
+                id="licenseName"
+                placeholder="Legal entity name (LLC)"
+                value={licenseName}
+                onChange={(e) => setLicenseName(e.target.value)}
                 disabled={loading}
                 className="h-12"
               />
