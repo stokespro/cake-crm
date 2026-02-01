@@ -20,14 +20,21 @@ export interface Customer {
   business_name: string
   license_name?: string
   address?: string
+  city?: string
   phone_number?: string
   email?: string
   omma_license?: string
   ob_license?: string
+  assigned_sales_id?: string
+  has_orders?: boolean
+  first_order_date?: string
+  last_order_date?: string
+  order_count?: number
   created_at: string
   updated_at: string
   // Joined data
   pricing?: CustomerPricing[]
+  assigned_sales?: Profile
 }
 
 // Customer-specific pricing (by item or category)
