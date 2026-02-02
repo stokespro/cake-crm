@@ -59,6 +59,7 @@ export default function NewOrderPage() {
   const [orderItems, setOrderItems] = useState<OrderItem[]>([])
   const [orderNotes, setOrderNotes] = useState('')
   const [requestedDeliveryDate, setRequestedDeliveryDate] = useState('')
+  const [orderDate, setOrderDate] = useState('')
   const [totalPrice, setTotalPrice] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -70,6 +71,9 @@ export default function NewOrderPage() {
   useEffect(() => {
     fetchCustomers()
     fetchSKUs()
+    // Set default order date to today
+    const today = new Date()
+    setOrderDate(today.toISOString().split('T')[0])
     // Set default delivery date to 7 days from now
     const defaultDate = new Date()
     defaultDate.setDate(defaultDate.getDate() + 7)
@@ -281,6 +285,7 @@ export default function NewOrderPage() {
           agent_id: user.id,
           customer_id: customerId,
           order_notes: orderNotes || null,
+          order_date: orderDate,
           requested_delivery_date: requestedDeliveryDate,
           status: 'pending',
           total_price: totalPrice
@@ -396,6 +401,20 @@ export default function NewOrderPage() {
                 </Popover>
               </div>
 
+              <div className="space-y-2">
+                <Label htmlFor="orderDate">Order Date</Label>
+                <Input
+                  id="orderDate"
+                  type="date"
+                  value={orderDate}
+                  onChange={(e) => setOrderDate(e.target.value)}
+                  disabled={loading}
+                  className="h-12"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="deliveryDate">Requested Delivery Date *</Label>
                 <Input

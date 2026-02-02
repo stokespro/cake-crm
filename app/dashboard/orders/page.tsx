@@ -76,13 +76,16 @@ interface EditOrderItem {
 interface EditFormData {
   status: OrderStatus
   order_notes: string
+  order_date: string
   requested_delivery_date: string
+  actual_delivery_date: string
   order_items: EditOrderItem[]
 }
 
 interface UpdateData {
   status?: OrderStatus
   order_notes?: string
+  order_date?: string
   requested_delivery_date?: string | null
   total_price?: number
   last_edited_by?: string
@@ -366,7 +369,9 @@ export default function OrdersPage() {
     setEditForm({
       status: order.status,
       order_notes: order.order_notes || '',
+      order_date: order.order_date ? order.order_date.split('T')[0] : '',
       requested_delivery_date: order.requested_delivery_date ? order.requested_delivery_date.split('T')[0] : '',
+      actual_delivery_date: order.delivered_at ? order.delivered_at.split('T')[0] : '',
       order_items: editItems,
     })
   }
@@ -392,16 +397,25 @@ export default function OrdersPage() {
       const updateData: UpdateData = {
         status: editForm.status,
         order_notes: editForm.order_notes,
+        order_date: editForm.order_date,
         requested_delivery_date: editForm.requested_delivery_date || null,
         total_price: newTotal,
         last_edited_by: user.id,
         last_edited_at: new Date().toISOString()
       }
 
-      // Auto-set delivered_at when status changes to delivered
-      if (editForm.status === 'delivered') {
+      // Handle delivered_at: use manual value if set, otherwise auto-set when status changes to delivered
+      if (editForm.actual_delivery_date) {
+        // User manually set a delivery date - use it (convert to full timestamp)
+        updateData.delivered_at = new Date(editForm.actual_delivery_date).toISOString()
+      } else if (editForm.status === 'delivered' && !selectedOrder.delivered_at) {
+        // Status changed to delivered and no existing delivered_at - auto-set to now
         updateData.delivered_at = new Date().toISOString()
+      } else if (editForm.status !== 'delivered') {
+        // Status is not delivered - clear delivered_at
+        updateData.delivered_at = null
       }
+      // Otherwise (status is delivered and there was already a delivered_at), keep existing value
 
       const { error: orderError } = await supabase
         .from('orders')
@@ -1231,11 +1245,27 @@ export default function OrdersPage() {
                   </Select>
                 </div>
                 <div className="space-y-2">
+                  <label className="text-sm font-medium">Order Date</label>
+                  <Input
+                    type="date"
+                    value={editForm.order_date}
+                    onChange={(e) => updateEditForm('order_date', e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
                   <label className="text-sm font-medium">Requested Delivery Date</label>
                   <Input
                     type="date"
                     value={editForm.requested_delivery_date}
                     onChange={(e) => updateEditForm('requested_delivery_date', e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Actual Delivery Date</label>
+                  <Input
+                    type="date"
+                    value={editForm.actual_delivery_date}
+                    onChange={(e) => updateEditForm('actual_delivery_date', e.target.value)}
                   />
                 </div>
               </div>
