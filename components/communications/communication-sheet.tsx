@@ -196,7 +196,11 @@ export function CommunicationSheet({
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                  <Command>
+                  <Command filter={(value, search) => {
+                    const valueLower = value.toLowerCase()
+                    const searchTerms = search.toLowerCase().split(' ').filter(Boolean)
+                    return searchTerms.every(term => valueLower.includes(term)) ? 1 : 0
+                  }}>
                     <CommandInput placeholder="Search customers..." />
                     <CommandList>
                       <CommandEmpty>No customer found.</CommandEmpty>
