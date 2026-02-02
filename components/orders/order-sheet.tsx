@@ -21,7 +21,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Loader2, Plus, Trash2 } from 'lucide-react'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import { Loader2, Plus, Trash2, Check, ChevronsUpDown } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import type { Customer, Order } from '@/types/database'
 
 interface CustomerPricingData {
@@ -66,8 +80,10 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
   const [orderItems, setOrderItems] = useState<OrderItem[]>([])
   const [orderNotes, setOrderNotes] = useState(order?.order_notes || '')
   const [requestedDeliveryDate, setRequestedDeliveryDate] = useState(order?.requested_delivery_date || '')
+  const [deliveredAt, setDeliveredAt] = useState(order?.delivered_at?.split('T')[0] || '')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [customerOpen, setCustomerOpen] = useState(false)
   const supabase = createClient()
 
   // Fetch customer pricing when customer changes
@@ -124,6 +140,7 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
         setSelectedCustomerId(order.customer_id)
         setOrderNotes(order.order_notes || '')
         setRequestedDeliveryDate(order.requested_delivery_date || '')
+        setDeliveredAt(order.delivered_at?.split('T')[0] || '')
         fetchCustomerPricing(order.customer_id)
 
         // Order items will be loaded in separate useEffect after skus are loaded
@@ -196,6 +213,7 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
       setSelectedCustomerId(customerId || '')
       setOrderItems([])
       setOrderNotes('')
+      setDeliveredAt('')
       setError(null)
       setCustomerPricing([])
       const defaultDate = new Date()
@@ -363,6 +381,7 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
             customer_id: selectedCustomerId,
             order_notes: orderNotes || null,
             requested_delivery_date: requestedDeliveryDate,
+            delivered_at: deliveredAt || null,
             total_price: orderTotal,
             updated_at: new Date().toISOString()
           })
@@ -483,23 +502,57 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
             <div className="grid grid-cols-1 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="customer">Customer *</Label>
-                <Select
-                  value={selectedCustomerId}
-                  onValueChange={setSelectedCustomerId}
-                  required
-                  disabled={!!customerId || !!order}
-                >
-                  <SelectTrigger id="customer">
-                    <SelectValue placeholder="Select a customer" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {customers.map((customer) => (
-                      <SelectItem key={customer.id} value={customer.id}>
-                        {customer.business_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={customerOpen} onOpenChange={setCustomerOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={customerOpen}
+                      className="w-full justify-between font-normal"
+                      disabled={!!customerId || !!order}
+                    >
+                      {selectedCustomerId
+                        ? customers.find((c) => c.id === selectedCustomerId)?.business_name
+                        : "Select a customer..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Search customers..." />
+                      <CommandList>
+                        <CommandEmpty>No customer found.</CommandEmpty>
+                        <CommandGroup>
+                          {customers.map((customer) => (
+                            <CommandItem
+                              key={customer.id}
+                              value={`${customer.business_name} ${customer.license_name || ''} ${customer.omma_license || ''} ${customer.city || ''}`}
+                              onSelect={() => {
+                                setSelectedCustomerId(customer.id)
+                                setCustomerOpen(false)
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  selectedCustomerId === customer.id ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              <div className="flex flex-col">
+                                <span>{customer.business_name}</span>
+                                {(customer.license_name || customer.city) && (
+                                  <span className="text-xs text-muted-foreground">
+                                    {[customer.license_name, customer.city].filter(Boolean).join(' • ')}
+                                  </span>
+                                )}
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
 
               <div className="space-y-2">
@@ -513,6 +566,22 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
                   disabled={loading}
                 />
               </div>
+
+              {order && (
+                <div className="space-y-2">
+                  <Label htmlFor="deliveredAt">Actual Delivery Date</Label>
+                  <Input
+                    id="deliveredAt"
+                    type="date"
+                    value={deliveredAt}
+                    onChange={(e) => setDeliveredAt(e.target.value)}
+                    disabled={loading}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Set when order was actually delivered (used for commission calculations)
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">

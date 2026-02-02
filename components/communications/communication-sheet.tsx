@@ -20,7 +20,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Loader2 } from 'lucide-react'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import { Loader2, Check, ChevronsUpDown } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import type { Customer, Communication, ContactMethod } from '@/types/database'
 
 interface CommunicationSheetProps {
@@ -47,6 +61,7 @@ export function CommunicationSheet({
   )
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [customerOpen, setCustomerOpen] = useState(false)
   const supabase = createClient()
 
   const fetchCustomers = useCallback(async () => {
@@ -165,23 +180,57 @@ export function CommunicationSheet({
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="customer">Customer *</Label>
-              <Select
-                value={selectedCustomerId}
-                onValueChange={setSelectedCustomerId}
-                required
-                disabled={!!dispensaryId} // Disable if customer ID is provided
-              >
-                <SelectTrigger id="customer" className="h-12">
-                  <SelectValue placeholder="Select a customer" />
-                </SelectTrigger>
-                <SelectContent>
-                  {customers.map((customer) => (
-                    <SelectItem key={customer.id} value={customer.id}>
-                      {customer.business_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={customerOpen} onOpenChange={setCustomerOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={customerOpen}
+                    className="h-12 w-full justify-between font-normal"
+                    disabled={!!dispensaryId}
+                  >
+                    {selectedCustomerId
+                      ? customers.find((c) => c.id === selectedCustomerId)?.business_name
+                      : "Select a customer..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Search customers..." />
+                    <CommandList>
+                      <CommandEmpty>No customer found.</CommandEmpty>
+                      <CommandGroup>
+                        {customers.map((customer) => (
+                          <CommandItem
+                            key={customer.id}
+                            value={`${customer.business_name} ${customer.license_name || ''} ${customer.omma_license || ''} ${customer.city || ''}`}
+                            onSelect={() => {
+                              setSelectedCustomerId(customer.id)
+                              setCustomerOpen(false)
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                selectedCustomerId === customer.id ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            <div className="flex flex-col">
+                              <span>{customer.business_name}</span>
+                              {(customer.license_name || customer.city) && (
+                                <span className="text-xs text-muted-foreground">
+                                  {[customer.license_name, customer.city].filter(Boolean).join(' • ')}
+                                </span>
+                              )}
+                            </div>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
 
             <div className="space-y-2">

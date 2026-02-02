@@ -66,10 +66,14 @@ export default function TasksPage() {
     let filtered = [...tasks]
 
     if (searchTerm) {
+      const term = searchTerm.toLowerCase()
       filtered = filtered.filter(task => 
-        task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        task.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        task.customer?.business_name?.toLowerCase().includes(searchTerm.toLowerCase())
+        task.title.toLowerCase().includes(term) ||
+        task.description?.toLowerCase().includes(term) ||
+        task.customer?.business_name?.toLowerCase().includes(term) ||
+        task.customer?.license_name?.toLowerCase().includes(term) ||
+        task.customer?.omma_license?.toLowerCase().includes(term) ||
+        task.customer?.city?.toLowerCase().includes(term)
       )
     }
 

@@ -192,10 +192,14 @@ export default function OrdersPage() {
     let filtered = [...orders]
 
     if (searchTerm) {
+      const term = searchTerm.toLowerCase()
       filtered = filtered.filter(order =>
-        order.customer?.business_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.order_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.order_notes?.toLowerCase().includes(searchTerm.toLowerCase())
+        order.customer?.business_name?.toLowerCase().includes(term) ||
+        order.customer?.license_name?.toLowerCase().includes(term) ||
+        order.customer?.omma_license?.toLowerCase().includes(term) ||
+        order.customer?.city?.toLowerCase().includes(term) ||
+        order.order_number?.toLowerCase().includes(term) ||
+        order.order_notes?.toLowerCase().includes(term)
       )
     }
 

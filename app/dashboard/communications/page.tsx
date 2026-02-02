@@ -93,10 +93,14 @@ export default function CommunicationsPage() {
 
     // Search filter
     if (searchTerm) {
+      const term = searchTerm.toLowerCase()
       filtered = filtered.filter(comm => 
-        comm.client_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        comm.notes.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        comm.customer?.business_name?.toLowerCase().includes(searchTerm.toLowerCase())
+        comm.client_name?.toLowerCase().includes(term) ||
+        comm.notes.toLowerCase().includes(term) ||
+        comm.customer?.business_name?.toLowerCase().includes(term) ||
+        comm.customer?.license_name?.toLowerCase().includes(term) ||
+        comm.customer?.omma_license?.toLowerCase().includes(term) ||
+        comm.customer?.city?.toLowerCase().includes(term)
       )
     }
 

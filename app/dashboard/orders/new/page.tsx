@@ -379,7 +379,7 @@ export default function NewOrderPage() {
                           {customers.map((customer) => (
                             <CommandItem
                               key={customer.id}
-                              value={customer.business_name}
+                              value={`${customer.business_name} ${customer.license_name || ''} ${customer.omma_license || ''} ${customer.city || ''}`}
                               onSelect={() => {
                                 setCustomerId(customer.id)
                                 setCustomerOpen(false)
@@ -391,7 +391,14 @@ export default function NewOrderPage() {
                                   customerId === customer.id ? "opacity-100" : "opacity-0"
                                 )}
                               />
-                              {customer.business_name}
+                              <div className="flex flex-col">
+                                <span>{customer.business_name}</span>
+                                {(customer.license_name || customer.city) && (
+                                  <span className="text-xs text-muted-foreground">
+                                    {[customer.license_name, customer.city].filter(Boolean).join(' • ')}
+                                  </span>
+                                )}
+                              </div>
                             </CommandItem>
                           ))}
                         </CommandGroup>
