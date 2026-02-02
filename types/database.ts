@@ -253,6 +253,7 @@ export interface CommissionRate {
   salesperson_id?: string
   product_type_id?: string
   sku_id?: string
+  min_unit_price?: number  // Price tier threshold (NULL = floor/default rate)
   rate_percent: number
   effective_from: string
   effective_to?: string

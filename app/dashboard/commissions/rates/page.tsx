@@ -57,6 +57,7 @@ interface RateFormData {
   salesperson_id: string
   product_type_id: string
   sku_id: string
+  min_unit_price: string
   rate_percent: string
   effective_from: Date | undefined
   effective_to: Date | undefined
@@ -66,6 +67,7 @@ const initialFormData: RateFormData = {
   salesperson_id: '',
   product_type_id: '',
   sku_id: '',
+  min_unit_price: '',
   rate_percent: '',
   effective_from: undefined,
   effective_to: undefined,
@@ -181,6 +183,7 @@ export default function CommissionRatesPage() {
       salesperson_id: rate.salesperson_id || '',
       product_type_id: rate.product_type_id || '',
       sku_id: rate.sku_id || '',
+      min_unit_price: rate.min_unit_price != null ? rate.min_unit_price.toString() : '',
       rate_percent: rate.rate_percent.toString(),
       effective_from: rate.effective_from ? new Date(rate.effective_from) : undefined,
       effective_to: rate.effective_to ? new Date(rate.effective_to) : undefined,
@@ -189,7 +192,7 @@ export default function CommissionRatesPage() {
   }
 
   const handleSave = async () => {
-    // Validate
+    // Validate rate percent
     const ratePercent = parseFloat(formData.rate_percent)
     if (isNaN(ratePercent) || ratePercent < 0 || ratePercent > 100) {
       toast.error('Rate must be between 0 and 100')
@@ -200,12 +203,24 @@ export default function CommissionRatesPage() {
       return
     }
 
+    // Validate min_unit_price if provided
+    let minUnitPrice: number | null = null
+    if (formData.min_unit_price.trim() !== '') {
+      const parsed = parseFloat(formData.min_unit_price)
+      if (isNaN(parsed) || parsed < 0) {
+        toast.error('Min price must be 0 or greater')
+        return
+      }
+      minUnitPrice = parsed
+    }
+
     setSaving(true)
     try {
       const rateData = {
         salesperson_id: formData.salesperson_id || null,
         product_type_id: formData.product_type_id && formData.product_type_id !== 'all' ? formData.product_type_id : null,
         sku_id: formData.sku_id && formData.sku_id !== 'all' ? formData.sku_id : null,
+        min_unit_price: minUnitPrice,
         rate_percent: ratePercent,
         effective_from: format(formData.effective_from, 'yyyy-MM-dd'),
         effective_to: formData.effective_to ? format(formData.effective_to, 'yyyy-MM-dd') : null,
@@ -268,13 +283,29 @@ export default function CommissionRatesPage() {
     return format(new Date(dateStr), 'MMM d, yyyy')
   }
 
-  // Sort rates by salesperson name (global defaults first)
+  // Sort rates by salesperson name, product type, then min_unit_price DESC (highest first, null/floor last)
   const sortedRates = [...rates].sort((a, b) => {
+    // First by salesperson name (global defaults first)
     const aName = a.salesperson?.full_name || ''
     const bName = b.salesperson?.full_name || ''
     if (!aName && bName) return -1
     if (aName && !bName) return 1
-    return aName.localeCompare(bName)
+    const nameCompare = aName.localeCompare(bName)
+    if (nameCompare !== 0) return nameCompare
+
+    // Then by product type name
+    const aType = a.product_type?.name || ''
+    const bType = b.product_type?.name || ''
+    const typeCompare = aType.localeCompare(bType)
+    if (typeCompare !== 0) return typeCompare
+
+    // Then by min_unit_price DESC (null/floor rates last)
+    const aPrice = a.min_unit_price
+    const bPrice = b.min_unit_price
+    if (aPrice == null && bPrice == null) return 0
+    if (aPrice == null) return 1  // null goes last
+    if (bPrice == null) return -1 // null goes last
+    return Number(bPrice) - Number(aPrice) // DESC order
   })
 
   if (loading || authLoading) {
@@ -329,6 +360,7 @@ export default function CommissionRatesPage() {
                     <TableHead>Salesperson</TableHead>
                     <TableHead>Product Type</TableHead>
                     <TableHead>SKU</TableHead>
+                    <TableHead>Min Price</TableHead>
                     <TableHead className="text-right">Rate %</TableHead>
                     <TableHead>Effective From</TableHead>
                     <TableHead>Effective To</TableHead>
@@ -353,6 +385,13 @@ export default function CommissionRatesPage() {
                           <span>{rate.sku.code}</span>
                         ) : (
                           <span className="text-muted-foreground">All</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {rate.min_unit_price != null ? (
+                          <span className="font-mono">≥ ${Number(rate.min_unit_price).toFixed(2)}</span>
+                        ) : (
+                          <Badge variant="secondary">Floor</Badge>
                         )}
                       </TableCell>
                       <TableCell className="text-right font-medium">
@@ -478,6 +517,28 @@ export default function CommissionRatesPage() {
               </Select>
               <p className="text-xs text-muted-foreground">
                 SKU-specific rates take highest priority
+              </p>
+            </div>
+
+            {/* Min Unit Price */}
+            <div className="space-y-2">
+              <Label>Min Price (Optional)</Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                  $
+                </span>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={formData.min_unit_price}
+                  onChange={(e) => setFormData(prev => ({ ...prev, min_unit_price: e.target.value }))}
+                  placeholder="e.g., 12.00"
+                  className="pl-7"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Leave empty for floor rate (applies to all prices below other tiers)
               </p>
             </div>
 
