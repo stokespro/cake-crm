@@ -34,6 +34,7 @@ import {
   CircleGauge,
   Boxes,
   Percent,
+  DollarSign,
   ChevronDown
 } from 'lucide-react'
 import {
@@ -91,6 +92,7 @@ const allNavigation: NavigationItem[] = [
   { name: 'Dispensaries', href: '/dashboard/dispensaries', icon: Store, roles: ['sales', 'agent', 'management', 'admin'] },
   { name: 'Communications', href: '/dashboard/communications', icon: MessageSquare, roles: ['sales', 'agent', 'management', 'admin'] },
   { name: 'Tasks', href: '/dashboard/tasks', icon: CheckSquare, roles: ['sales', 'agent', 'management', 'admin'] },
+  { name: 'My Commissions', href: '/dashboard/my-commissions', icon: DollarSign, roles: ['sales', 'agent', 'management', 'admin'] },
 
   // Shared - only for management/admin and warehouse
   { name: 'Products', href: '/dashboard/products', icon: Leaf, roles: ['standard', 'vault', 'packaging', 'management', 'admin'] },
