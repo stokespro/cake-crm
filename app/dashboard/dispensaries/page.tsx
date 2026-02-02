@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useMemo, useTransition } from 'react'
+import { Suspense, useEffect, useState, useCallback, useMemo, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -122,7 +122,7 @@ function countActiveFilters(filters: FilterState): number {
   return count
 }
 
-export default function DispensariesPage() {
+function DispensariesPageContent() {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -814,5 +814,36 @@ export default function DispensariesPage() {
         </Card>
       )}
     </div>
+  )
+}
+
+function DispensariesPageLoading() {
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-4 w-64 mt-2" />
+        </div>
+        <Skeleton className="h-10 w-40" />
+      </div>
+      <Card>
+        <CardContent className="p-4">
+          <div className="space-y-4">
+            {[...Array(10)].map((_, i) => (
+              <Skeleton key={i} className="h-12 w-full" />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+export default function DispensariesPage() {
+  return (
+    <Suspense fallback={<DispensariesPageLoading />}>
+      <DispensariesPageContent />
+    </Suspense>
   )
 }
