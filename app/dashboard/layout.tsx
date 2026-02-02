@@ -32,12 +32,46 @@ import {
   Package,
   Leaf,
   CircleGauge,
-  Boxes
+  Boxes,
+  Percent,
+  ChevronDown
 } from 'lucide-react'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
+import {
+  SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton,
+} from '@/components/ui/sidebar'
+
+// Navigation item types
+interface NavItem {
+  name: string
+  href: string
+  icon: React.ComponentType<{ className?: string }>
+  roles: string[]
+}
+
+interface NavItemWithSub {
+  name: string
+  icon: React.ComponentType<{ className?: string }>
+  roles: string[]
+  subItems: { name: string; href: string }[]
+}
+
+type NavigationItem = NavItem | NavItemWithSub
+
+// Check if item has subItems
+const hasSubItems = (item: NavigationItem): item is NavItemWithSub => {
+  return 'subItems' in item
+}
 
 // Navigation items with role restrictions
 // roles: which roles can see this item (empty = all roles)
-const allNavigation = [
+const allNavigation: NavigationItem[] = [
   { name: 'Dashboard', href: '/dashboard', icon: CircleGauge, roles: [] },
 
   // Vault section - standard, vault, packaging, management, admin
@@ -60,6 +94,17 @@ const allNavigation = [
 
   // Shared - only for management/admin and warehouse
   { name: 'Products', href: '/dashboard/products', icon: Leaf, roles: ['standard', 'vault', 'packaging', 'management', 'admin'] },
+
+  // Commissions - admin and management only
+  {
+    name: 'Commissions',
+    icon: Percent,
+    roles: ['admin', 'management'],
+    subItems: [
+      { name: 'Reports', href: '/dashboard/commissions' },
+      { name: 'Rates', href: '/dashboard/commissions/rates' },
+    ]
+  },
 
   // Admin only
   { name: 'Users', href: '/dashboard/users', icon: Users, roles: ['admin'] },
@@ -130,6 +175,46 @@ function AppSidebar() {
         <SidebarGroup>
           <SidebarMenu>
             {navigation.map((item) => {
+              if (hasSubItems(item)) {
+                // Item with submenu
+                const isAnySubActive = item.subItems.some(sub => pathname === sub.href)
+                return (
+                  <Collapsible
+                    key={item.name}
+                    asChild
+                    defaultOpen={isAnySubActive}
+                    className="group/collapsible"
+                  >
+                    <SidebarMenuItem>
+                      <CollapsibleTrigger asChild>
+                        <SidebarMenuButton tooltip={item.name}>
+                          <item.icon className="h-4 w-4" />
+                          <span>{item.name}</span>
+                          <ChevronDown className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-180" />
+                        </SidebarMenuButton>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <SidebarMenuSub>
+                          {item.subItems.map((subItem) => (
+                            <SidebarMenuSubItem key={subItem.name}>
+                              <SidebarMenuSubButton
+                                asChild
+                                isActive={pathname === subItem.href}
+                              >
+                                <Link href={subItem.href} onClick={handleNavClick}>
+                                  <span>{subItem.name}</span>
+                                </Link>
+                              </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                          ))}
+                        </SidebarMenuSub>
+                      </CollapsibleContent>
+                    </SidebarMenuItem>
+                  </Collapsible>
+                )
+              }
+
+              // Regular item without submenu
               const isActive = pathname === item.href
               return (
                 <SidebarMenuItem key={item.name}>
