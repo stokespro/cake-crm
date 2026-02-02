@@ -211,7 +211,7 @@ function DispensariesPageContent() {
           .from('profiles')
           .select('*')
           .in('role', ['sales', 'agent'])
-          .order('name')
+          .order('full_name')
 
         if (error) throw error
         setSalesPeople(data || [])
@@ -233,7 +233,7 @@ function DispensariesPageContent() {
       try {
         let query = supabase
           .from('customers')
-          .select('*, assigned_sales:profiles!customers_assigned_sales_id_fkey(id, name)', { count: 'exact' })
+          .select('*, assigned_sales:profiles!customers_assigned_sales_id_fkey(id, full_name)', { count: 'exact' })
 
         // Apply search filter
         if (filters.search) {
@@ -445,19 +445,19 @@ function DispensariesPageContent() {
                 <div className="space-y-2">
                   <Label>Sales Person</Label>
                   <Select
-                    value={filters.salesPersonId}
-                    onValueChange={(value) => updateFilters({ salesPersonId: value })}
+                    value={filters.salesPersonId || 'all'}
+                    onValueChange={(value) => updateFilters({ salesPersonId: value === 'all' ? '' : value })}
                     disabled={salesPeopleLoading}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="All sales people" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All sales people</SelectItem>
+                      <SelectItem value="all">All sales people</SelectItem>
                       <SelectItem value="unassigned">Unassigned</SelectItem>
                       {salesPeople.map((person) => (
                         <SelectItem key={person.id} value={person.id}>
-                          {person.name}
+                          {person.full_name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -684,9 +684,9 @@ function DispensariesPageContent() {
                         )}
                       </TableCell>
                       <TableCell className="hidden xl:table-cell">
-                        {dispensary.assigned_sales?.name && (
+                        {dispensary.assigned_sales?.full_name && (
                           <span className="text-sm text-muted-foreground">
-                            {dispensary.assigned_sales.name}
+                            {dispensary.assigned_sales.full_name}
                           </span>
                         )}
                       </TableCell>
