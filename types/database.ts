@@ -244,3 +244,42 @@ export interface OrderItem {
   strain_name?: string
   product?: Product
 }
+
+// Commission System
+export type CommissionStatus = 'pending' | 'approved' | 'paid'
+
+export interface CommissionRate {
+  id: string
+  salesperson_id?: string
+  product_type_id?: string
+  sku_id?: string
+  rate_percent: number
+  effective_from: string
+  effective_to?: string
+  created_at: string
+  updated_at: string
+  // Joined data
+  salesperson?: Profile
+  product_type?: ProductType
+  sku?: SKU
+}
+
+export interface Commission {
+  id: string
+  order_id: string
+  salesperson_id: string
+  order_date: string
+  order_total: number
+  commission_amount: number
+  rate_applied: number
+  status: CommissionStatus
+  paid_at?: string
+  paid_by?: string
+  notes?: string
+  created_at: string
+  updated_at: string
+  // Joined data
+  order?: Order
+  salesperson?: Profile
+  paid_by_user?: Profile
+}
