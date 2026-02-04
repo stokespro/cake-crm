@@ -62,6 +62,16 @@ export async function getDashboardData(): Promise<DashboardData> {
     // Generate task queue using allocation engine
     const tasks = generateTaskQueue(inventory, orders)
 
+    // Calculate how much FILLED inventory is "claimed" by advanced FILL tasks
+    // (tasks that were in TO_FILL but advanced to TO_CASE)
+    const claimedFilled: Record<string, number> = {}
+    for (const [taskKey, state] of Object.entries(taskStates)) {
+      if (state.current_column === 'TO_CASE' && taskKey.startsWith('FILL-')) {
+        const sku = state.sku
+        claimedFilled[sku] = (claimedFilled[sku] || 0) + state.quantity
+      }
+    }
+
     // Merge persisted task states with generated tasks
     const completedTasks: CompletedTask[] = []
     const mergedTasks: Task[] = []
@@ -87,7 +97,25 @@ export async function getDashboardData(): Promise<DashboardData> {
           mergedTasks.push(task)
         }
       } else {
-        mergedTasks.push(task)
+        // No persisted state - check if this CASE task is using "claimed" filled inventory
+        if (task.type === 'CASE' && task.column === 'TO_CASE' && claimedFilled[task.sku]) {
+          // Reduce quantity by what's claimed
+          const claimed = claimedFilled[task.sku]
+          const adjustedQuantity = task.quantity - claimed
+          
+          if (adjustedQuantity > 0) {
+            mergedTasks.push({
+              ...task,
+              quantity: adjustedQuantity,
+            })
+          }
+          // If adjustedQuantity <= 0, skip this task entirely (all inventory claimed)
+          
+          // Mark this SKU's claimed inventory as handled
+          claimedFilled[task.sku] = Math.max(0, claimed - task.quantity)
+        } else {
+          mergedTasks.push(task)
+        }
       }
     }
 
@@ -102,6 +130,45 @@ export async function getDashboardData(): Promise<DashboardData> {
             quantity: state.quantity,
             priority: 'BACKFILL',
             completedAt: state.completed_at || new Date().toISOString(),
+          })
+        }
+      }
+    }
+
+    // Handle advanced FILL tasks that need CASE tasks created
+    // When a FILL task is advanced to TO_CASE, we need to create a corresponding CASE task
+    // even if the allocation engine assigned that FILLED inventory to a different priority
+    for (const [taskKey, state] of Object.entries(taskStates)) {
+      if (state.current_column === 'TO_CASE' && taskKey.startsWith('FILL-')) {
+        // This is a FILL task that was advanced - we need a CASE task for it
+        // Extract priority from the task key (e.g., FILL-BB-TOMORROW -> TOMORROW)
+        const parts = taskKey.split('-')
+        const priority = parts[parts.length - 1] as 'URGENT' | 'TOMORROW' | 'UPCOMING'
+        const sku = parts.slice(1, -1).join('-') as SKU // Handle SKUs like BB-B
+        
+        // Create the corresponding CASE task key
+        const caseTaskKey = `CASE-${sku}-${priority}`
+        
+        // Check if we already have this task in merged list
+        const existingCaseTask = mergedTasks.find(t => t.id === caseTaskKey)
+        
+        if (!existingCaseTask) {
+          // Create a CASE task for this advanced FILL task
+          mergedTasks.push({
+            id: caseTaskKey,
+            type: 'CASE',
+            sku: state.sku as SKU,
+            quantity: state.quantity,
+            priority: priority,
+            status: 'READY',
+            column: 'TO_CASE',
+            sources: [{
+              type: 'ORDER',
+              orderId: 'advanced',
+              customerName: 'Advanced from Fill',
+              quantity: state.quantity,
+              deliveryDate: null,
+            }],
           })
         }
       }
