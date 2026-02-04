@@ -163,7 +163,7 @@ function addToTask(
   order: PrioritizedOrder,
   column: KanbanColumn
 ): void {
-  const taskKey = `${type}-${sku}`;
+  const taskKey = `${type}-${sku}-${order.priority}`;
   const existing = accumulator.tasks.get(taskKey);
 
   const source: TaskSource = {
