@@ -45,15 +45,20 @@ export function ProductSheet({ open, onClose, product, onSuccess }: ProductSheet
   const [unitsPerCase, setUnitsPerCase] = useState<number | ''>('')
   const [inStock, setInStock] = useState(true)
   const [productTypes, setProductTypes] = useState<ProductType[]>([])
+  const [code, setCode] = useState('')
+  const [strainId, setStrainId] = useState('')
+  const [strains, setStrains] = useState<{id: string, name: string}[]>([])
   const [loading, setLoading] = useState(false)
   const [loadingTypes, setLoadingTypes] = useState(false)
+  const [loadingStrains, setLoadingStrains] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [materialsOpen, setMaterialsOpen] = useState(false)
   const supabase = createClient()
 
-  // Fetch product types on mount
+  // Fetch product types and strains on mount
   useEffect(() => {
     fetchProductTypes()
+    fetchStrains()
   }, [])
 
   const fetchProductTypes = async () => {
@@ -73,6 +78,23 @@ export function ProductSheet({ open, onClose, product, onSuccess }: ProductSheet
     }
   }
 
+  const fetchStrains = async () => {
+    setLoadingStrains(true)
+    try {
+      const { data, error } = await supabase
+        .from('strains')
+        .select('id, name')
+        .order('name')
+
+      if (error) throw error
+      setStrains(data || [])
+    } catch (error) {
+      console.error('Error fetching strains:', error)
+    } finally {
+      setLoadingStrains(false)
+    }
+  }
+
   // Reset form when sheet opens/closes
   useEffect(() => {
     if (open) {
@@ -83,6 +105,8 @@ export function ProductSheet({ open, onClose, product, onSuccess }: ProductSheet
         setProductTypeId(product.product_type_id || '')
         setUnitsPerCase(product.units_per_case || '')
         setInStock(product.in_stock ?? true)
+        setCode(product.code || '')
+        setStrainId(product.strain_id || '')
       } else {
         // Create mode - set defaults
         setItemName('')
@@ -90,6 +114,8 @@ export function ProductSheet({ open, onClose, product, onSuccess }: ProductSheet
         setProductTypeId('')
         setUnitsPerCase('')
         setInStock(true)
+        setCode('')
+        setStrainId('')
       }
       setError(null)
     } else {
@@ -99,6 +125,8 @@ export function ProductSheet({ open, onClose, product, onSuccess }: ProductSheet
       setProductTypeId('')
       setUnitsPerCase('')
       setInStock(true)
+      setCode('')
+      setStrainId('')
       setError(null)
     }
   }, [open, product])
@@ -117,6 +145,47 @@ export function ProductSheet({ open, onClose, product, onSuccess }: ProductSheet
     if (unitsPerCase === '' || unitsPerCase <= 0) {
       setError('Units per case is required and must be greater than 0')
       return false
+    }
+
+    // Additional validation for create mode
+    if (!product) {
+      if (!code.trim()) {
+        setError('SKU code is required')
+        return false
+      }
+
+      if (/\s/.test(code)) {
+        setError('SKU code cannot contain spaces')
+        return false
+      }
+
+      if (!strainId) {
+        setError('Strain is required')
+        return false
+      }
+
+      // Check for duplicate codes
+      try {
+        const { data: existingCodes, error: codeError } = await supabase
+          .from('skus')
+          .select('id, code')
+          .eq('code', code.trim().toUpperCase())
+
+        if (codeError) {
+          console.error('Error checking for duplicate code:', codeError)
+          setError('Unable to validate SKU code. Please try again.')
+          return false
+        }
+
+        if (existingCodes && existingCodes.length > 0) {
+          setError('A product with this SKU code already exists. Please choose a different code.')
+          return false
+        }
+      } catch (error) {
+        console.error('Error checking for duplicate code:', error)
+        setError('Unable to validate SKU code. Please try again.')
+        return false
+      }
     }
 
     // Check for duplicate names
@@ -187,11 +256,25 @@ export function ProductSheet({ open, onClose, product, onSuccess }: ProductSheet
           throw new Error(`Failed to update product: ${updateError.message}`)
         }
       } else {
-        // Create mode - need code and strain_id for new SKU
-        // For now, generate code from name and require strain selection
-        setError('Creating new products is not yet supported. Please use the existing products.')
-        setLoading(false)
-        return
+        // Create mode - insert new SKU
+        const { error: insertError } = await supabase
+          .from('skus')
+          .insert({
+            code: code.trim().toUpperCase(),
+            name: itemName.trim(),
+            strain_id: strainId,
+            product_type_id: productTypeId,
+            units_per_case: unitsPerCase as number,
+            in_stock: inStock,
+            description: description.trim() || null,
+          })
+
+        if (insertError) {
+          if (insertError.code === '23505') {
+            throw new Error('A product with this code or name already exists. Please choose different values.')
+          }
+          throw new Error(`Failed to create product: ${insertError.message}`)
+        }
       }
 
       // Call success callback and close sheet
@@ -236,6 +319,47 @@ export function ProductSheet({ open, onClose, product, onSuccess }: ProductSheet
                 disabled={loading}
               />
             </div>
+
+            {/* SKU Code - only show when creating */}
+            {!product && (
+              <div className="space-y-2">
+                <Label htmlFor="code">SKU Code *</Label>
+                <Input
+                  id="code"
+                  placeholder="e.g., BUBBLEBATH-A"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.toUpperCase())}
+                  required
+                  disabled={loading}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Unique identifier for this product (no spaces allowed)
+                </p>
+              </div>
+            )}
+
+            {/* Strain - only show when creating */}
+            {!product && (
+              <div className="space-y-2">
+                <Label htmlFor="strain">Strain *</Label>
+                <Select
+                  value={strainId}
+                  onValueChange={setStrainId}
+                  disabled={loading || loadingStrains}
+                >
+                  <SelectTrigger id="strain">
+                    <SelectValue placeholder={loadingStrains ? "Loading..." : "Select strain"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {strains.map((strain) => (
+                      <SelectItem key={strain.id} value={strain.id}>
+                        {strain.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="description">Description</Label>
@@ -343,7 +467,7 @@ export function ProductSheet({ open, onClose, product, onSuccess }: ProductSheet
             </Button>
             <Button
               type="submit"
-              disabled={loading || !itemName.trim() || !productTypeId || unitsPerCase === ''}
+              disabled={loading || !itemName.trim() || !productTypeId || unitsPerCase === '' || (!product && (!code.trim() || !strainId))}
             >
               {loading ? (
                 <>
