@@ -12,6 +12,7 @@ import {
   completeSealAndCase,
   saveTaskState,
   saveTaskNote,
+  deleteTaskState,
   addContainer as dbAddContainer,
   removeContainer as dbRemoveContainer,
   updateInventoryLevels,
@@ -125,11 +126,19 @@ export async function getDashboardData(): Promise<DashboardData> {
       if (state.current_column === 'DONE') {
         const alreadyAdded = completedTasks.some(t => t.id === taskKey)
         if (!alreadyAdded) {
+          // Extract priority from task key (e.g., CASE-CM-URGENT -> URGENT)
+          const parts = taskKey.split('-')
+          const lastPart = parts[parts.length - 1]
+          const validPriorities = ['URGENT', 'TOMORROW', 'UPCOMING', 'BACKFILL']
+          const priority = validPriorities.includes(lastPart)
+            ? lastPart as 'URGENT' | 'TOMORROW' | 'UPCOMING' | 'BACKFILL'
+            : 'BACKFILL'
+
           completedTasks.push({
             id: taskKey,
             sku: state.sku as SKU,
             quantity: state.quantity,
-            priority: 'BACKFILL',
+            priority,
             completedAt: state.completed_at || new Date().toISOString(),
           })
         }
@@ -139,6 +148,10 @@ export async function getDashboardData(): Promise<DashboardData> {
     // Handle advanced FILL tasks that need CASE tasks created
     // When a FILL task is advanced to TO_CASE, we need to create a corresponding CASE task
     // even if the allocation engine assigned that FILLED inventory to a different priority
+    // BUT only if there's actual FILLED inventory to back it
+    // Also clean up ghost task states (TO_CASE with no filled inventory)
+    const ghostTasksToDelete: string[] = []
+
     for (const [taskKey, state] of Object.entries(taskStates)) {
       if (state.current_column === 'TO_CASE' && taskKey.startsWith('FILL-')) {
         // This is a FILL task that was advanced - we need a CASE task for it
@@ -146,13 +159,21 @@ export async function getDashboardData(): Promise<DashboardData> {
         const parts = taskKey.split('-')
         const priority = parts[parts.length - 1] as 'URGENT' | 'TOMORROW' | 'UPCOMING'
         const sku = parts.slice(1, -1).join('-') as SKU // Handle SKUs like BB-B
-        
+
+        // Check if there's actual FILLED inventory for this SKU
+        const skuInventory = inventory[sku]
+        if (!skuInventory || skuInventory.filled < state.quantity) {
+          // No filled inventory to back this task - it's a ghost, mark for deletion
+          ghostTasksToDelete.push(taskKey)
+          continue
+        }
+
         // Create the corresponding CASE task key
         const caseTaskKey = `CASE-${sku}-${priority}`
-        
+
         // Check if we already have this task in merged list
         const existingCaseTask = mergedTasks.find(t => t.id === caseTaskKey)
-        
+
         if (!existingCaseTask) {
           // Create a CASE task for this advanced FILL task
           mergedTasks.push({
@@ -173,6 +194,13 @@ export async function getDashboardData(): Promise<DashboardData> {
           })
         }
       }
+    }
+
+    // Clean up ghost task states in the background
+    if (ghostTasksToDelete.length > 0) {
+      console.log(`Cleaning up ${ghostTasksToDelete.length} ghost task states:`, ghostTasksToDelete)
+      Promise.all(ghostTasksToDelete.map(taskKey => deleteTaskState(taskKey)))
+        .catch(err => console.error('Error cleaning up ghost tasks:', err))
     }
 
     // Generate SKU status for inventory bar
