@@ -19,10 +19,11 @@ import {
   getSkuId,
 } from '@/lib/packaging/db'
 import { generateTaskQueue, generateSKUStatus } from '@/lib/packaging/allocation-engine'
-import {
-  checkMaterialAvailability,
-  deductMaterialsForCasing,
-} from '@/actions/materials'
+// DISABLED: Materials imports - re-enable when materials module is complete
+// import {
+//   checkMaterialAvailability,
+//   deductMaterialsForCasing,
+// } from '@/actions/materials'
 import type {
   DashboardData,
   Task,
@@ -233,32 +234,27 @@ export async function advanceTask(
         return { success: false, error: 'Insufficient filled inventory' }
       }
 
-      // Get SKU ID for material check
-      const skuId = await getSkuId(sku)
-
-      // Check material availability before casing
-      const materialCheck = await checkMaterialAvailability(skuId, quantity)
-      if (!materialCheck.success) {
-        return { success: false, error: materialCheck.error || 'Failed to check material availability' }
-      }
-
-      if (materialCheck.data && !materialCheck.data.available) {
-        // Find the first material with shortage for error message
-        const shortage = materialCheck.data.materials.find(m => m.shortage > 0)
-        if (shortage) {
-          return {
-            success: false,
-            error: `Cannot case: Insufficient ${shortage.materialName}. Need ${shortage.required}, have ${shortage.available}`
-          }
-        }
-        return { success: false, error: 'Insufficient materials for casing' }
-      }
-
-      // Deduct materials
-      const deductResult = await deductMaterialsForCasing(skuId, quantity)
-      if (!deductResult.success) {
-        return { success: false, error: deductResult.error || 'Failed to deduct materials' }
-      }
+      // DISABLED: Materials check temporarily disabled to unblock packaging
+      // TODO: Re-enable when materials inventory module is complete
+      // const skuId = await getSkuId(sku)
+      // const materialCheck = await checkMaterialAvailability(skuId, quantity)
+      // if (!materialCheck.success) {
+      //   return { success: false, error: materialCheck.error || 'Failed to check material availability' }
+      // }
+      // if (materialCheck.data && !materialCheck.data.available) {
+      //   const shortage = materialCheck.data.materials.find(m => m.shortage > 0)
+      //   if (shortage) {
+      //     return {
+      //       success: false,
+      //       error: `Cannot case: Insufficient ${shortage.materialName}. Need ${shortage.required}, have ${shortage.available}`
+      //     }
+      //   }
+      //   return { success: false, error: 'Insufficient materials for casing' }
+      // }
+      // const deductResult = await deductMaterialsForCasing(skuId, quantity)
+      // if (!deductResult.success) {
+      //   return { success: false, error: deductResult.error || 'Failed to deduct materials' }
+      // }
 
       await completeSealAndCase(sku, quantity, currentInventory)
 
