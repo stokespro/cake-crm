@@ -704,17 +704,17 @@ function KanbanColumnComponent({
 
   return (
     <Card
-      className="flex flex-col min-h-0"
+      className="flex flex-col h-full overflow-hidden"
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
-      <CardContent className="flex flex-col flex-1 p-4">
-        <div className="flex items-center justify-between mb-4">
+      <CardContent className="flex flex-col h-full p-4 overflow-hidden">
+        <div className="flex items-center justify-between mb-4 flex-shrink-0">
           <h2 className={`text-lg font-bold ${headerColor}`}>{title}</h2>
           <span className="text-muted-foreground text-sm">{count} tasks</span>
         </div>
 
-        <div className="flex-1 overflow-y-auto space-y-3 min-h-0">
+        <div className="flex-1 overflow-y-auto space-y-3 min-h-0 scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">
           {count === 0 ? (
             <div className="text-center text-muted-foreground py-8">
               {column === 'DONE' ? 'Nothing completed yet' : 'No tasks'}
@@ -742,7 +742,7 @@ function KanbanColumnComponent({
         </div>
 
         {column !== 'DONE' && (
-          <div className="text-xs text-muted-foreground text-center mt-2">
+          <div className="text-xs text-muted-foreground text-center mt-2 flex-shrink-0">
             Drag here to undo
           </div>
         )}
