@@ -256,6 +256,15 @@ export async function advanceTask(
 
       // Update task state to TO_CASE
       await saveTaskState(taskId, sku, 'CASE', 'TO_CASE', quantity)
+
+      // Copy note from FILL task to CASE task
+      // taskId format: FILL-SKU-PRIORITY -> CASE-SKU-PRIORITY
+      const taskNotes = await readTaskNotes()
+      const fillNote = taskNotes[taskId]
+      if (fillNote) {
+        const caseTaskId = taskId.replace(/^FILL-/, 'CASE-')
+        await saveTaskNote(caseTaskId, fillNote)
+      }
     } else if (fromColumn === 'TO_CASE') {
       // FILLED -> CASED
       if (currentInventory.filled < quantity) {
