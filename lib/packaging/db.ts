@@ -729,15 +729,18 @@ export async function deleteTaskState(taskKey: string): Promise<void> {
 }
 
 export async function cleanupOldTaskStates(): Promise<number> {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  // Get start of today in local timezone, then convert to UTC for comparison
+  const now = new Date();
+  const todayLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const todayUTC = todayLocal.toISOString();
 
   const supabase = await createClient();
+
   const { data, error } = await supabase
     .from('packaging_task_state')
     .delete()
     .eq('current_column', 'DONE')
-    .lt('completed_at', today.toISOString())
+    .lt('completed_at', todayUTC)
     .select();
 
   if (error) {

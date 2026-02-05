@@ -64,13 +64,18 @@ export async function getDashboardData(): Promise<DashboardData> {
     // Generate task queue using allocation engine
     const tasks = generateTaskQueue(inventory, orders)
 
-    // Calculate how much FILLED inventory is "claimed" by advanced FILL tasks
-    // (tasks that were in TO_FILL but advanced to TO_CASE)
+    // Calculate how much FILLED inventory is "claimed" by persisted TO_CASE tasks
+    // This prevents the allocation engine from double-counting filled inventory
     const claimedFilled: Record<string, number> = {}
     for (const [taskKey, state] of Object.entries(taskStates)) {
-      if (state.current_column === 'TO_CASE' && taskKey.startsWith('FILL-')) {
-        const sku = state.sku
-        claimedFilled[sku] = (claimedFilled[sku] || 0) + state.quantity
+      // Match both new format (CASE-*) and legacy format (FILL-* with TO_CASE column)
+      if (state.current_column === 'TO_CASE') {
+        const isCaseTask = taskKey.startsWith('CASE-') || taskKey.startsWith('BACKFILL-CASE-')
+        const isLegacyFillTask = taskKey.startsWith('FILL-')
+        if (isCaseTask || isLegacyFillTask) {
+          const sku = state.sku
+          claimedFilled[sku] = (claimedFilled[sku] || 0) + state.quantity
+        }
       }
     }
 
@@ -145,20 +150,38 @@ export async function getDashboardData(): Promise<DashboardData> {
       }
     }
 
-    // Handle advanced FILL tasks that need CASE tasks created
-    // When a FILL task is advanced to TO_CASE, we need to create a corresponding CASE task
-    // even if the allocation engine assigned that FILLED inventory to a different priority
-    // BUT only if there's actual FILLED inventory to back it
-    // Also clean up ghost task states (TO_CASE with no filled inventory)
+    // Handle persisted TO_CASE tasks that may not be in the generated list
+    // This handles both:
+    // 1. CASE-* tasks that were advanced from FILL and saved with proper CASE ID
+    // 2. Legacy FILL-* tasks that had current_column === 'TO_CASE' (old format)
     const ghostTasksToDelete: string[] = []
 
     for (const [taskKey, state] of Object.entries(taskStates)) {
-      if (state.current_column === 'TO_CASE' && taskKey.startsWith('FILL-')) {
-        // This is a FILL task that was advanced - we need a CASE task for it
-        // Extract priority from the task key (e.g., FILL-BB-TOMORROW -> TOMORROW)
-        const parts = taskKey.split('-')
-        const priority = parts[parts.length - 1] as 'URGENT' | 'TOMORROW' | 'UPCOMING'
-        const sku = parts.slice(1, -1).join('-') as SKU // Handle SKUs like BB-B
+      if (state.current_column === 'TO_CASE') {
+        // Determine if this is a CASE task (new format) or FILL task (legacy format)
+        const isCaseTask = taskKey.startsWith('CASE-') || taskKey.startsWith('BACKFILL-CASE-')
+        const isLegacyFillTask = taskKey.startsWith('FILL-')
+
+        if (!isCaseTask && !isLegacyFillTask) continue
+
+        // Extract priority and SKU from the task key
+        let priority: 'URGENT' | 'TOMORROW' | 'UPCOMING' | 'BACKFILL'
+        let sku: SKU
+        let caseTaskKey: string
+
+        if (taskKey.startsWith('BACKFILL-CASE-') || taskKey.startsWith('BACKFILL-FILL-')) {
+          // BACKFILL-CASE-SKU or BACKFILL-FILL-SKU format
+          const parts = taskKey.split('-')
+          sku = parts.slice(2).join('-') as SKU
+          priority = 'BACKFILL'
+          caseTaskKey = `BACKFILL-CASE-${sku}`
+        } else {
+          // CASE-SKU-PRIORITY or FILL-SKU-PRIORITY format
+          const parts = taskKey.split('-')
+          priority = parts[parts.length - 1] as 'URGENT' | 'TOMORROW' | 'UPCOMING' | 'BACKFILL'
+          sku = parts.slice(1, -1).join('-') as SKU // Handle SKUs like BB-B
+          caseTaskKey = `CASE-${sku}-${priority}`
+        }
 
         // Check if there's actual FILLED inventory for this SKU
         const skuInventory = inventory[sku]
@@ -168,14 +191,11 @@ export async function getDashboardData(): Promise<DashboardData> {
           continue
         }
 
-        // Create the corresponding CASE task key
-        const caseTaskKey = `CASE-${sku}-${priority}`
-
         // Check if we already have this task in merged list
         const existingCaseTask = mergedTasks.find(t => t.id === caseTaskKey)
 
         if (!existingCaseTask) {
-          // Create a CASE task for this advanced FILL task
+          // Create a CASE task for this persisted state
           mergedTasks.push({
             id: caseTaskKey,
             type: 'CASE',
@@ -254,16 +274,39 @@ export async function advanceTask(
 
       await completeWeighAndFill(sku, quantity, currentInventory)
 
-      // Update task state to TO_CASE
-      await saveTaskState(taskId, sku, 'CASE', 'TO_CASE', quantity)
+      // When advancing from FILL to CASE, we need to:
+      // 1. Delete the old FILL task state (if it exists)
+      // 2. Save the new CASE task state with the CASE task ID
+      // 3. Copy notes from FILL to CASE task key
 
-      // Copy note from FILL task to CASE task
-      // taskId format: FILL-SKU-PRIORITY -> CASE-SKU-PRIORITY
-      const taskNotes = await readTaskNotes()
-      const fillNote = taskNotes[taskId]
-      if (fillNote) {
-        const caseTaskId = taskId.replace(/^FILL-/, 'CASE-')
-        await saveTaskNote(caseTaskId, fillNote)
+      // Generate the CASE task ID from the FILL task ID
+      // FILL-SKU-PRIORITY -> CASE-SKU-PRIORITY
+      // Also handle BACKFILL-FILL-SKU -> BACKFILL-CASE-SKU
+      let caseTaskId: string
+      if (taskId.startsWith('FILL-')) {
+        caseTaskId = taskId.replace(/^FILL-/, 'CASE-')
+      } else if (taskId.startsWith('BACKFILL-FILL-')) {
+        caseTaskId = taskId.replace(/^BACKFILL-FILL-/, 'BACKFILL-CASE-')
+      } else {
+        // Fallback - just use the taskId as-is
+        caseTaskId = taskId
+      }
+
+      // Delete the old FILL task state (don't block on this)
+      deleteTaskState(taskId).catch(err => console.error('Error deleting FILL task state:', err))
+
+      // Save the new CASE task state with the correct CASE task ID
+      await saveTaskState(caseTaskId, sku, 'CASE', 'TO_CASE', quantity)
+
+      // Copy note from FILL task to CASE task (don't block on this)
+      try {
+        const taskNotes = await readTaskNotes()
+        const fillNote = taskNotes[taskId]
+        if (fillNote) {
+          saveTaskNote(caseTaskId, fillNote).catch(err => console.error('Error copying note:', err))
+        }
+      } catch (err) {
+        console.error('Error reading notes for advance:', err)
       }
     } else if (fromColumn === 'TO_CASE') {
       // FILLED -> CASED
@@ -322,8 +365,36 @@ export async function revertTask(
 
       await updateInventoryLevels(sku, { filled: newFilled, staged: newStaged }, 'task_reverted')
 
-      // Update task state back to TO_FILL
-      await saveTaskState(taskId, sku, 'FILL', 'TO_FILL', quantity)
+      // When reverting from TO_CASE to TO_FILL, we need to:
+      // 1. Delete the CASE task state
+      // 2. Create a FILL task state with the FILL task ID (if it had one originally)
+
+      // Generate the FILL task ID from the CASE task ID
+      // CASE-SKU-PRIORITY -> FILL-SKU-PRIORITY
+      // BACKFILL-CASE-SKU -> BACKFILL-FILL-SKU
+      let fillTaskId: string
+      if (taskId.startsWith('CASE-')) {
+        fillTaskId = taskId.replace(/^CASE-/, 'FILL-')
+      } else if (taskId.startsWith('BACKFILL-CASE-')) {
+        fillTaskId = taskId.replace(/^BACKFILL-CASE-/, 'BACKFILL-FILL-')
+      } else {
+        // Fallback - just use the taskId as-is
+        fillTaskId = taskId
+      }
+
+      // Delete the CASE task state (don't await - let it happen in background)
+      deleteTaskState(taskId).catch(err => console.error('Error deleting task state:', err))
+
+      // Copy note back from CASE to FILL task (don't block on this)
+      try {
+        const taskNotes = await readTaskNotes()
+        const caseNote = taskNotes[taskId]
+        if (caseNote) {
+          saveTaskNote(fillTaskId, caseNote).catch(err => console.error('Error copying note:', err))
+        }
+      } catch (err) {
+        console.error('Error reading notes for revert:', err)
+      }
     } else if (fromColumn === 'DONE') {
       // CASED -> FILLED (reverse of case)
       const newCased = Math.max(0, currentInventory.cased - quantity)
