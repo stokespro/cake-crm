@@ -17,7 +17,7 @@ export async function updateSession(request: NextRequest) {
 
   // Create Supabase client for cookie handling (data operations)
   // Auth is handled client-side via PIN authentication
-  createServerClient(
+  const supabase = createServerClient(
     supabaseUrl,
     supabaseAnonKey,
     {
@@ -39,6 +39,8 @@ export async function updateSession(request: NextRequest) {
       },
     }
   )
+
+  await supabase.auth.getUser()
 
   return supabaseResponse
 }

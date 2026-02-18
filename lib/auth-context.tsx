@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { createClient } from '@/lib/supabase/client';
 
 export type UserRole = 'admin' | 'management' | 'sales' | 'standard' | 'vault' | 'packaging' | 'agent';
 
@@ -67,6 +68,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Load user from localStorage on mount
   useEffect(() => {
+    const supabase = createClient();
+
     try {
       const stored = localStorage.getItem(USER_STORAGE_KEY);
       if (stored) {
@@ -75,7 +78,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       // Ignore errors
     }
-    setIsLoading(false);
+
+    supabase.auth.getSession().then(() => {
+      setIsLoading(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      // Keep session state in sync without altering localStorage auth
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const login = useCallback((newUser: SessionUser) => {

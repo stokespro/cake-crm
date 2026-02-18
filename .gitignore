@@ -44,3 +44,4 @@ next-env.d.ts
 # serwist (PWA service worker)
 public/sw*
 public/swe-worker*
+migration-results-*.json

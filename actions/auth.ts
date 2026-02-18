@@ -1,6 +1,6 @@
 'use server';
 
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createServiceClient } from '@/lib/supabase/server';
 
 export interface SessionUser {
   id: string;
@@ -14,8 +14,9 @@ export async function authenticateByPin(pin: string): Promise<{ success: boolean
   }
 
   const supabase = await createClient();
+  const serviceSupabase = await createServiceClient();
 
-  const { data, error } = await supabase
+  const { data, error } = await serviceSupabase
     .from('users')
     .select('id, name, role')
     .eq('pin', pin)
@@ -23,6 +24,18 @@ export async function authenticateByPin(pin: string): Promise<{ success: boolean
 
   if (error || !data) {
     return { success: false, error: 'Invalid PIN' };
+  }
+
+  const email = `${data.id}@cake.internal`;
+  const password = `cake-${data.id}-${pin}-auth`;
+
+  const { error: authError } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
+
+  if (authError) {
+    console.error('Shadow auth sign-in failed:', authError);
   }
 
   return {
