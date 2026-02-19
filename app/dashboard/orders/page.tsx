@@ -49,7 +49,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { DateRangePicker } from '@/components/date-range-picker'
-import { format } from 'date-fns'
+import { format, parseISO } from 'date-fns'
 import type { Order, OrderStatus } from '@/types/database'
 
 interface SKU {
@@ -209,19 +209,19 @@ export default function OrdersPage() {
 
     // Filter by delivery date range
     if (filterDeliveryFrom) {
-      const fromDate = new Date(filterDeliveryFrom + 'T00:00:00')
+      const fromDate = parseISO(filterDeliveryFrom)
       filtered = filtered.filter(order => {
         if (!order.requested_delivery_date) return false
-        const deliveryDate = new Date(order.requested_delivery_date)
+        const deliveryDate = parseISO(order.requested_delivery_date)
         return deliveryDate >= fromDate
       })
     }
 
     if (filterDeliveryTo) {
-      const toDate = new Date(filterDeliveryTo + 'T23:59:59')
+      const toDate = parseISO(filterDeliveryTo + 'T23:59:59')
       filtered = filtered.filter(order => {
         if (!order.requested_delivery_date) return false
-        const deliveryDate = new Date(order.requested_delivery_date)
+        const deliveryDate = parseISO(order.requested_delivery_date)
         return deliveryDate <= toDate
       })
     }
@@ -245,12 +245,12 @@ export default function OrdersPage() {
           bVal = b.status
           break
         case 'order_date':
-          aVal = a.order_date ? new Date(a.order_date).getTime() : 0
-          bVal = b.order_date ? new Date(b.order_date).getTime() : 0
+          aVal = a.order_date ? parseISO(a.order_date).getTime() : 0
+          bVal = b.order_date ? parseISO(b.order_date).getTime() : 0
           break
         case 'delivery_date':
-          aVal = a.requested_delivery_date ? new Date(a.requested_delivery_date).getTime() : 0
-          bVal = b.requested_delivery_date ? new Date(b.requested_delivery_date).getTime() : 0
+          aVal = a.requested_delivery_date ? parseISO(a.requested_delivery_date).getTime() : 0
+          bVal = b.requested_delivery_date ? parseISO(b.requested_delivery_date).getTime() : 0
           break
         case 'total':
           aVal = a.total_price || 0
@@ -831,11 +831,11 @@ export default function OrdersPage() {
                     {getStatusBadge(order.status)}
                   </TableCell>
                   <TableCell>
-                    {format(new Date(order.order_date), 'MMM d, yyyy')}
+                    {format(parseISO(order.order_date), 'MMM d, yyyy')}
                   </TableCell>
                   <TableCell>
                     {order.requested_delivery_date
-                      ? format(new Date(order.requested_delivery_date), 'MMM d, yyyy')
+                      ? format(parseISO(order.requested_delivery_date), 'MMM d, yyyy')
                       : '—'}
                   </TableCell>
                   <TableCell className="text-right font-medium">
@@ -908,7 +908,7 @@ export default function OrdersPage() {
                           {order.requested_delivery_date && (
                             <div className="flex items-center gap-1">
                               <Truck className="h-4 w-4" />
-                              {format(new Date(order.requested_delivery_date), 'MMM d, yyyy')}
+                              {format(parseISO(order.requested_delivery_date), 'MMM d, yyyy')}
                             </div>
                           )}
                         </div>
@@ -1059,7 +1059,7 @@ export default function OrdersPage() {
                       <div className="flex items-center gap-1">
                         <Truck className="h-4 w-4 text-green-600" />
                         <span className="text-green-600">
-                          Delivered: {format(new Date(order.delivered_at), 'MMM d, yyyy')}
+                          Delivered: {format(parseISO(order.delivered_at), 'MMM d, yyyy')}
                         </span>
                       </div>
                     </div>
@@ -1109,7 +1109,7 @@ export default function OrdersPage() {
                   <h3 className="text-sm font-medium text-muted-foreground mb-1">Order Date</h3>
                   <p className="flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-muted-foreground" />
-                    {format(new Date(selectedOrder.order_date), 'MMM d, yyyy')}
+                    {format(parseISO(selectedOrder.order_date), 'MMM d, yyyy')}
                   </p>
                 </div>
                 <div>
@@ -1117,7 +1117,7 @@ export default function OrdersPage() {
                   <p className="flex items-center gap-2">
                     <Truck className="h-4 w-4 text-muted-foreground" />
                     {selectedOrder.requested_delivery_date
-                      ? format(new Date(selectedOrder.requested_delivery_date), 'MMM d, yyyy')
+                      ? format(parseISO(selectedOrder.requested_delivery_date), 'MMM d, yyyy')
                       : '—'}
                   </p>
                 </div>
@@ -1129,7 +1129,7 @@ export default function OrdersPage() {
                   <h3 className="text-sm font-medium text-muted-foreground mb-1">Delivered</h3>
                   <p className="flex items-center gap-2 text-green-600">
                     <Truck className="h-4 w-4" />
-                    {format(new Date(selectedOrder.delivered_at), 'MMM d, yyyy h:mm a')}
+                    {format(parseISO(selectedOrder.delivered_at), 'MMM d, yyyy h:mm a')}
                   </p>
                 </div>
               )}
@@ -1185,7 +1185,7 @@ export default function OrdersPage() {
               {/* Last Edited */}
               {selectedOrder.last_edited_at && (
                 <div className="text-xs text-muted-foreground">
-                  Last edited: {format(new Date(selectedOrder.last_edited_at), 'MMM d, yyyy h:mm a')}
+                  Last edited: {format(parseISO(selectedOrder.last_edited_at), 'MMM d, yyyy h:mm a')}
                 </div>
               )}
 
