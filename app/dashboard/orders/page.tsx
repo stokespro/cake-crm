@@ -155,7 +155,7 @@ export default function OrdersPage() {
 
   const fetchOrders = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('orders')
         .select(`
           *,
@@ -169,7 +169,13 @@ export default function OrdersPage() {
             sku:skus(code, name)
           )
         `)
-        .order('order_date', { ascending: false })
+
+      // Filter orders for sales/agent users to only their own
+      if (['sales', 'agent'].includes(userRole) && user?.id) {
+        query = query.eq('agent_id', user.id)
+      }
+
+      const { data, error } = await query.order('order_date', { ascending: false })
 
       if (error) throw error
 
