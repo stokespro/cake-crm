@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/lib/auth-context'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -50,6 +51,7 @@ export function CommunicationSheet({
   dispensaryId,
   onSuccess
 }: CommunicationSheetProps) {
+  const { user } = useAuth()
   const [customers, setCustomers] = useState<Customer[]>([])
   const [selectedCustomerId, setSelectedCustomerId] = useState(dispensaryId || '')
   const [clientName, setClientName] = useState('')
@@ -123,7 +125,6 @@ export function CommunicationSheet({
     setLoading(true)
 
     try {
-      const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('Not authenticated')
 
       const { data, error } = await supabase
