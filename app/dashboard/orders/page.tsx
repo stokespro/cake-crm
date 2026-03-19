@@ -172,7 +172,21 @@ export default function OrdersPage() {
 
       // Filter orders for sales/agent users to only their assigned customers
       if (['sales', 'agent'].includes(userRole) && user?.id) {
-        query = query.eq('customer.assigned_sales_id', user.id)
+        // First, get the customer IDs assigned to this sales user
+        const { data: assignedCustomers } = await supabase
+          .from('customers')
+          .select('id')
+          .eq('assigned_sales_id', user.id)
+
+        const customerIds = (assignedCustomers || []).map(c => c.id)
+
+        // Filter orders to only those customers
+        if (customerIds.length > 0) {
+          query = query.in('customer_id', customerIds)
+        } else {
+          // No assigned customers = no orders to show
+          query = query.eq('customer_id', '00000000-0000-0000-0000-000000000000') // Impossible UUID
+        }
       }
 
       const { data, error } = await query.order('order_date', { ascending: false })
