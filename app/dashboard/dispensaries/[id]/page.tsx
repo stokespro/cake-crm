@@ -267,7 +267,7 @@ export default function DispensaryDetailPage() {
     }
   }
 
-  const canManageDispensaries = ['management', 'admin'].includes(userRole)
+  const canManageDispensaries = ['sales', 'agent', 'management', 'admin'].includes(userRole)
 
   // Permission checks
   const userCanCreateOrder = canCreateOrder(userRole)
