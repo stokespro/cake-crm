@@ -72,8 +72,8 @@ export default function CommunicationsPage() {
         `)
         .order('interaction_date', { ascending: false })
 
-      // Agents can only see their own communications
-      if (userRole === 'agent') {
+      // Agents and sales users can only see their own communications
+      if (['sales', 'agent'].includes(userRole)) {
         query = query.eq('agent_id', user.id)
       }
 
