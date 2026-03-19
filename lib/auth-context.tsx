@@ -48,7 +48,7 @@ export function canManageUsers(role: UserRole): boolean {
 }
 
 export function canAssignSales(role: UserRole): boolean {
-  return ['admin', 'management'].includes(role);
+  return ['sales', 'agent', 'management', 'admin'].includes(role);
 }
 
 interface AuthContextType {
