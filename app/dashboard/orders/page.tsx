@@ -159,7 +159,7 @@ export default function OrdersPage() {
         .from('orders')
         .select(`
           *,
-          customer:customers(business_name),
+          customer:customers(business_name, assigned_sales_id),
           order_items(
             id,
             sku_id,
@@ -170,9 +170,9 @@ export default function OrdersPage() {
           )
         `)
 
-      // Filter orders for sales/agent users to only their own
+      // Filter orders for sales/agent users to only their assigned customers
       if (['sales', 'agent'].includes(userRole) && user?.id) {
-        query = query.eq('agent_id', user.id)
+        query = query.eq('customers.assigned_sales_id', user.id)
       }
 
       const { data, error } = await query.order('order_date', { ascending: false })
@@ -488,7 +488,7 @@ export default function OrdersPage() {
         .from('orders')
         .select(`
           *,
-          customer:customers(business_name),
+          customer:customers(business_name, assigned_sales_id),
           order_items(
             id,
             sku_id,
