@@ -90,6 +90,7 @@ export default function NewOrderPage() {
         .from('customers')
         .select('*')
         .order('business_name')
+        .limit(5000)
 
       if (error) throw error
       setCustomers(data || [])
