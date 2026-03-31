@@ -159,7 +159,7 @@ export default function OrdersPage() {
         .from('orders')
         .select(`
           *,
-          customer:customers(business_name, assigned_sales_id),
+          customer:customers(business_name, license_name, omma_license, city, assigned_sales_id),
           order_items(
             id,
             sku_id,
@@ -502,7 +502,7 @@ export default function OrdersPage() {
         .from('orders')
         .select(`
           *,
-          customer:customers(business_name, assigned_sales_id),
+          customer:customers(business_name, license_name, omma_license, city, assigned_sales_id),
           order_items(
             id,
             sku_id,
