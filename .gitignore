@@ -45,3 +45,6 @@ next-env.d.ts
 public/sw*
 public/swe-worker*
 migration-results-*.json
+
+# MCP config (contains secrets)
+.mcp.json

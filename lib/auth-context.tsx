@@ -22,6 +22,7 @@ export function canViewSection(role: UserRole, section: string): boolean {
     products: ['admin', 'management', 'vault', 'packaging', 'standard'],
     communications: ['admin', 'management', 'sales', 'agent'],
     tasks: ['admin', 'management', 'sales', 'agent'],
+    inventory: ['admin', 'management', 'vault', 'packaging', 'standard', 'sales', 'agent'],
     users: ['admin'],
   };
   return permissions[section]?.includes(role) ?? false;
@@ -36,7 +37,7 @@ export function canApproveOrder(role: UserRole): boolean {
 }
 
 export function canEditOrder(role: UserRole): boolean {
-  return ['admin', 'management'].includes(role);
+  return ['admin', 'management', 'sales', 'agent'].includes(role);
 }
 
 export function canDeleteOrder(role: UserRole): boolean {
