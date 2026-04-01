@@ -27,7 +27,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
-import { Plus, Search, ShoppingCart, Calendar, DollarSign, Package, Truck, Edit2, Save, X, Trash2, LayoutGrid, List, ArrowUpDown, ChevronUp, ChevronDown, MoreVertical } from 'lucide-react'
+import { Plus, Search, ShoppingCart, Calendar, DollarSign, Package, Truck, Edit2, Save, X, Trash2, LayoutGrid, List, ArrowUpDown, ChevronUp, ChevronDown, MoreVertical, Banknote } from 'lucide-react'
 import {
   Table,
   TableBody,
@@ -48,7 +48,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { DateRangePicker } from '@/components/date-range-picker'
 import { format, parseISO } from 'date-fns'
 import { StatusBadgeDropdown } from '@/components/orders/status-badge-dropdown'
 import type { Order, OrderStatus } from '@/types/database'
@@ -120,6 +119,7 @@ export default function OrdersPage() {
   const [sheetOpen, setSheetOpen] = useState(false)
   const [sheetEditMode, setSheetEditMode] = useState(false)
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set())
+  const [commissions, setCommissions] = useState<any[]>([])
   const supabase = createClient()
   const { user } = useAuth()
 
@@ -129,6 +129,7 @@ export default function OrdersPage() {
   useEffect(() => {
     fetchOrders()
     fetchSKUs()
+    fetchCommissions()
     // Load saved view preference
     const savedView = localStorage.getItem('ordersViewMode') as ViewMode
     if (savedView === 'card' || savedView === 'table') {
@@ -206,6 +207,19 @@ export default function OrdersPage() {
       console.error('Error fetching orders:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchCommissions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('commissions')
+        .select('order_id, commission_amount, status')
+
+      if (error) throw error
+      setCommissions(data || [])
+    } catch (error) {
+      console.error('Error fetching commissions:', error)
     }
   }
 
@@ -774,19 +788,63 @@ export default function OrdersPage() {
                 <SelectItem value="cancelled">Cancelled</SelectItem>
               </SelectContent>
             </Select>
-            <DateRangePicker
-              initialDateFrom={filterDeliveryFrom || undefined}
-              initialDateTo={filterDeliveryTo || undefined}
-              onUpdate={({ range }) => {
-                setFilterDeliveryFrom(format(range.from, 'yyyy-MM-dd'))
-                setFilterDeliveryTo(range.to ? format(range.to, 'yyyy-MM-dd') : '')
-              }}
-              align="start"
-              className="lg:col-span-2"
+            <Input
+              type="date"
+              value={filterDeliveryFrom}
+              onChange={(e) => setFilterDeliveryFrom(e.target.value)}
+              placeholder="Delivery from"
+            />
+            <Input
+              type="date"
+              value={filterDeliveryTo}
+              onChange={(e) => setFilterDeliveryTo(e.target.value)}
+              placeholder="Delivery to"
             />
           </div>
         </CardContent>
       </Card>
+
+      {/* Summary Cards */}
+      {(() => {
+        const summaryOrderCount = filteredOrders.length
+        const summaryRevenue = filteredOrders.reduce((sum, o) => sum + (o.total_price || 0), 0)
+        const summaryCommissions = filteredOrders.reduce((sum, o) => {
+          const commission = commissions.find(c => c.order_id === o.id)
+          return sum + (commission?.commission_amount || 0)
+        }, 0)
+
+        return (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                  <Package className="h-4 w-4" />
+                  Orders
+                </div>
+                <div className="text-2xl font-bold">{summaryOrderCount}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                  <DollarSign className="h-4 w-4" />
+                  Revenue
+                </div>
+                <div className="text-2xl font-bold">${summaryRevenue.toFixed(2)}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                  <Banknote className="h-4 w-4" />
+                  Commissions
+                </div>
+                <div className="text-2xl font-bold">${summaryCommissions.toFixed(2)}</div>
+              </CardContent>
+            </Card>
+          </div>
+        )
+      })()}
 
       {/* Orders List */}
       {filteredOrders.length === 0 ? (
