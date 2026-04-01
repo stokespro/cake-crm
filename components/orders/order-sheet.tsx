@@ -694,6 +694,19 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
                   </div>
                 ))}
 
+                <div className="flex justify-center pt-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addOrderItem}
+                    disabled={skus.length === 0 || loading}
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Item
+                  </Button>
+                </div>
+
                 {/* Order Total */}
                 <div className="flex justify-end items-center gap-4 pt-3 border-t">
                   <span className="text-sm text-muted-foreground">Order Total:</span>

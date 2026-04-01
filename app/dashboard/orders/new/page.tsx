@@ -425,17 +425,6 @@ export default function NewOrderPage() {
                 </Popover>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="orderDate">Order Date</Label>
-                <Input
-                  id="orderDate"
-                  type="date"
-                  value={orderDate}
-                  onChange={(e) => setOrderDate(e.target.value)}
-                  disabled={loading}
-                  className="h-12"
-                />
-              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -566,6 +555,19 @@ export default function NewOrderPage() {
                     </div>
                   </div>
                 ))}
+
+                <div className="flex justify-center pt-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addOrderItem}
+                    disabled={skus.length === 0}
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Item
+                  </Button>
+                </div>
 
                 {/* Total */}
                 <div className="flex justify-end pt-4">

@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ArrowLeft, Building2, Phone, Mail, MapPin, FileText, MessageSquare, ShoppingCart, BarChart3, Plus, Edit, MoreHorizontal, Trash2, Search, Users } from 'lucide-react'
 import Link from 'next/link'
-import { useAuth, canCreateOrder, canEditOrder, canDeleteOrder, canAssignSales } from '@/lib/auth-context'
+import { useAuth, canCreateOrder, canEditOrder, canDeleteOrder, canAssignSales, canApproveOrder } from '@/lib/auth-context'
 import {
   Table,
   TableBody,
@@ -49,6 +49,7 @@ import { OrderSheet } from '@/components/orders/order-sheet'
 import { CustomerPricingSection } from '@/components/dispensary/customer-pricing'
 import { DispensaryContacts } from '@/components/dispensaries/dispensary-contacts'
 import { DispensaryProfile, Order } from '@/types/database'
+import { StatusBadgeDropdown } from '@/components/orders/status-badge-dropdown'
 import { toast } from 'sonner'
 
 interface DispensaryProfileWithStats extends DispensaryProfile {
@@ -274,6 +275,7 @@ export default function DispensaryDetailPage() {
   const userCanEditOrder = canEditOrder(userRole)
   const userCanDeleteOrder = canDeleteOrder(userRole)
   const userCanAssignSales = canAssignSales(userRole)
+  const canApproveOrders = canApproveOrder(userRole)
 
   // Sales users can only create orders for dispensaries they're assigned to
   const isAssignedToDispensary = dispensary?.assigned_sales_id === user?.id
@@ -334,6 +336,45 @@ export default function DispensaryDetailPage() {
   const handleEditOrder = (order: OrderWithAgent) => {
     setSelectedOrder(order)
     setOrderSheetOpen(true)
+  }
+
+  const quickUpdateStatus = async (orderId: string, newStatus: string) => {
+    if (!canApproveOrders || !user) return
+
+    try {
+      const updateData: Record<string, any> = {
+        status: newStatus,
+        updated_at: new Date().toISOString(),
+        last_edited_by: user.id,
+        last_edited_at: new Date().toISOString(),
+      }
+
+      if (newStatus === 'confirmed') {
+        updateData.approved_by = user.id
+        updateData.approved_at = new Date().toISOString()
+      }
+
+      if (newStatus === 'delivered') {
+        updateData.delivered_at = new Date().toISOString()
+      }
+
+      if (newStatus !== 'delivered') {
+        updateData.delivered_at = null
+      }
+
+      const { error } = await supabase
+        .from('orders')
+        .update(updateData)
+        .eq('id', orderId)
+
+      if (error) throw error
+
+      toast.success(`Order status updated to ${newStatus}`)
+      fetchOrders()
+    } catch (error) {
+      console.error('Error updating order status:', error)
+      toast.error('Failed to update order status')
+    }
   }
 
   if (loading) {
@@ -651,9 +692,7 @@ export default function DispensaryDetailPage() {
                         <ShoppingCart className="h-4 w-4 text-muted-foreground mt-1" />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between mb-1">
-                            <Badge variant={getStatusBadgeVariant(order.status)}>
-                              {order.status}
-                            </Badge>
+                            <StatusBadgeDropdown orderId={order.id} currentStatus={order.status} canChangeStatus={canApproveOrders} onStatusChange={quickUpdateStatus} />
                             <span className="text-sm font-medium">
                               {formatCurrency(order.total_price)}
                             </span>
@@ -839,9 +878,7 @@ export default function DispensaryDetailPage() {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Badge variant={getStatusBadgeVariant(order.status)}>
-                              {order.status}
-                            </Badge>
+                            <StatusBadgeDropdown orderId={order.id} currentStatus={order.status} canChangeStatus={canApproveOrders} onStatusChange={quickUpdateStatus} />
                           </TableCell>
                           <TableCell className="hidden md:table-cell">
                             <div className="text-sm">

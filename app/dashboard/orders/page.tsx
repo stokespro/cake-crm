@@ -50,6 +50,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { DateRangePicker } from '@/components/date-range-picker'
 import { format, parseISO } from 'date-fns'
+import { StatusBadgeDropdown } from '@/components/orders/status-badge-dropdown'
 import type { Order, OrderStatus } from '@/types/database'
 
 interface SKU {
@@ -344,6 +345,49 @@ export default function OrdersPage() {
   const canEditOrders = canEditOrder(userRole)
   const canDeleteOrders = canDeleteOrder(userRole)
 
+  const quickUpdateStatus = async (orderId: string, newStatus: string) => {
+    if (!canApproveOrders || !user) return
+
+    try {
+      const updateData: Record<string, any> = {
+        status: newStatus,
+        updated_at: new Date().toISOString(),
+        last_edited_by: user.id,
+        last_edited_at: new Date().toISOString(),
+      }
+
+      if (newStatus === 'confirmed') {
+        updateData.approved_by = user.id
+        updateData.approved_at = new Date().toISOString()
+      }
+
+      if (newStatus === 'delivered') {
+        updateData.delivered_at = new Date().toISOString()
+      }
+
+      if (newStatus !== 'delivered') {
+        updateData.delivered_at = null
+      }
+
+      const { error } = await supabase
+        .from('orders')
+        .update(updateData)
+        .eq('id', orderId)
+
+      if (error) throw error
+
+      toast.success(`Order status updated to ${newStatus}`)
+      fetchOrders()
+
+      if (selectedOrder?.id === orderId) {
+        setSelectedOrder({ ...selectedOrder, status: newStatus })
+      }
+    } catch (error) {
+      console.error('Error updating order status:', error)
+      toast.error('Failed to update order status')
+    }
+  }
+
   const confirmOrder = async (orderId: string) => {
     if (!canApproveOrders || !user) return
 
@@ -421,7 +465,6 @@ export default function OrdersPage() {
       const updateData: UpdateData = {
         status: editForm.status,
         order_notes: editForm.order_notes,
-        order_date: editForm.order_date,
         requested_delivery_date: editForm.requested_delivery_date || null,
         total_price: newTotal,
         last_edited_by: user.id,
@@ -848,7 +891,7 @@ export default function OrdersPage() {
                     </span>
                   </TableCell>
                   <TableCell>
-                    {getStatusBadge(order.status)}
+                    <StatusBadgeDropdown orderId={order.id} currentStatus={order.status} canChangeStatus={canApproveOrders} onStatusChange={quickUpdateStatus} />
                   </TableCell>
                   <TableCell>
                     {format(parseISO(order.order_date), 'MMM d, yyyy')}
@@ -987,7 +1030,7 @@ export default function OrdersPage() {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-4 text-sm">
-                      {getStatusBadge(order.status)}
+                      <StatusBadgeDropdown orderId={order.id} currentStatus={order.status} canChangeStatus={canApproveOrders} onStatusChange={quickUpdateStatus} />
                       <div className="font-semibold flex items-center">
                         <DollarSign className="h-4 w-4" />
                         {(order.total_price || 0).toFixed(2)}
@@ -1111,7 +1154,9 @@ export default function OrdersPage() {
           <SheetHeader className="pb-4">
             <SheetTitle className="flex items-center gap-2">
               {sheetEditMode ? 'Edit ' : ''}Order {selectedOrder?.order_number ? `#${selectedOrder.order_number}` : ''}
-              {selectedOrder && !sheetEditMode && getStatusBadge(selectedOrder.status)}
+              {selectedOrder && !sheetEditMode && (
+                <StatusBadgeDropdown orderId={selectedOrder.id} currentStatus={selectedOrder.status} canChangeStatus={canApproveOrders} onStatusChange={quickUpdateStatus} />
+              )}
             </SheetTitle>
           </SheetHeader>
 
@@ -1270,11 +1315,7 @@ export default function OrdersPage() {
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Order Date</label>
-                  <Input
-                    type="date"
-                    value={editForm.order_date}
-                    onChange={(e) => updateEditForm('order_date', e.target.value)}
-                  />
+                  <p className="text-sm py-2">{editForm.order_date ? format(parseISO(editForm.order_date), 'MMM d, yyyy') : '—'}</p>
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Requested Delivery Date</label>
@@ -1386,6 +1427,19 @@ export default function OrdersPage() {
                     ))}
                   </div>
                 )}
+
+                <div className="flex justify-center pt-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addEditItem}
+                    disabled={skus.length === 0}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Item
+                  </Button>
+                </div>
 
                 {/* Edit Total */}
                 <div className="flex justify-end pt-2 border-t">
