@@ -211,25 +211,18 @@ export default function MyCommissionsPage() {
     }))
   }
 
-  // Summary calculations - This Month (regardless of filter)
-  const thisMonthStart = startOfMonth(new Date())
-  const thisMonthEnd = endOfMonth(new Date())
-  const thisMonthCommissions = commissions.filter(c => {
-    const date = new Date(c.order_date)
-    return date >= thisMonthStart && date <= thisMonthEnd
-  })
-  const thisMonthEarnings = thisMonthCommissions.reduce((sum, c) => sum + c.commission_amount, 0)
+  // Summary calculations - based on filtered results
+  const filteredTotal = filteredCommissions.reduce((sum, c) => sum + c.commission_amount, 0)
 
-  // Status totals (from all commissions, not filtered)
-  const totalPending = commissions
+  const totalPending = filteredCommissions
     .filter(c => c.status === 'pending')
     .reduce((sum, c) => sum + c.commission_amount, 0)
 
-  const totalApproved = commissions
+  const totalApproved = filteredCommissions
     .filter(c => c.status === 'approved')
     .reduce((sum, c) => sum + c.commission_amount, 0)
 
-  const totalPaid = commissions
+  const totalPaid = filteredCommissions
     .filter(c => c.status === 'paid')
     .reduce((sum, c) => sum + c.commission_amount, 0)
 
@@ -276,11 +269,11 @@ export default function MyCommissionsPage() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
               <Calendar className="h-4 w-4" />
-              This Month
+              Total
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">${thisMonthEarnings.toFixed(2)}</p>
+            <p className="text-2xl font-bold">${filteredTotal.toFixed(2)}</p>
           </CardContent>
         </Card>
         <Card>
@@ -364,6 +357,7 @@ export default function MyCommissionsPage() {
             </div>
             <div className="flex gap-2 items-center">
               <DateRangePicker
+                key={`${filters.dateFrom}-${filters.dateTo}`}
                 initialDateFrom={filters.dateFrom || undefined}
                 initialDateTo={filters.dateTo || undefined}
                 onUpdate={({ range }) => handleDateRangeChange(range)}
@@ -428,7 +422,7 @@ export default function MyCommissionsPage() {
                         {commission.order?.order_number ? (
                           <button
                             onClick={() => fetchOrderDetail(commission)}
-                            className="flex items-center gap-1 text-blue-600 hover:underline"
+                            className="flex items-center gap-1 hover:underline cursor-pointer"
                           >
                             #{commission.order.order_number}
                           </button>

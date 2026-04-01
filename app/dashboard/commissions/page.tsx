@@ -72,7 +72,7 @@ import {
   Edit2,
   Loader2,
 } from 'lucide-react'
-import { format } from 'date-fns'
+import { format, startOfMonth, endOfMonth } from 'date-fns'
 import { cn } from '@/lib/utils'
 import type { Commission, CommissionStatus, Profile } from '@/types/database'
 
@@ -84,8 +84,8 @@ interface FilterState {
 }
 
 const initialFilters: FilterState = {
-  dateFrom: '',
-  dateTo: '',
+  dateFrom: format(startOfMonth(new Date()), 'yyyy-MM-dd'),
+  dateTo: format(endOfMonth(new Date()), 'yyyy-MM-dd'),
   salespersonId: '',
   status: 'all',
 }
@@ -533,6 +533,7 @@ export default function CommissionsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="lg:col-span-2">
               <DateRangePicker
+                key={`${filters.dateFrom}-${filters.dateTo}`}
                 initialDateFrom={filters.dateFrom || undefined}
                 initialDateTo={filters.dateTo || undefined}
                 onUpdate={({ range }) => {
@@ -659,7 +660,7 @@ export default function CommissionsPage() {
                         {commission.order?.order_number ? (
                           <button
                             onClick={() => fetchOrderDetail(commission)}
-                            className="flex items-center gap-1 text-blue-600 hover:underline"
+                            className="flex items-center gap-1 hover:underline cursor-pointer"
                           >
                             #{commission.order.order_number}
                           </button>
