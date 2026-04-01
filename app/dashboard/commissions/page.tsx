@@ -16,6 +16,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
@@ -61,7 +62,6 @@ import { toast } from 'sonner'
 import {
   DollarSign,
   Download,
-  ExternalLink,
   CalendarIcon,
   MoreVertical,
   CheckCircle,
@@ -69,6 +69,8 @@ import {
   Banknote,
   FileText,
   Filter,
+  Edit2,
+  Loader2,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
@@ -109,6 +111,12 @@ export default function CommissionsPage() {
   const [paidDate, setPaidDate] = useState<Date | undefined>(new Date())
   const [noteText, setNoteText] = useState('')
   const [saving, setSaving] = useState(false)
+
+  // Order detail sheet state
+  const [selectedCommission, setSelectedCommission] = useState<any>(null)
+  const [orderDetailOpen, setOrderDetailOpen] = useState(false)
+  const [orderDetail, setOrderDetail] = useState<any>(null)
+  const [orderDetailLoading, setOrderDetailLoading] = useState(false)
 
   // Bulk action dialog
   const [bulkPayDialogOpen, setBulkPayDialogOpen] = useState(false)
@@ -163,6 +171,34 @@ export default function CommissionsPage() {
       toast.error('Failed to load data')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchOrderDetail = async (commission: any) => {
+    setSelectedCommission(commission)
+    setOrderDetailOpen(true)
+    setOrderDetailLoading(true)
+    try {
+      const { data: order } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          customer:customers(business_name, license_name, city),
+          order_items(id, sku_id, quantity, unit_price, line_total, sku:skus(code, name))
+        `)
+        .eq('id', commission.order_id)
+        .single()
+
+      const { data: breakdown } = await supabase.rpc('get_order_commission_breakdown', {
+        p_order_id: commission.order_id,
+        p_salesperson_id: commission.salesperson_id,
+      })
+
+      setOrderDetail({ order, breakdown })
+    } catch (error) {
+      console.error('Error fetching order detail:', error)
+    } finally {
+      setOrderDetailLoading(false)
     }
   }
 
@@ -621,13 +657,12 @@ export default function CommissionsPage() {
                       </TableCell>
                       <TableCell className="font-medium">
                         {commission.order?.order_number ? (
-                          <Link
-                            href={`/dashboard/orders?order=${commission.order_id}`}
+                          <button
+                            onClick={() => fetchOrderDetail(commission)}
                             className="flex items-center gap-1 text-blue-600 hover:underline"
                           >
                             #{commission.order.order_number}
-                            <ExternalLink className="h-3 w-3" />
-                          </Link>
+                          </button>
                         ) : (
                           '—'
                         )}
@@ -681,6 +716,145 @@ export default function CommissionsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Order Detail Sheet */}
+      <Sheet open={orderDetailOpen} onOpenChange={setOrderDetailOpen}>
+        <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              {selectedCommission?.order?.order_number
+                ? `Order #${selectedCommission.order.order_number}`
+                : 'Order Details'}
+              {orderDetail?.order?.status && (
+                <Badge variant="outline" className="ml-2 capitalize">
+                  {orderDetail.order.status}
+                </Badge>
+              )}
+            </SheetTitle>
+            <SheetDescription>
+              Commission breakdown by line item
+            </SheetDescription>
+          </SheetHeader>
+
+          {orderDetailLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : orderDetail?.order ? (
+            <div className="space-y-6 pt-6">
+              {/* Order Info */}
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Customer</span>
+                  <span className="font-medium">{orderDetail.order.customer?.business_name || '—'}</span>
+                </div>
+                {orderDetail.order.customer?.city && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">City</span>
+                    <span>{orderDetail.order.customer.city}</span>
+                  </div>
+                )}
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Order Date</span>
+                  <span>{orderDetail.order.order_date ? format(new Date(orderDetail.order.order_date), 'MMM d, yyyy') : '—'}</span>
+                </div>
+                {orderDetail.order.delivery_date && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Delivery Date</span>
+                    <span>{format(new Date(orderDetail.order.delivery_date), 'MMM d, yyyy')}</span>
+                  </div>
+                )}
+                {orderDetail.order.notes && (
+                  <div className="pt-1">
+                    <span className="text-muted-foreground">Notes</span>
+                    <p className="mt-1 text-sm">{orderDetail.order.notes}</p>
+                  </div>
+                )}
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Salesperson</span>
+                  <span>{selectedCommission?.salesperson?.full_name || '—'}</span>
+                </div>
+              </div>
+
+              {/* Line Items - Desktop Table */}
+              <div className="hidden sm:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>SKU</TableHead>
+                      <TableHead className="text-right">Cases</TableHead>
+                      <TableHead className="text-right">Unit Price</TableHead>
+                      <TableHead className="text-right">Line Total</TableHead>
+                      <TableHead className="text-right">Rate</TableHead>
+                      <TableHead className="text-right">Commission</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {orderDetail.breakdown?.map((item: any) => (
+                      <TableRow key={item.order_item_id}>
+                        <TableCell className="font-medium text-xs">{item.sku_name || item.sku_code}</TableCell>
+                        <TableCell className="text-right">{item.quantity}</TableCell>
+                        <TableCell className="text-right">${Number(item.unit_price).toFixed(2)}</TableCell>
+                        <TableCell className="text-right">${Number(item.line_total).toFixed(2)}</TableCell>
+                        <TableCell className="text-right">{Number(item.commission_rate).toFixed(1)}%</TableCell>
+                        <TableCell className="text-right font-medium">${Number(item.commission_amount).toFixed(2)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                  <TableFooter>
+                    <TableRow>
+                      <TableCell colSpan={3} className="font-semibold">Total</TableCell>
+                      <TableCell className="text-right font-semibold">
+                        ${selectedCommission?.order_total?.toFixed(2) || '0.00'}
+                      </TableCell>
+                      <TableCell></TableCell>
+                      <TableCell className="text-right font-semibold">
+                        ${selectedCommission?.commission_amount?.toFixed(2) || '0.00'}
+                      </TableCell>
+                    </TableRow>
+                  </TableFooter>
+                </Table>
+              </div>
+
+              {/* Line Items - Mobile Cards */}
+              <div className="sm:hidden space-y-3">
+                {orderDetail.breakdown?.map((item: any) => (
+                  <Card key={item.order_item_id}>
+                    <CardContent className="p-3 space-y-1">
+                      <p className="font-medium text-sm">{item.sku_name || item.sku_code}</p>
+                      <div className="grid grid-cols-2 gap-x-4 text-xs text-muted-foreground">
+                        <span>Cases: {item.quantity}</span>
+                        <span className="text-right">Unit: ${Number(item.unit_price).toFixed(2)}</span>
+                        <span>Line Total: ${Number(item.line_total).toFixed(2)}</span>
+                        <span className="text-right">Rate: {Number(item.commission_rate).toFixed(1)}%</span>
+                      </div>
+                      <p className="text-sm font-medium text-right">Commission: ${Number(item.commission_amount).toFixed(2)}</p>
+                    </CardContent>
+                  </Card>
+                ))}
+                <div className="flex justify-between pt-2 border-t font-semibold text-sm">
+                  <span>Total: ${selectedCommission?.order_total?.toFixed(2) || '0.00'}</span>
+                  <span>Commission: ${selectedCommission?.commission_amount?.toFixed(2) || '0.00'}</span>
+                </div>
+              </div>
+
+              {/* Edit Order Button */}
+              <div className="pt-2">
+                <Button variant="outline" asChild className="w-full sm:w-auto">
+                  <Link href="/dashboard/orders">
+                    <Edit2 className="h-4 w-4 mr-2" />
+                    Edit Order
+                  </Link>
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-12 text-muted-foreground">
+              Failed to load order details
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
 
       {/* Action Sheet */}
       <Sheet open={actionSheetOpen} onOpenChange={setActionSheetOpen}>
