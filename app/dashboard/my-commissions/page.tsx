@@ -30,7 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { DateRangePicker } from '@/components/date-range-picker'
+import { Input } from '@/components/ui/input'
 import {
   DollarSign,
   Clock,
@@ -52,10 +52,10 @@ interface FilterState {
 }
 
 const initialFilters: FilterState = {
-  dateFrom: format(startOfMonth(new Date()), 'yyyy-MM-dd'),
-  dateTo: format(endOfMonth(new Date()), 'yyyy-MM-dd'),
+  dateFrom: '',
+  dateTo: '',
   status: 'all',
-  period: 'this-month',
+  period: 'all-time',
 }
 
 export default function MyCommissionsPage() {
@@ -202,14 +202,6 @@ export default function MyCommissionsPage() {
     setFilters(prev => ({ ...prev, period, dateFrom, dateTo }))
   }
 
-  const handleDateRangeChange = (range: { from: Date; to?: Date }) => {
-    setFilters(prev => ({
-      ...prev,
-      period: 'custom',
-      dateFrom: format(range.from, 'yyyy-MM-dd'),
-      dateTo: range.to ? format(range.to, 'yyyy-MM-dd') : '',
-    }))
-  }
 
   // Summary calculations - based on filtered results
   const filteredTotal = filteredCommissions.reduce((sum, c) => sum + c.commission_amount, 0)
@@ -356,12 +348,26 @@ export default function MyCommissionsPage() {
               </Button>
             </div>
             <div className="flex gap-2 items-center">
-              <DateRangePicker
-                key={`${filters.dateFrom}-${filters.dateTo}`}
-                initialDateFrom={filters.dateFrom || undefined}
-                initialDateTo={filters.dateTo || undefined}
-                onUpdate={({ range }) => handleDateRangeChange(range)}
-                align="start"
+              <Input
+                type="date"
+                value={filters.dateFrom}
+                onChange={(e) => setFilters(prev => ({
+                  ...prev,
+                  period: 'custom',
+                  dateFrom: e.target.value,
+                }))}
+                className="h-9 w-[140px]"
+              />
+              <span className="text-sm text-muted-foreground">to</span>
+              <Input
+                type="date"
+                value={filters.dateTo}
+                onChange={(e) => setFilters(prev => ({
+                  ...prev,
+                  period: 'custom',
+                  dateTo: e.target.value,
+                }))}
+                className="h-9 w-[140px]"
               />
               <Select
                 value={filters.status}

@@ -57,7 +57,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { DateRangePicker } from '@/components/date-range-picker'
+
 import { toast } from 'sonner'
 import {
   DollarSign,
@@ -72,7 +72,7 @@ import {
   Edit2,
   Loader2,
 } from 'lucide-react'
-import { format, startOfMonth, endOfMonth } from 'date-fns'
+import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
 import type { Commission, CommissionStatus, Profile } from '@/types/database'
 
@@ -84,8 +84,8 @@ interface FilterState {
 }
 
 const initialFilters: FilterState = {
-  dateFrom: format(startOfMonth(new Date()), 'yyyy-MM-dd'),
-  dateTo: format(endOfMonth(new Date()), 'yyyy-MM-dd'),
+  dateFrom: '',
+  dateTo: '',
   salespersonId: '',
   status: 'all',
 }
@@ -531,18 +531,22 @@ export default function CommissionsPage() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="lg:col-span-2">
-              <DateRangePicker
-                key={`${filters.dateFrom}-${filters.dateTo}`}
-                initialDateFrom={filters.dateFrom || undefined}
-                initialDateTo={filters.dateTo || undefined}
-                onUpdate={({ range }) => {
-                  updateFilters({
-                    dateFrom: format(range.from, 'yyyy-MM-dd'),
-                    dateTo: range.to ? format(range.to, 'yyyy-MM-dd') : '',
-                  })
-                }}
-                align="start"
+            <div>
+              <Input
+                type="date"
+                placeholder="From"
+                value={filters.dateFrom}
+                onChange={(e) => updateFilters({ dateFrom: e.target.value })}
+                className="h-10"
+              />
+            </div>
+            <div>
+              <Input
+                type="date"
+                placeholder="To"
+                value={filters.dateTo}
+                onChange={(e) => updateFilters({ dateTo: e.target.value })}
+                className="h-10"
               />
             </div>
             <Select
