@@ -256,7 +256,7 @@ export default function MyCommissionsPage() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
@@ -347,7 +347,7 @@ export default function MyCommissionsPage() {
                 All Time
               </Button>
             </div>
-            <div className="flex gap-2 items-center">
+            <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center w-full">
               <Input
                 type="date"
                 value={filters.dateFrom}
@@ -356,9 +356,9 @@ export default function MyCommissionsPage() {
                   period: 'custom',
                   dateFrom: e.target.value,
                 }))}
-                className="h-9 w-[140px]"
+                className="h-9 w-full sm:w-[140px]"
               />
-              <span className="text-sm text-muted-foreground">to</span>
+              <span className="text-sm text-muted-foreground hidden sm:inline">to</span>
               <Input
                 type="date"
                 value={filters.dateTo}
@@ -367,13 +367,13 @@ export default function MyCommissionsPage() {
                   period: 'custom',
                   dateTo: e.target.value,
                 }))}
-                className="h-9 w-[140px]"
+                className="h-9 w-full sm:w-[140px]"
               />
               <Select
                 value={filters.status}
                 onValueChange={(value) => setFilters(prev => ({ ...prev, status: value }))}
               >
-                <SelectTrigger className="w-[140px]">
+                <SelectTrigger className="w-full sm:w-[140px]">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -405,66 +405,107 @@ export default function MyCommissionsPage() {
               </p>
             </div>
           ) : (
-            <div className="overflow-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Order #</TableHead>
-                    <TableHead>Customer</TableHead>
-                    <TableHead className="text-right">Order Total</TableHead>
-                    <TableHead className="text-right">Rate %</TableHead>
-                    <TableHead className="text-right">Commission</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredCommissions.map((commission) => (
-                    <TableRow key={commission.id}>
-                      <TableCell>
+            <>
+              {/* Mobile Card View */}
+              <div className="sm:hidden space-y-3 p-4">
+                {filteredCommissions.map((commission) => (
+                  <Card key={commission.id} className="p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <button
+                        onClick={() => fetchOrderDetail(commission)}
+                        className="font-medium hover:underline cursor-pointer"
+                      >
+                        #{commission.order?.order_number || '—'}
+                      </button>
+                      {getStatusBadge(commission.status)}
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      {commission.order?.customer?.business_name || '—'}
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">
                         {format(new Date(commission.order_date), 'MMM d, yyyy')}
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {commission.order?.order_number ? (
-                          <button
-                            onClick={() => fetchOrderDetail(commission)}
-                            className="flex items-center gap-1 hover:underline cursor-pointer"
-                          >
-                            #{commission.order.order_number}
-                          </button>
-                        ) : (
-                          '—'
-                        )}
-                      </TableCell>
-                      <TableCell>{commission.order?.customer?.business_name || '—'}</TableCell>
-                      <TableCell className="text-right">
+                      </span>
+                      <span className="text-muted-foreground">{commission.rate_applied}%</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">
                         ${commission.order_total.toFixed(2)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {commission.rate_applied}%
-                      </TableCell>
-                      <TableCell className="text-right font-medium">
+                      </span>
+                      <span className="font-semibold text-green-600">
                         ${commission.commission_amount.toFixed(2)}
-                      </TableCell>
-                      <TableCell>{getStatusBadge(commission.status)}</TableCell>
+                      </span>
+                    </div>
+                  </Card>
+                ))}
+                <div className="flex justify-between pt-2 border-t font-semibold text-sm px-1">
+                  <span>Orders: ${filteredOrderTotal.toFixed(2)}</span>
+                  <span className="text-green-600">Commission: ${filteredCommissionTotal.toFixed(2)}</span>
+                </div>
+              </div>
+
+              {/* Desktop Table View */}
+              <div className="hidden sm:block overflow-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Order #</TableHead>
+                      <TableHead>Customer</TableHead>
+                      <TableHead className="text-right">Order Total</TableHead>
+                      <TableHead className="text-right">Rate %</TableHead>
+                      <TableHead className="text-right">Commission</TableHead>
+                      <TableHead>Status</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-                <TableFooter>
-                  <TableRow>
-                    <TableCell colSpan={3} className="font-semibold">Totals</TableCell>
-                    <TableCell className="text-right font-semibold">
-                      ${filteredOrderTotal.toFixed(2)}
-                    </TableCell>
-                    <TableCell></TableCell>
-                    <TableCell className="text-right font-semibold">
-                      ${filteredCommissionTotal.toFixed(2)}
-                    </TableCell>
-                    <TableCell></TableCell>
-                  </TableRow>
-                </TableFooter>
-              </Table>
-            </div>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredCommissions.map((commission) => (
+                      <TableRow key={commission.id}>
+                        <TableCell>
+                          {format(new Date(commission.order_date), 'MMM d, yyyy')}
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {commission.order?.order_number ? (
+                            <button
+                              onClick={() => fetchOrderDetail(commission)}
+                              className="flex items-center gap-1 hover:underline cursor-pointer"
+                            >
+                              #{commission.order.order_number}
+                            </button>
+                          ) : (
+                            '—'
+                          )}
+                        </TableCell>
+                        <TableCell>{commission.order?.customer?.business_name || '—'}</TableCell>
+                        <TableCell className="text-right">
+                          ${commission.order_total.toFixed(2)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {commission.rate_applied}%
+                        </TableCell>
+                        <TableCell className="text-right font-medium">
+                          ${commission.commission_amount.toFixed(2)}
+                        </TableCell>
+                        <TableCell>{getStatusBadge(commission.status)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                  <TableFooter>
+                    <TableRow>
+                      <TableCell colSpan={3} className="font-semibold">Totals</TableCell>
+                      <TableCell className="text-right font-semibold">
+                        ${filteredOrderTotal.toFixed(2)}
+                      </TableCell>
+                      <TableCell></TableCell>
+                      <TableCell className="text-right font-semibold">
+                        ${filteredCommissionTotal.toFixed(2)}
+                      </TableCell>
+                      <TableCell></TableCell>
+                    </TableRow>
+                  </TableFooter>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
@@ -570,7 +611,7 @@ export default function MyCommissionsPage() {
                   <Card key={item.order_item_id}>
                     <CardContent className="p-3 space-y-1">
                       <p className="font-medium text-sm">{item.sku_name || item.sku_code}</p>
-                      <div className="grid grid-cols-2 gap-x-4 text-xs text-muted-foreground">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 text-xs text-muted-foreground">
                         <span>Cases: {item.quantity}</span>
                         <span className="text-right">Unit: ${Number(item.unit_price).toFixed(2)}</span>
                         <span>Line Total: ${Number(item.line_total).toFixed(2)}</span>
