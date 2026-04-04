@@ -449,7 +449,7 @@ export default function MyCommissionsPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Date</TableHead>
+                      <TableHead>Delivered</TableHead>
                       <TableHead>Order #</TableHead>
                       <TableHead>Customer</TableHead>
                       <TableHead className="text-right">Order Total</TableHead>
