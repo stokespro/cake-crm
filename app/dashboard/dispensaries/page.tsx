@@ -189,14 +189,27 @@ function DispensariesPageContent() {
   useEffect(() => {
     const fetchCities = async () => {
       try {
-        const { data, error } = await supabase
-          .from('customers')
-          .select('city')
-          .not('city', 'is', null)
-          .order('city')
+        const allCities: any[] = []
+        let from = 0
+        const batchSize = 1000
 
-        if (error) throw error
-        const uniqueCities = [...new Set(data?.map(d => d.city).filter(Boolean) as string[])]
+        while (true) {
+          const { data, error } = await supabase
+            .from('customers')
+            .select('city')
+            .not('city', 'is', null)
+            .order('city')
+            .range(from, from + batchSize - 1)
+
+          if (error) throw error
+          if (!data || data.length === 0) break
+
+          allCities.push(...data)
+          if (data.length < batchSize) break
+          from += batchSize
+        }
+
+        const uniqueCities = [...new Set(allCities.map(d => d.city).filter(Boolean) as string[])]
         setCities(uniqueCities)
       } catch (error) {
         console.error('Error fetching cities:', error)
