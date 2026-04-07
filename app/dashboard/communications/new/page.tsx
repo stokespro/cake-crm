@@ -53,13 +53,26 @@ export default function NewCommunicationPage() {
 
   const fetchCustomers = useCallback(async () => {
     try {
-      const { data, error } = await supabase
-        .from('customers')
-        .select('*')
-        .order('business_name')
+      const allCustomers: Customer[] = []
+      let from = 0
+      const batchSize = 1000
 
-      if (error) throw error
-      setCustomers(data || [])
+      while (true) {
+        const { data, error } = await supabase
+          .from('customers')
+          .select('*')
+          .order('business_name')
+          .range(from, from + batchSize - 1)
+
+        if (error) throw error
+        if (!data || data.length === 0) break
+
+        allCustomers.push(...data)
+        if (data.length < batchSize) break
+        from += batchSize
+      }
+
+      setCustomers(allCustomers)
     } catch (error) {
       console.error('Error fetching customers:', error)
     }
