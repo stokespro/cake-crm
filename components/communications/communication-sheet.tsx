@@ -36,13 +36,13 @@ import {
 } from '@/components/ui/popover'
 import { Loader2, Check, ChevronsUpDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { Customer, Communication, ContactMethod } from '@/types/database'
+import type { Customer, ContactMethod } from '@/types/database'
 
 interface CommunicationSheetProps {
   open: boolean
   onClose: () => void
   dispensaryId?: string // Kept for backwards compatibility, represents customer ID
-  onSuccess?: (communication: Communication) => void
+  onSuccess?: () => void
 }
 
 export function CommunicationSheet({
@@ -127,7 +127,7 @@ export function CommunicationSheet({
     try {
       if (!user) throw new Error('Not authenticated')
 
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('communications')
         .insert({
           agent_id: user.id,
@@ -138,14 +138,12 @@ export function CommunicationSheet({
           follow_up_required: followUpRequired,
           interaction_date: interactionDate,
         })
-        .select('*, customer:customers(*), agent:users(*)')
-        .single()
 
       if (error) throw error
 
       // Call onSuccess callback if provided
-      if (onSuccess && data) {
-        onSuccess(data)
+      if (onSuccess) {
+        onSuccess()
       }
 
       // Close the sheet
