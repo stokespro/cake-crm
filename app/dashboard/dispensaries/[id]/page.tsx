@@ -403,6 +403,10 @@ export default function DispensaryDetailPage() {
     )
   }
 
+  const totalOrders = orders?.length || 0
+  const totalRevenue = (orders || []).reduce((sum, o) => sum + (o.total_price || 0), 0)
+  const totalCommunications = communications?.length || 0
+
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       {/* Header */}
@@ -558,7 +562,7 @@ export default function DispensaryDetailPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {dispensary.total_orders_count || 0}
+                  {totalOrders}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   Last order: {dispensary.last_order_date ? formatDate(dispensary.last_order_date) : 'Never'}
@@ -572,7 +576,7 @@ export default function DispensaryDetailPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {dispensary.total_revenue ? formatCurrency(dispensary.total_revenue) : '$0.00'}
+                  {formatCurrency(Number(totalRevenue.toFixed(2)))}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   All time revenue
@@ -586,7 +590,7 @@ export default function DispensaryDetailPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {dispensary.total_communications_count || 0}
+                  {totalCommunications}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   Last contact: {dispensary.last_communication_date ? formatDate(dispensary.last_communication_date) : 'Never'}
@@ -985,19 +989,19 @@ export default function DispensaryDetailPage() {
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
                     <span className="text-sm">Total Orders</span>
-                    <span className="font-medium">{dispensary.total_orders_count || 0}</span>
+                    <span className="font-medium">{totalOrders}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm">Total Revenue</span>
                     <span className="font-medium">
-                      {dispensary.total_revenue ? formatCurrency(dispensary.total_revenue) : '$0.00'}
+                      {formatCurrency(totalRevenue)}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm">Average Order Value</span>
                     <span className="font-medium">
-                      {dispensary.total_orders_count && dispensary.total_revenue 
-                        ? formatCurrency(dispensary.total_revenue / dispensary.total_orders_count)
+                      {totalOrders && totalRevenue
+                        ? formatCurrency(totalRevenue / totalOrders)
                         : '$0.00'
                       }
                     </span>
@@ -1023,7 +1027,7 @@ export default function DispensaryDetailPage() {
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
                     <span className="text-sm">Total Communications</span>
-                    <span className="font-medium">{dispensary.total_communications_count || 0}</span>
+                    <span className="font-medium">{totalCommunications}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm">Last Contact</span>
