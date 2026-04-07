@@ -20,6 +20,7 @@ import {
   getSkuId,
 } from '@/lib/packaging/db'
 import { generateTaskQueue, generateSKUStatus } from '@/lib/packaging/allocation-engine'
+import { createClient } from '@/lib/supabase/server'
 // DISABLED: Materials imports - re-enable when materials module is complete
 // import {
 //   checkMaterialAvailability,
@@ -225,6 +226,33 @@ export async function getDashboardData(): Promise<DashboardData> {
 
     // Generate SKU status for inventory bar
     const skuStatus = generateSKUStatus(inventory, orders)
+
+    // Enrich with product type info for dynamic grouping on packaging page
+    try {
+      const supabase = await createClient()
+      const { data: skuRows } = await supabase
+        .from('skus')
+        .select('code, product_type_id, product_types(name)')
+      const typeByCode = new Map<string, { id: string; name: string }>()
+      for (const row of skuRows || []) {
+        const pt = Array.isArray((row as { product_types?: unknown }).product_types)
+          ? (row as { product_types: { name: string }[] }).product_types[0]
+          : (row as { product_types?: { name: string } }).product_types
+        typeByCode.set((row as { code: string }).code, {
+          id: (row as { product_type_id: string }).product_type_id,
+          name: pt?.name || 'Unknown',
+        })
+      }
+      for (const status of skuStatus) {
+        const t = typeByCode.get(status.sku)
+        if (t) {
+          status.productTypeId = t.id
+          status.productTypeName = t.name
+        }
+      }
+    } catch (err) {
+      console.error('Failed to enrich SKU status with product types:', err)
+    }
 
     // Filter to only AVAILABLE containers
     const availableContainers = containers.filter(c => c.status === 'AVAILABLE')

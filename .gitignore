@@ -48,3 +48,6 @@ migration-results-*.json
 
 # MCP config (contains secrets)
 .mcp.json
+
+# Obsidian
+.obsidian/

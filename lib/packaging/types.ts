@@ -1,18 +1,5 @@
-// SKU identifiers - 14 total products
-export const SKU_LIST = [
-  'BG', 'BG-B', 'BB', 'BB-B', 'BIS', 'BIS-B', 'CM', 'CM-B',
-  'CR', 'CR-B', 'MAC', 'MAC-B', 'VZ', 'VZ-B'
-] as const;
-
-export type SKU = typeof SKU_LIST[number];
-
-// Column mapping: C=0, D=1, ... P=13
-export const SKU_COLUMN_MAP: Record<SKU, number> = {
-  'BG': 0, 'BG-B': 1, 'BB': 2, 'BB-B': 3,
-  'BIS': 4, 'BIS-B': 5, 'CM': 6, 'CM-B': 7,
-  'CR': 8, 'CR-B': 9, 'MAC': 10, 'MAC-B': 11,
-  'VZ': 12, 'VZ-B': 13
-};
+// SKU identifier - dynamic string code (loaded from database)
+export type SKU = string;
 
 // Inventory levels per SKU
 export interface InventoryLevels {
@@ -125,6 +112,8 @@ export interface CompletedTask {
 export interface SKUStatus {
   sku: SKU;
   name?: string;
+  productTypeId?: string;
+  productTypeName?: string;
   cased: number;
   filled: number;
   staged: number;

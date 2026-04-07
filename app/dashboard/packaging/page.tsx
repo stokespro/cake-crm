@@ -46,8 +46,6 @@ import { formatTime } from '@/lib/packaging/utils'
 // Auto-refresh interval (2.5 minutes)
 const REFRESH_INTERVAL = 150000
 
-const A_SKUS: SKU[] = ['BG', 'BB', 'BIS', 'CM', 'CR', 'MAC', 'VZ']
-const B_SKUS: SKU[] = ['BG-B', 'BB-B', 'BIS-B', 'CM-B', 'CR-B', 'MAC-B', 'VZ-B']
 const CONTAINER_SIZES: ContainerSize[] = [8, 4, 3, 2, 1]
 
 // Priority badge styles (just the badge, not the whole card)
@@ -224,6 +222,21 @@ export default function PackagingPage() {
     }
   }
 
+  // Group SKUs dynamically by product type
+  const skuGroups: { name: string; skus: SKUStatus[] }[] = (() => {
+    const inventory = data?.inventory || []
+    const groups = new Map<string, SKUStatus[]>()
+    for (const sku of inventory) {
+      const key = sku.productTypeName || 'Other'
+      const arr = groups.get(key) || []
+      arr.push(sku)
+      groups.set(key, arr)
+    }
+    return Array.from(groups.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([name, skus]) => ({ name, skus }))
+  })()
+
   // Filter tasks
   const toFillTasks = data?.tasks.filter(t => t.column === 'TO_FILL') || []
   const toCaseTasks = data?.tasks.filter(t => t.column === 'TO_CASE') || []
@@ -248,43 +261,21 @@ export default function PackagingPage() {
                 <div className="text-red-400 text-sm text-center">{data.error}</div>
               )}
 
-              {/* A's Row */}
-              <div>
-                <p className="text-xs text-muted-foreground mb-2 text-center font-semibold">A's</p>
-                <div className="grid grid-cols-7 gap-2">
-                  {A_SKUS.map(skuCode => {
-                    const sku = data?.inventory.find(i => i.sku === skuCode)
-                    if (!sku) return <div key={skuCode} />
-
-                    return (
-                      <InventoryCard
-                        key={skuCode}
-                        sku={sku}
-                        onClick={() => handleEditOpen(sku)}
-                      />
-                    )
-                  })}
+              {skuGroups.map(group => (
+                <div key={group.name}>
+                  <p className="text-xs text-muted-foreground mb-2 text-center font-semibold">{group.name}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {group.skus.map(sku => (
+                      <div key={sku.sku} className="min-w-[120px] flex-1">
+                        <InventoryCard
+                          sku={sku}
+                          onClick={() => handleEditOpen(sku)}
+                        />
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-
-              {/* B's Row */}
-              <div>
-                <p className="text-xs text-muted-foreground mb-2 text-center font-semibold">B's</p>
-                <div className="grid grid-cols-7 gap-2">
-                  {B_SKUS.map(skuCode => {
-                    const sku = data?.inventory.find(i => i.sku === skuCode)
-                    if (!sku) return <div key={skuCode} />
-
-                    return (
-                      <InventoryCard
-                        key={skuCode}
-                        sku={sku}
-                        onClick={() => handleEditOpen(sku)}
-                      />
-                    )
-                  })}
-                </div>
-              </div>
+              ))}
             </div>
           )}
 
@@ -469,36 +460,23 @@ export default function PackagingPage() {
             <div>
               <Label className="text-sm text-muted-foreground">Select SKU</Label>
               <div className="mt-2 space-y-3">
-                <div>
-                  <p className="text-xs text-muted-foreground mb-2">A's</p>
-                  <div className="flex flex-wrap gap-2">
-                    {A_SKUS.map(sku => (
-                      <Button
-                        key={sku}
-                        variant={selectedSku === sku ? 'default' : 'outline'}
-                        size="sm"
-                        onClick={() => setSelectedSku(sku)}
-                      >
-                        {sku}
-                      </Button>
-                    ))}
+                {skuGroups.map(group => (
+                  <div key={group.name}>
+                    <p className="text-xs text-muted-foreground mb-2">{group.name}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {group.skus.map(sku => (
+                        <Button
+                          key={sku.sku}
+                          variant={selectedSku === sku.sku ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setSelectedSku(sku.sku)}
+                        >
+                          {sku.sku}
+                        </Button>
+                      ))}
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground mb-2">B's</p>
-                  <div className="flex flex-wrap gap-2">
-                    {B_SKUS.map(sku => (
-                      <Button
-                        key={sku}
-                        variant={selectedSku === sku ? 'default' : 'outline'}
-                        size="sm"
-                        onClick={() => setSelectedSku(sku)}
-                      >
-                        {sku}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
+                ))}
               </div>
             </div>
 
@@ -547,49 +525,23 @@ export default function PackagingPage() {
               <div className="text-red-400 text-sm text-center">{data.error}</div>
             )}
 
-            {/* A's */}
-            <div>
-              <p className="text-sm font-semibold text-muted-foreground mb-3">A's</p>
-              <div className="grid grid-cols-2 gap-3">
-                {A_SKUS.map(skuCode => {
-                  const sku = data?.inventory.find(i => i.sku === skuCode)
-                  if (!sku) return <div key={skuCode} />
-
-                  return (
+            {skuGroups.map(group => (
+              <div key={group.name}>
+                <p className="text-sm font-semibold text-muted-foreground mb-3">{group.name}</p>
+                <div className="grid grid-cols-2 gap-3">
+                  {group.skus.map(sku => (
                     <InventoryCard
-                      key={skuCode}
+                      key={sku.sku}
                       sku={sku}
                       onClick={() => {
                         setMobileInventoryOpen(false)
                         handleEditOpen(sku)
                       }}
                     />
-                  )
-                })}
+                  ))}
+                </div>
               </div>
-            </div>
-
-            {/* B's */}
-            <div>
-              <p className="text-sm font-semibold text-muted-foreground mb-3">B's</p>
-              <div className="grid grid-cols-2 gap-3">
-                {B_SKUS.map(skuCode => {
-                  const sku = data?.inventory.find(i => i.sku === skuCode)
-                  if (!sku) return <div key={skuCode} />
-
-                  return (
-                    <InventoryCard
-                      key={skuCode}
-                      sku={sku}
-                      onClick={() => {
-                        setMobileInventoryOpen(false)
-                        handleEditOpen(sku)
-                      }}
-                    />
-                  )
-                })}
-              </div>
-            </div>
+            ))}
           </div>
         </SheetContent>
       </Sheet>

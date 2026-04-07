@@ -43,6 +43,7 @@ export function ProductSheet({ open, onClose, product, onSuccess }: ProductSheet
   const [description, setDescription] = useState('')
   const [productTypeId, setProductTypeId] = useState('')
   const [unitsPerCase, setUnitsPerCase] = useState<number | ''>('')
+  const [gramsPerUnit, setGramsPerUnit] = useState<number | ''>('')
   const [inStock, setInStock] = useState(true)
   const [productTypes, setProductTypes] = useState<ProductType[]>([])
   const [code, setCode] = useState('')
@@ -104,6 +105,7 @@ export function ProductSheet({ open, onClose, product, onSuccess }: ProductSheet
         setDescription(product.description || '')
         setProductTypeId(product.product_type_id || '')
         setUnitsPerCase(product.units_per_case || '')
+        setGramsPerUnit(product.grams_per_unit ?? '')
         setInStock(product.in_stock ?? true)
         setCode(product.code || '')
         setStrainId(product.strain_id || '')
@@ -113,6 +115,7 @@ export function ProductSheet({ open, onClose, product, onSuccess }: ProductSheet
         setDescription('')
         setProductTypeId('')
         setUnitsPerCase('')
+        setGramsPerUnit('')
         setInStock(true)
         setCode('')
         setStrainId('')
@@ -124,6 +127,7 @@ export function ProductSheet({ open, onClose, product, onSuccess }: ProductSheet
       setDescription('')
       setProductTypeId('')
       setUnitsPerCase('')
+      setGramsPerUnit('')
       setInStock(true)
       setCode('')
       setStrainId('')
@@ -144,6 +148,11 @@ export function ProductSheet({ open, onClose, product, onSuccess }: ProductSheet
 
     if (unitsPerCase === '' || unitsPerCase <= 0) {
       setError('Units per case is required and must be greater than 0')
+      return false
+    }
+
+    if (gramsPerUnit === '' || gramsPerUnit <= 0) {
+      setError('Grams per unit is required and must be greater than 0')
       return false
     }
 
@@ -238,6 +247,7 @@ export function ProductSheet({ open, onClose, product, onSuccess }: ProductSheet
         description: description.trim() || null,
         product_type_id: productTypeId,
         units_per_case: unitsPerCase as number,
+        grams_per_unit: gramsPerUnit as number,
         in_stock: inStock,
         updated_at: new Date().toISOString(),
       }
@@ -265,6 +275,7 @@ export function ProductSheet({ open, onClose, product, onSuccess }: ProductSheet
             strain_id: strainId,
             product_type_id: productTypeId,
             units_per_case: unitsPerCase as number,
+            grams_per_unit: gramsPerUnit as number,
             in_stock: inStock,
             description: description.trim() || null,
           })
@@ -411,6 +422,24 @@ export function ProductSheet({ open, onClose, product, onSuccess }: ProductSheet
               </p>
             </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="gramsPerUnit">Grams Per Unit *</Label>
+              <Input
+                id="gramsPerUnit"
+                type="number"
+                placeholder="e.g., 3.5"
+                min="0.1"
+                step="0.1"
+                value={gramsPerUnit}
+                onChange={(e) => setGramsPerUnit(e.target.value ? parseFloat(e.target.value) : '')}
+                required
+                disabled={loading}
+              />
+              <p className="text-xs text-muted-foreground">
+                Weight per individual unit (e.g., 3.5 for eighths, 14 for half oz)
+              </p>
+            </div>
+
             <div className="flex items-center justify-between py-2">
               <div className="space-y-0.5">
                 <Label htmlFor="inStock" className="text-base">In Stock</Label>
@@ -467,7 +496,7 @@ export function ProductSheet({ open, onClose, product, onSuccess }: ProductSheet
             </Button>
             <Button
               type="submit"
-              disabled={loading || !itemName.trim() || !productTypeId || unitsPerCase === '' || (!product && (!code.trim() || !strainId))}
+              disabled={loading || !itemName.trim() || !productTypeId || unitsPerCase === '' || gramsPerUnit === '' || (!product && (!code.trim() || !strainId))}
             >
               {loading ? (
                 <>

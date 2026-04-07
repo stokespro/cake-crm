@@ -81,6 +81,7 @@ export interface SKU {
   strain_id: string
   product_type_id: string
   price_per_unit?: number
+  grams_per_unit: number
   description?: string
   thc_percentage?: number
   cbd_percentage?: number
@@ -101,6 +102,7 @@ export interface Product {
   product_type_id?: string
   product_type_name?: string  // Joined from product_types
   units_per_case?: number
+  grams_per_unit?: number
   strain_id?: string
   strain_raw_name?: string    // Joined from strains
   created_at: string

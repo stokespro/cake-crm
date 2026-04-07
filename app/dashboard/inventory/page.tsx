@@ -34,14 +34,6 @@ import {
   ChevronDown,
 } from 'lucide-react'
 
-// Type IDs for A Buds and B Buds
-const A_BUDS_TYPE_ID = '506cc32c-272c-443b-823e-77652afc2409'
-const B_BUDS_TYPE_ID = '06db9d58-e3dd-4c77-aa24-795c31c8f065'
-
-// Conversion rates for vault (grams to cases)
-const A_BUDS_GRAMS_PER_CASE = 112
-const B_BUDS_GRAMS_PER_CASE = 224
-
 // Low stock threshold (in cases)
 const LOW_STOCK_THRESHOLD = 5
 
@@ -51,6 +43,8 @@ interface SKU {
   name: string
   strain_id: string
   product_type_id: string
+  grams_per_unit: number
+  units_per_case: number
 }
 
 interface Strain {
@@ -141,7 +135,7 @@ export default function InventoryPage() {
         packagesResult,
         ordersResult,
       ] = await Promise.all([
-        supabase.from('skus').select('id, code, name, strain_id, product_type_id').order('code'),
+        supabase.from('skus').select('id, code, name, strain_id, product_type_id, grams_per_unit, units_per_case').order('code'),
         supabase.from('strains').select('id, name'),
         supabase.from('product_types').select('id, name'),
         supabase.from('inventory').select('sku_id, cased, filled, staged'),
@@ -211,13 +205,9 @@ export default function InventoryPage() {
       const vaultKey = `${sku.strain_id}-${sku.product_type_id}`
       const vaultGrams = vaultByStrainAndType.get(vaultKey) || 0
 
-      // Convert vault grams to cases based on product type
-      let vaultCases = 0
-      if (sku.product_type_id === A_BUDS_TYPE_ID) {
-        vaultCases = Math.floor(vaultGrams / A_BUDS_GRAMS_PER_CASE)
-      } else if (sku.product_type_id === B_BUDS_TYPE_ID) {
-        vaultCases = Math.floor(vaultGrams / B_BUDS_GRAMS_PER_CASE)
-      }
+      // Convert vault grams to cases dynamically
+      const gramsPerCase = (sku.grams_per_unit || 0) * (sku.units_per_case || 0)
+      const vaultCases = gramsPerCase > 0 ? Math.floor(vaultGrams / gramsPerCase) : 0
 
       const staged = inv?.staged || 0
       const filled = inv?.filled || 0

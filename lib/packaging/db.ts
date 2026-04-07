@@ -6,7 +6,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import {
-  SKU, SKU_LIST,
+  SKU,
   InventoryMap, InventoryLevels,
   Order, OrderStatus, OrderLineItem,
   Container, ContainerSize, ContainerStatus
@@ -67,18 +67,18 @@ export async function readInventory(): Promise<InventoryMap> {
 
   if (error) throw new Error(`Failed to read inventory: ${error.message}`);
 
-  const inventory: Partial<InventoryMap> = {};
+  const inventory: InventoryMap = {};
 
-  // Initialize all SKUs with zeros
-  for (const sku of SKU_LIST) {
-    inventory[sku] = { cased: 0, filled: 0, staged: 0 };
+  // Initialize all known SKUs with zeros
+  for (const code of skuCodeToId!.keys()) {
+    inventory[code] = { cased: 0, filled: 0, staged: 0 };
   }
 
   // Fill in actual values
   for (const row of data || []) {
     const code = skuIdToCode!.get(row.sku_id);
-    if (code && SKU_LIST.includes(code as SKU)) {
-      inventory[code as SKU] = {
+    if (code) {
+      inventory[code] = {
         cased: row.cased,
         filled: row.filled,
         staged: row.staged,
@@ -86,7 +86,7 @@ export async function readInventory(): Promise<InventoryMap> {
     }
   }
 
-  return inventory as InventoryMap;
+  return inventory;
 }
 
 // Read inventory for a single SKU
@@ -256,7 +256,7 @@ export async function readOrders(): Promise<Order[]> {
 
     for (const item of order.order_items || []) {
       const skuCode = skuIdToCode!.get(item.sku_id);
-      if (skuCode && SKU_LIST.includes(skuCode as SKU)) {
+      if (skuCode) {
         // quantity is CASES
         lineItems.push({
           sku: skuCode as SKU,
@@ -311,7 +311,7 @@ export async function readStagingContainers(): Promise<Container[]> {
 
   for (const row of data || []) {
     const skuCode = skuIdToCode!.get(row.sku_id);
-    if (!skuCode || !SKU_LIST.includes(skuCode as SKU)) continue;
+    if (!skuCode) continue;
 
     containers.push({
       id: row.id,

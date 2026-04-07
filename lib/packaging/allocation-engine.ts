@@ -1,5 +1,5 @@
 import {
-  SKU, SKU_LIST,
+  SKU,
   InventoryMap,
   Order,
   Task, TaskType, TaskStatus, TaskSource, PriorityTier, KanbanColumn,
@@ -78,7 +78,7 @@ function createAvailableInventory(inventory: InventoryMap): AvailableInventory {
     staged: new Map(),
   };
 
-  for (const sku of SKU_LIST) {
+  for (const sku of Object.keys(inventory)) {
     const levels = inventory[sku];
     available.cased.set(sku, levels.cased);
     available.filled.set(sku, levels.filled);
@@ -246,7 +246,7 @@ function processBackfill(
   accumulator: TaskAccumulator,
   originalInventory: InventoryMap
 ): void {
-  for (const sku of SKU_LIST) {
+  for (const sku of Object.keys(originalInventory)) {
     // Use ALL remaining FILLED for backfill (CASE task)
     const availableFilled = available.filled.get(sku) ?? 0;
     if (availableFilled > 0) {
@@ -300,10 +300,6 @@ function addBackfillTask(
 // Calculate pending totals per SKU (sum of pending/confirmed orders)
 function calculatePendingTotals(orders: Order[]): Map<SKU, number> {
   const pending = new Map<SKU, number>();
-
-  for (const sku of SKU_LIST) {
-    pending.set(sku, 0);
-  }
 
   for (const order of orders) {
     if (order.status !== 'Pending' && order.status !== 'Confirmed') continue;
@@ -382,7 +378,7 @@ export function generateSKUStatus(
 ): SKUStatus[] {
   const pendingTotals = calculatePendingTotals(orders);
 
-  return SKU_LIST.map(sku => {
+  return Object.keys(inventory).map(sku => {
     const levels = inventory[sku];
     const pending = pendingTotals.get(sku) ?? 0;
     const totalAvailable = levels.cased + levels.filled + levels.staged;

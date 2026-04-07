@@ -77,14 +77,6 @@ const ROLE_LABELS: Record<ContactRole, string> = {
   other: 'Other',
 }
 
-// Type IDs for A Buds and B Buds
-const A_BUDS_TYPE_ID = '506cc32c-272c-443b-823e-77652afc2409'
-const B_BUDS_TYPE_ID = '06db9d58-e3dd-4c77-aa24-795c31c8f065'
-
-// Conversion rates for vault (grams to cases)
-const A_BUDS_GRAMS_PER_CASE = 112
-const B_BUDS_GRAMS_PER_CASE = 224
-
 interface AvailableItem {
   strainName: string
   productTypeName: string
@@ -102,7 +94,7 @@ async function fetchAvailableInventory(): Promise<AvailableItem[]> {
     packagesResult,
     ordersResult,
   ] = await Promise.all([
-    supabase.from('skus').select('id, code, name, strain_id, product_type_id').order('code'),
+    supabase.from('skus').select('id, code, name, strain_id, product_type_id, grams_per_unit, units_per_case').order('code'),
     supabase.from('strains').select('id, name'),
     supabase.from('product_types').select('id, name'),
     supabase.from('inventory').select('sku_id, cased, filled, staged'),
@@ -154,12 +146,8 @@ async function fetchAvailableInventory(): Promise<AvailableItem[]> {
     const vaultKey = `${sku.strain_id}-${sku.product_type_id}`
     const vaultGrams = vaultByStrainAndType.get(vaultKey) || 0
 
-    let vaultCases = 0
-    if (sku.product_type_id === A_BUDS_TYPE_ID) {
-      vaultCases = Math.floor(vaultGrams / A_BUDS_GRAMS_PER_CASE)
-    } else if (sku.product_type_id === B_BUDS_TYPE_ID) {
-      vaultCases = Math.floor(vaultGrams / B_BUDS_GRAMS_PER_CASE)
-    }
+    const gramsPerCase = ((sku as { grams_per_unit?: number }).grams_per_unit || 0) * ((sku as { units_per_case?: number }).units_per_case || 0)
+    const vaultCases = gramsPerCase > 0 ? Math.floor(vaultGrams / gramsPerCase) : 0
 
     const staged = inv?.staged || 0
     const filled = inv?.filled || 0
