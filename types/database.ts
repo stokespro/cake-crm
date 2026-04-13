@@ -4,6 +4,36 @@ export type OrderStatus = 'pending' | 'confirmed' | 'packed' | 'delivered' | 'ca
 export type ContactMethod = 'phone' | 'email' | 'in-person' | 'text'
 export type ContactRole = 'owner' | 'manager' | 'inventory_manager' | 'buyer' | 'other'
 
+export type ComplianceReportType =
+  | 'plant_movement'
+  | 'destruction'
+  | 'package_adjustment'
+  | 'harvest'
+  | 'transfer'
+  | 'waste_disposal'
+  | 'other'
+
+export interface ComplianceLogEntry {
+  id: string
+  event_date: string
+  logged_by: string
+  report_type: ComplianceReportType | string
+  custom_report_type?: string | null
+  summary: string
+  metrc_ids: string[]
+  location?: string | null
+  witness?: string | null
+  metadata: Record<string, any>
+  created_at: string
+  updated_at: string
+  last_edited_by?: string | null
+  last_edited_at?: string | null
+  is_edited: boolean
+  // Joined fields
+  logged_by_user?: { id: string; name: string }
+  editor?: { id: string; name: string }
+}
+
 export interface Profile {
   id: string
   email?: string

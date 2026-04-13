@@ -21,6 +21,7 @@ export function canViewSection(role: UserRole, section: string): boolean {
     orders: ['admin', 'management', 'sales', 'agent'],
     products: ['admin', 'management', 'vault', 'packaging', 'standard'],
     communications: ['admin', 'management', 'sales', 'agent'],
+    compliance: ['admin', 'management', 'vault', 'packaging'],
     tasks: ['admin', 'management', 'sales', 'agent'],
     inventory: ['admin', 'management', 'vault', 'packaging', 'standard', 'sales', 'agent'],
     users: ['admin'],

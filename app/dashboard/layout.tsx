@@ -33,6 +33,7 @@ import {
   Leaf,
   CircleGauge,
   Boxes,
+  ClipboardList,
   Percent,
   DollarSign,
   ChevronDown
@@ -86,6 +87,9 @@ const allNavigation: NavigationItem[] = [
 
   // Materials inventory - packaging, management, admin
   { name: 'Materials', href: '/dashboard/materials', icon: Boxes, roles: ['packaging', 'management', 'admin'] },
+
+  // Compliance log - vault, packaging, management, admin
+  { name: 'Compliance', href: '/dashboard/compliance', icon: ClipboardList, roles: ['vault', 'packaging', 'management', 'admin'] },
 
   // CRM section - sales, agent, management, admin
   { name: 'Orders', href: '/dashboard/orders', icon: BadgeDollarSign, roles: ['sales', 'agent', 'management', 'admin'] },
