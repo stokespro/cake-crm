@@ -54,7 +54,7 @@ const REPORT_TYPES = [
   { value: 'other', label: 'Other' },
 ]
 
-const METRC_URL_TEMPLATE = 'https://ok.metrc.com/industry/{id}/packages'
+const METRC_PACKAGES_URL = 'https://ok.metrc.com/industry/GAAI-BSOT-FUQO/packages'
 
 const REPORT_TYPE_COLORS: Record<string, string> = {
   plant_movement: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
@@ -332,7 +332,7 @@ export default function CompliancePage() {
 
         ${entry.witness ? `<div class="field"><div class="label">Witness</div><div class="value">${entry.witness}</div></div>` : ''}
 
-        ${entry.metrc_ids?.length ? `<div class="field"><div class="label">Metrc IDs</div><div class="metrc-ids">${entry.metrc_ids.map(id => `<span class="metrc-id">${id}</span>`).join('')}</div></div>` : ''}
+        ${entry.metrc_ids?.length ? `<div class="field"><div class="label">Metrc IDs</div><div class="metrc-ids">${entry.metrc_ids.map(id => `<a href="${METRC_PACKAGES_URL}" target="_blank" rel="noopener noreferrer" class="metrc-id" style="text-decoration:none;color:inherit;">${id}</a>`).join('')}</div></div>` : ''}
 
         <div class="field">
           <div class="label">Summary</div>
@@ -482,7 +482,7 @@ export default function CompliancePage() {
                             {entry.metrc_ids?.slice(0, 3).map((id) => (
                               <a
                                 key={id}
-                                href={METRC_URL_TEMPLATE.replace('{id}', id)}
+                                href={METRC_PACKAGES_URL}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="inline-flex items-center gap-1 text-xs bg-muted px-2 py-0.5 rounded hover:bg-muted/80"
@@ -569,7 +569,7 @@ export default function CompliancePage() {
                       {entry.metrc_ids.map((id) => (
                         <a
                           key={id}
-                          href={METRC_URL_TEMPLATE.replace('{id}', id)}
+                          href={METRC_PACKAGES_URL}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1 text-xs bg-muted px-2 py-0.5 rounded hover:bg-muted/80"
