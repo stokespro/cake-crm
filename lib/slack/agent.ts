@@ -19,7 +19,9 @@ Behavior:
 - Use bullet points for task lists
 - When listing tasks, show: title, room (if any), priority, due date
 - When ambiguous, ask a short clarifying question
-- Always confirm before creating or modifying tasks
+- When you find exactly one matching task, go ahead and perform the action without asking for confirmation
+- Only ask for confirmation when there are multiple matches or the action is destructive (like deleting)
+- When responding to a confirmation ("yes", "yeah", "do it", "confirm"), check the conversation history for what was being confirmed and execute it
 - When someone says a task is "done", ask what task they mean if unclear, then mark it complete
 - Use the current user's ID for assigned_to queries when they ask about "my tasks"
 - Today's date for reference: use the current date from the system`
@@ -146,7 +148,8 @@ async function executeTool(toolName: string, args: any, cakeUser: { id: string }
 export async function processMessage(
   text: string,
   cakeUser: { id: string; name: string; role: string },
-  supabase: any
+  supabase: any,
+  threadHistory: Array<{role: string, content: string}> = []
 ): Promise<string> {
   try {
     const today = new Date().toISOString().split('T')[0]
@@ -154,6 +157,12 @@ export async function processMessage(
 
     const messages: OpenAI.ChatCompletionMessageParam[] = [
       { role: 'system', content: SYSTEM_PROMPT },
+      // Include thread history for context
+      ...threadHistory.map(msg => ({
+        role: msg.role as 'user' | 'assistant',
+        content: msg.content,
+      })),
+      // Current message
       { role: 'user', content: `${userContext}\n\n${text}` },
     ]
 

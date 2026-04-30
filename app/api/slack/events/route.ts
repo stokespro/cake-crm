@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { after } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { verifySlackSignature, postMessage, lookupCakeUser } from '@/lib/slack/client'
+import { verifySlackSignature, postMessage, lookupCakeUser, getThreadMessages } from '@/lib/slack/client'
 import { processMessage } from '@/lib/slack/agent'
 import type { SlackEvent } from '@/lib/slack/types'
 
@@ -70,11 +70,22 @@ async function processSlackMessage(event: {
     return
   }
 
-  // Process message with AI agent
-  const response = await processMessage(event.text, cakeUser, supabase)
+  // If this is a thread reply, fetch thread history for context
+  let threadHistory: Array<{role: string, content: string}> = []
+  if (event.thread_ts) {
+    const threadMessages = await getThreadMessages(event.channel, event.thread_ts)
+    // Convert to message format, excluding the current message (last one)
+    threadHistory = threadMessages.slice(0, -1).map(msg => ({
+      role: msg.bot_id ? 'assistant' as const : 'user' as const,
+      content: msg.content,
+    }))
+  }
 
-  // Reply in thread
-  await postMessage(event.channel, response, event.ts)
+  // Process message with AI agent
+  const response = await processMessage(event.text, cakeUser, supabase, threadHistory)
+
+  // Reply in thread (use thread_ts if replying in thread, otherwise use ts to start a thread)
+  await postMessage(event.channel, response, event.thread_ts || event.ts)
 
   // Log the interaction
   await supabase.from('slack_agent_log').insert({

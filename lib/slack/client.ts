@@ -39,6 +39,24 @@ export async function postMessage(
   return response.json()
 }
 
+export async function getThreadMessages(channel: string, threadTs: string): Promise<Array<{role: string, content: string, user?: string, bot_id?: string}>> {
+  const response = await fetch(`https://slack.com/api/conversations.replies?channel=${channel}&ts=${threadTs}&limit=20`, {
+    headers: {
+      'Authorization': `Bearer ${SLACK_BOT_TOKEN}`,
+    },
+  })
+  const data = await response.json()
+
+  if (!data.ok || !data.messages) return []
+
+  return data.messages.map((msg: any) => ({
+    role: msg.bot_id ? 'assistant' : 'user',
+    content: msg.text || '',
+    user: msg.user,
+    bot_id: msg.bot_id,
+  }))
+}
+
 export async function lookupCakeUser(supabase: any, slackUserId: string) {
   const { data, error } = await supabase
     .from('slack_user_mappings')
