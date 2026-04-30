@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Sprout, Clock, CheckCircle, AlertTriangle, CalendarDays, Settings } from 'lucide-react'
+import { Sprout, Clock, CheckCircle, AlertTriangle, CalendarDays, Settings, Home } from 'lucide-react'
 import { format, isToday, isPast, startOfWeek, endOfWeek, differenceInCalendarDays } from 'date-fns'
 import { useAuth, canManageCultivation } from '@/lib/auth-context'
 import { createClient } from '@/lib/supabase/client'
@@ -149,14 +149,22 @@ export default function CultivationPage() {
             Grow room management and task tracking
           </p>
         </div>
-        {user && canManageCultivation(user.role) && (
-          <Link href="/dashboard/cultivation/templates">
+        <div className="flex gap-2">
+          <Link href="/dashboard/cultivation/rooms">
             <Button variant="outline">
-              <Settings className="h-4 w-4 mr-2" />
-              Manage Templates
+              <Home className="h-4 w-4 mr-2" />
+              Manage Rooms
             </Button>
           </Link>
-        )}
+          {user && canManageCultivation(user.role) && (
+            <Link href="/dashboard/cultivation/templates">
+              <Button variant="outline">
+                <Settings className="h-4 w-4 mr-2" />
+                Manage Templates
+              </Button>
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* Task Summary Cards */}
@@ -214,7 +222,8 @@ export default function CultivationPage() {
             const phaseConfig = PHASE_CONFIG[room.current_phase]
 
             return (
-              <Card key={room.id}>
+              <Link key={room.id} href="/dashboard/cultivation/rooms">
+              <Card className="hover:border-foreground/20 transition-colors cursor-pointer">
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-base">{room.room_name}</CardTitle>
@@ -267,6 +276,7 @@ export default function CultivationPage() {
                   )}
                 </CardContent>
               </Card>
+              </Link>
             )
           })}
         </div>
