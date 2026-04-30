@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Sprout, Clock, CheckCircle, AlertTriangle, CalendarDays, Settings, Home } from 'lucide-react'
+import { Sprout, Clock, CheckCircle, AlertTriangle, CalendarDays, Settings, Home, CheckSquare } from 'lucide-react'
 import { format, isToday, isPast, startOfWeek, endOfWeek, differenceInCalendarDays } from 'date-fns'
 import { useAuth, canManageCultivation } from '@/lib/auth-context'
 import { createClient } from '@/lib/supabase/client'
@@ -149,7 +149,13 @@ export default function CultivationPage() {
             Grow room management and task tracking
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Link href="/dashboard/cultivation/tasks">
+            <Button variant="outline">
+              <CheckSquare className="h-4 w-4 mr-2" />
+              View Tasks
+            </Button>
+          </Link>
           <Link href="/dashboard/cultivation/rooms">
             <Button variant="outline">
               <Home className="h-4 w-4 mr-2" />
