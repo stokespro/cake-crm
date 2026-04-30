@@ -1,11 +1,13 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Sprout, Clock, CheckCircle, AlertTriangle, CalendarDays } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Sprout, Clock, CheckCircle, AlertTriangle, CalendarDays, Settings } from 'lucide-react'
 import { format, isToday, isPast, startOfWeek, endOfWeek, differenceInCalendarDays } from 'date-fns'
-import { useAuth } from '@/lib/auth-context'
+import { useAuth, canManageCultivation } from '@/lib/auth-context'
 import { createClient } from '@/lib/supabase/client'
 import { GrowRoom, PHASE_CONFIG, GrowPhase } from '@/types/cultivation'
 
@@ -137,14 +139,24 @@ export default function CultivationPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-          <Sprout className="h-6 w-6" />
-          Cultivation
-        </h1>
-        <p className="text-muted-foreground">
-          Grow room management and task tracking
-        </p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+            <Sprout className="h-6 w-6" />
+            Cultivation
+          </h1>
+          <p className="text-muted-foreground">
+            Grow room management and task tracking
+          </p>
+        </div>
+        {user && canManageCultivation(user.role) && (
+          <Link href="/dashboard/cultivation/templates">
+            <Button variant="outline">
+              <Settings className="h-4 w-4 mr-2" />
+              Manage Templates
+            </Button>
+          </Link>
+        )}
       </div>
 
       {/* Task Summary Cards */}
