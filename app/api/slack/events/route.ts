@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { after } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { verifySlackSignature, postMessage, lookupCakeUser } from '@/lib/slack/client'
 import { processMessage } from '@/lib/slack/agent'
@@ -29,8 +30,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
   }
 
-  // Acknowledge immediately (Slack requires response within 3 seconds)
-  // Process async after acknowledging
   const slackEvent = event.event
   if (!slackEvent || slackEvent.type !== 'message') {
     return NextResponse.json({ ok: true })
@@ -41,8 +40,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true })
   }
 
-  // Process in background (don't await — return 200 immediately)
-  processSlackMessage(slackEvent).catch(console.error)
+  // Use next/server after() to keep the function alive after responding
+  after(async () => {
+    await processSlackMessage(slackEvent)
+  })
 
   return NextResponse.json({ ok: true })
 }
