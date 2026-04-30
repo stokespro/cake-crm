@@ -36,7 +36,8 @@ import {
   ClipboardList,
   Percent,
   DollarSign,
-  ChevronDown
+  ChevronDown,
+  Sprout
 } from 'lucide-react'
 import {
   Collapsible,
@@ -90,6 +91,9 @@ const allNavigation: NavigationItem[] = [
 
   // Compliance log - vault, packaging, management, admin
   { name: 'Compliance', href: '/dashboard/compliance', icon: ClipboardList, roles: ['vault', 'packaging', 'management', 'admin'] },
+
+  // Cultivation - vault, packaging, standard, management, admin
+  { name: 'Cultivation', href: '/dashboard/cultivation', icon: Sprout, roles: ['vault', 'packaging', 'standard', 'management', 'admin'] },
 
   // CRM section - sales, agent, management, admin
   { name: 'Orders', href: '/dashboard/orders', icon: BadgeDollarSign, roles: ['sales', 'agent', 'management', 'admin'] },

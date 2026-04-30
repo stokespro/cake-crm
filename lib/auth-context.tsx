@@ -22,6 +22,7 @@ export function canViewSection(role: UserRole, section: string): boolean {
     products: ['admin', 'management', 'vault', 'packaging', 'standard'],
     communications: ['admin', 'management', 'sales', 'agent'],
     compliance: ['admin', 'management', 'vault', 'packaging'],
+    cultivation: ['admin', 'management', 'vault', 'packaging', 'standard'],
     tasks: ['admin', 'management', 'sales', 'agent'],
     inventory: ['admin', 'management', 'vault', 'packaging', 'standard', 'sales', 'agent'],
     users: ['admin'],
@@ -51,6 +52,14 @@ export function canManageUsers(role: UserRole): boolean {
 
 export function canAssignSales(role: UserRole): boolean {
   return ['sales', 'agent', 'management', 'admin'].includes(role);
+}
+
+export function canManageCultivation(role: UserRole): boolean {
+  return ['admin', 'management'].includes(role);
+}
+
+export function canCompleteCultivation(role: UserRole): boolean {
+  return ['admin', 'management', 'vault', 'packaging'].includes(role);
 }
 
 interface AuthContextType {
