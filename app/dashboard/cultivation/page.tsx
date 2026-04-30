@@ -7,15 +7,27 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Sprout, Clock, CheckCircle, AlertTriangle, CalendarDays, Settings, Home, CheckSquare } from 'lucide-react'
 import { format, isToday, isPast, startOfWeek, endOfWeek, differenceInCalendarDays } from 'date-fns'
-import { useAuth, canManageCultivation } from '@/lib/auth-context'
+import { useAuth, canManageCultivation, canCompleteCultivation } from '@/lib/auth-context'
 import { createClient } from '@/lib/supabase/client'
-import { GrowRoom, PHASE_CONFIG, GrowPhase } from '@/types/cultivation'
+import { GrowRoom, PHASE_CONFIG, GrowPhase, CultivationTask, TaskPriority } from '@/types/cultivation'
+import { TaskCompletionSheet } from '@/components/cultivation/task-completion-sheet'
 
 interface TaskStats {
   overdue: number
   dueToday: number
   completedToday: number
   upcomingThisWeek: number
+}
+
+interface RoomTaskCounts {
+  [roomId: string]: { pending: number; overdue: number }
+}
+
+const PRIORITY_BADGE: Record<TaskPriority, string> = {
+  critical: 'bg-red-600 text-white',
+  high: 'bg-orange-500 text-white',
+  medium: 'bg-yellow-500 text-white',
+  low: 'bg-gray-400 text-white',
 }
 
 const PHASE_BADGE_CLASSES: Record<GrowPhase, string> = {
@@ -55,77 +67,108 @@ export default function CultivationPage() {
     completedToday: 0,
     upcomingThisWeek: 0,
   })
+  const [myTodayTasks, setMyTodayTasks] = useState<CultivationTask[]>([])
+  const [roomTaskCounts, setRoomTaskCounts] = useState<RoomTaskCounts>({})
+  const [completionTask, setCompletionTask] = useState<CultivationTask | null>(null)
+  const [completionOpen, setCompletionOpen] = useState(false)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    async function fetchData() {
-      const supabase = createClient()
+  const canComplete = user ? canCompleteCultivation(user.role) : false
 
-      const [roomsRes, tasksRes] = await Promise.all([
-        supabase.from('grow_rooms').select('*').order('room_number'),
-        supabase
-          .from('cultivation_tasks')
-          .select('id, status, due_date, completed_at'),
-      ])
+  async function fetchData() {
+    const supabase = createClient()
 
-      if (roomsRes.data) {
-        setRooms(roomsRes.data as GrowRoom[])
-      }
+    const [roomsRes, tasksRes, myTasksRes] = await Promise.all([
+      supabase.from('grow_rooms').select('*').order('room_number'),
+      supabase
+        .from('cultivation_tasks')
+        .select('id, status, due_date, completed_at, room_id'),
+      user
+        ? supabase
+            .from('cultivation_tasks')
+            .select(
+              '*, room:grow_rooms(id, room_name, room_number), assigned_user:users!cultivation_tasks_assigned_to_fkey(id, name)'
+            )
+            .eq('assigned_to', user.id)
+            .in('status', ['pending', 'in_progress'])
+            .lte('due_date', format(new Date(), 'yyyy-MM-dd'))
+            .order('due_date')
+            .limit(10)
+        : Promise.resolve({ data: [] }),
+    ])
 
-      if (tasksRes.data) {
-        const today = new Date()
-        const todayStr = format(today, 'yyyy-MM-dd')
-        const weekStart = startOfWeek(today, { weekStartsOn: 1 })
-        const weekEnd = endOfWeek(today, { weekStartsOn: 1 })
-
-        let overdue = 0
-        let dueToday = 0
-        let completedToday = 0
-        let upcomingThisWeek = 0
-
-        for (const task of tasksRes.data) {
-          const dueDate = new Date(task.due_date)
-
-          if (
-            task.status === 'completed' &&
-            task.completed_at &&
-            isToday(new Date(task.completed_at))
-          ) {
-            completedToday++
-          }
-
-          if (
-            (task.status === 'pending' || task.status === 'in_progress') &&
-            isPast(dueDate) &&
-            task.due_date < todayStr
-          ) {
-            overdue++
-          }
-
-          if (
-            (task.status === 'pending' || task.status === 'in_progress') &&
-            task.due_date === todayStr
-          ) {
-            dueToday++
-          }
-
-          if (
-            (task.status === 'pending' || task.status === 'in_progress') &&
-            dueDate >= weekStart &&
-            dueDate <= weekEnd &&
-            task.due_date > todayStr
-          ) {
-            upcomingThisWeek++
-          }
-        }
-
-        setTaskStats({ overdue, dueToday, completedToday, upcomingThisWeek })
-      }
-
-      setLoading(false)
+    if (roomsRes.data) {
+      setRooms(roomsRes.data as GrowRoom[])
     }
 
+    if (myTasksRes.data) {
+      setMyTodayTasks(myTasksRes.data as CultivationTask[])
+    }
+
+    if (tasksRes.data) {
+      const today = new Date()
+      const todayStr = format(today, 'yyyy-MM-dd')
+      const weekStart = startOfWeek(today, { weekStartsOn: 1 })
+      const weekEnd = endOfWeek(today, { weekStartsOn: 1 })
+
+      let overdue = 0
+      let dueToday = 0
+      let completedToday = 0
+      let upcomingThisWeek = 0
+      const counts: RoomTaskCounts = {}
+
+      for (const task of tasksRes.data) {
+        const dueDate = new Date(task.due_date)
+        const isActive = task.status === 'pending' || task.status === 'in_progress'
+        const isTaskOverdue = isActive && task.due_date < todayStr
+
+        if (
+          task.status === 'completed' &&
+          task.completed_at &&
+          isToday(new Date(task.completed_at))
+        ) {
+          completedToday++
+        }
+
+        if (isActive && isPast(dueDate) && task.due_date < todayStr) {
+          overdue++
+        }
+
+        if (isActive && task.due_date === todayStr) {
+          dueToday++
+        }
+
+        if (
+          isActive &&
+          dueDate >= weekStart &&
+          dueDate <= weekEnd &&
+          task.due_date > todayStr
+        ) {
+          upcomingThisWeek++
+        }
+
+        // Room task counts
+        if (task.room_id && isActive) {
+          if (!counts[task.room_id]) {
+            counts[task.room_id] = { pending: 0, overdue: 0 }
+          }
+          counts[task.room_id].pending++
+          if (isTaskOverdue) {
+            counts[task.room_id].overdue++
+          }
+        }
+      }
+
+      setTaskStats({ overdue, dueToday, completedToday, upcomingThisWeek })
+      setRoomTaskCounts(counts)
+    }
+
+    setLoading(false)
+  }
+
+  useEffect(() => {
     fetchData()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   if (loading) {
@@ -218,6 +261,68 @@ export default function CultivationPage() {
         </Card>
       </div>
 
+      {/* My Tasks Today */}
+      {myTodayTasks.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base">Your Tasks Today</CardTitle>
+              <Link href="/dashboard/cultivation/tasks">
+                <Button variant="link" size="sm" className="text-xs px-0">
+                  View All
+                </Button>
+              </Link>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {myTodayTasks.map((task) => {
+                const todayStr = format(new Date(), 'yyyy-MM-dd')
+                const taskOverdue = task.due_date < todayStr
+                return (
+                  <div
+                    key={task.id}
+                    className={`flex items-center gap-3 p-2 rounded-md border ${taskOverdue ? 'border-red-500/50 bg-red-500/5' : 'border-border'}`}
+                  >
+                    {/* Complete button */}
+                    {canComplete && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 shrink-0"
+                        title="Mark complete"
+                        onClick={() => {
+                          setCompletionTask(task)
+                          setCompletionOpen(true)
+                        }}
+                      >
+                        <CheckCircle className="h-4 w-4 text-muted-foreground hover:text-green-500" />
+                      </Button>
+                    )}
+
+                    {/* Task info */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{task.title}</p>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        {task.room?.room_name && <span>{task.room.room_name}</span>}
+                        {taskOverdue && (
+                          <span className="text-red-600 font-medium">Overdue</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Priority badge */}
+                    <Badge className={`${PRIORITY_BADGE[task.priority]} shrink-0 text-[10px] px-1.5`}>
+                      {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
+                    </Badge>
+                  </div>
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Room Overview Grid */}
       <div>
         <h2 className="text-lg font-semibold mb-4">Grow Rooms</h2>
@@ -226,6 +331,8 @@ export default function CultivationPage() {
             const weekProgress = getWeekProgress(room)
             const pairingLabel = getPairingLabel(room, rooms)
             const phaseConfig = PHASE_CONFIG[room.current_phase]
+
+            const roomCounts = roomTaskCounts[room.id]
 
             return (
               <Link key={room.id} href="/dashboard/cultivation/rooms">
@@ -264,6 +371,16 @@ export default function CultivationPage() {
                     ) : (
                       <div className="h-2 w-full rounded-full bg-muted" />
                     )}
+
+                    {/* Task counts */}
+                    {roomCounts && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {roomCounts.pending} pending
+                        {roomCounts.overdue > 0 && (
+                          <span className="text-red-600"> / {roomCounts.overdue} overdue</span>
+                        )}
+                      </p>
+                    )}
                   </div>
 
                   {/* Phase start date */}
@@ -287,6 +404,18 @@ export default function CultivationPage() {
           })}
         </div>
       </div>
+
+      {/* Completion Sheet for quick complete */}
+      <TaskCompletionSheet
+        open={completionOpen}
+        onOpenChange={setCompletionOpen}
+        task={completionTask}
+        userId={user?.id || ''}
+        onCompleted={() => {
+          setCompletionOpen(false)
+          fetchData()
+        }}
+      />
     </div>
   )
 }

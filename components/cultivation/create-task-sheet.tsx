@@ -27,6 +27,7 @@ import type { CultivationTask, GrowRoom, TaskPriority } from '@/types/cultivatio
 interface UserOption {
   id: string
   name: string
+  role?: string
 }
 
 interface CreateTaskSheetProps {
@@ -232,7 +233,7 @@ export function CreateTaskSheet({
                 <SelectItem value="unassigned">Unassigned</SelectItem>
                 {users.map((u) => (
                   <SelectItem key={u.id} value={u.id}>
-                    {u.name}
+                    {u.name}{u.role ? <span className="text-muted-foreground text-xs ml-1">({u.role})</span> : null}
                   </SelectItem>
                 ))}
               </SelectContent>

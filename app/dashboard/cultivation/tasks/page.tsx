@@ -97,6 +97,11 @@ export default function CultivationTasksPage() {
   const [users, setUsers] = useState<UserOption[]>([])
   const [loading, setLoading] = useState(true)
 
+  // View mode
+  const [viewMode, setViewMode] = useState<'all' | 'mine'>(() =>
+    user && canManageCultivation(user.role) ? 'all' : 'mine'
+  )
+
   // Filters
   const [search, setSearch] = useState('')
   const [filterRoom, setFilterRoom] = useState('all')
@@ -193,8 +198,13 @@ export default function CultivationTasksPage() {
       result = result.filter((t) => t.due_date <= filterDateTo)
     }
 
+    // My Tasks filter
+    if (viewMode === 'mine' && user) {
+      result = result.filter((t) => t.assigned_to === user.id)
+    }
+
     return result
-  }, [tasks, search, filterRoom, filterStatus, filterPriority, filterAssignee, filterDateFrom, filterDateTo])
+  }, [tasks, search, filterRoom, filterStatus, filterPriority, filterAssignee, filterDateFrom, filterDateTo, viewMode, user])
 
   // --- Sorting ---
   const sortedTasks = useMemo(() => {
@@ -308,6 +318,7 @@ export default function CultivationTasksPage() {
     setFilterAssignee('all')
     setFilterDateFrom('')
     setFilterDateTo('')
+    setViewMode(user && canManageCultivation(user.role) ? 'all' : 'mine')
   }
 
   const hasFilters =
@@ -405,6 +416,26 @@ export default function CultivationTasksPage() {
         </Card>
       </div>
 
+      {/* View Mode Toggle */}
+      <div className="flex gap-2">
+        <Button
+          variant={viewMode === 'mine' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setViewMode('mine')}
+          className="flex-1 sm:flex-none"
+        >
+          My Tasks
+        </Button>
+        <Button
+          variant={viewMode === 'all' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setViewMode('all')}
+          className="flex-1 sm:flex-none"
+        >
+          All Tasks
+        </Button>
+      </div>
+
       {/* Filter Bar */}
       <div className="flex flex-col sm:flex-row flex-wrap gap-2">
         <div className="relative w-full sm:w-[200px]">
@@ -467,7 +498,7 @@ export default function CultivationTasksPage() {
             <SelectItem value="unassigned">Unassigned</SelectItem>
             {users.map((u) => (
               <SelectItem key={u.id} value={u.id}>
-                {u.name}
+                {u.name} <span className="text-muted-foreground text-xs">({u.role})</span>
               </SelectItem>
             ))}
           </SelectContent>
@@ -527,10 +558,12 @@ export default function CultivationTasksPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                sortedTasks.map((task) => (
+                sortedTasks.map((task) => {
+                  const taskOverdue = isOverdue(task)
+                  return (
                   <TableRow
                     key={task.id}
-                    className="cursor-pointer hover:bg-muted/50"
+                    className={`cursor-pointer hover:bg-muted/50 ${taskOverdue ? 'bg-red-500/10 border-l-2 border-l-red-500' : ''}`}
                     onClick={() => openDetailSheet(task)}
                   >
                     <TableCell>{STATUS_ICON[task.status]}</TableCell>
@@ -540,12 +573,19 @@ export default function CultivationTasksPage() {
                     <TableCell>{task.room?.room_name || '\u2014'}</TableCell>
                     <TableCell>{phaseWeekLabel(task)}</TableCell>
                     <TableCell>
-                      <Badge className={PRIORITY_BADGE[task.priority]}>
-                        {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
-                      </Badge>
+                      <div className="flex items-center gap-1">
+                        <Badge className={PRIORITY_BADGE[task.priority]}>
+                          {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
+                        </Badge>
+                        {taskOverdue && (
+                          <Badge className="bg-red-600 text-white text-[10px] px-1.5">
+                            Overdue
+                          </Badge>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
-                      <span className={isOverdue(task) ? 'text-red-600 font-medium' : ''}>
+                      <span className={taskOverdue ? 'text-red-600 font-medium' : ''}>
                         {format(parseISO(task.due_date), 'MMM d, yyyy')}
                       </span>
                     </TableCell>
@@ -589,7 +629,8 @@ export default function CultivationTasksPage() {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))
+                  )
+                })
               )}
             </TableBody>
           </Table>
@@ -601,19 +642,26 @@ export default function CultivationTasksPage() {
         {sortedTasks.length === 0 ? (
           <p className="text-center py-8 text-muted-foreground">No tasks found.</p>
         ) : (
-          sortedTasks.map((task) => (
+          sortedTasks.map((task) => {
+            const taskOverdue = isOverdue(task)
+            return (
             <Card
               key={task.id}
-              className="cursor-pointer"
+              className={`cursor-pointer ${taskOverdue ? 'border-red-500 bg-red-500/10' : ''}`}
               onClick={() => openDetailSheet(task)}
             >
               <CardContent className="p-4 space-y-2">
                 {/* Row 1: title + priority */}
                 <div className="flex items-start justify-between gap-2">
                   <p className="font-medium text-sm leading-snug line-clamp-2">{task.title}</p>
-                  <Badge className={`${PRIORITY_BADGE[task.priority]} shrink-0 text-xs`}>
-                    {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
-                  </Badge>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {taskOverdue && (
+                      <Badge className="bg-red-600 text-white text-[10px] px-1.5">Overdue</Badge>
+                    )}
+                    <Badge className={`${PRIORITY_BADGE[task.priority]} text-xs`}>
+                      {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
+                    </Badge>
+                  </div>
                 </div>
 
                 {/* Row 2: room + phase */}
@@ -625,7 +673,7 @@ export default function CultivationTasksPage() {
 
                 {/* Row 3: due date + assignee */}
                 <div className="flex items-center justify-between text-xs">
-                  <span className={isOverdue(task) ? 'text-red-600 font-medium' : 'text-muted-foreground'}>
+                  <span className={taskOverdue ? 'text-red-600 font-medium' : 'text-muted-foreground'}>
                     Due: {format(parseISO(task.due_date), 'MMM d, yyyy')}
                   </span>
                   <span className="text-muted-foreground">
@@ -668,7 +716,8 @@ export default function CultivationTasksPage() {
                 </div>
               </CardContent>
             </Card>
-          ))
+            )
+          })
         )}
       </div>
 
