@@ -58,6 +58,7 @@ import type {
 import { TaskDetailSheet } from '@/components/cultivation/task-detail-sheet'
 import { TaskCompletionSheet } from '@/components/cultivation/task-completion-sheet'
 import { CreateTaskSheet } from '@/components/cultivation/create-task-sheet'
+import { generateRecurringTasks } from '@/lib/cultivation/generate-recurring-tasks'
 
 // --- Constants ---
 
@@ -108,6 +109,7 @@ export default function CultivationTasksPage() {
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterPriority, setFilterPriority] = useState('all')
   const [filterAssignee, setFilterAssignee] = useState('all')
+  const [filterType, setFilterType] = useState('all')
   const [filterDateFrom, setFilterDateFrom] = useState('')
   const [filterDateTo, setFilterDateTo] = useState('')
 
@@ -126,12 +128,18 @@ export default function CultivationTasksPage() {
   async function fetchData() {
     const supabase = createClient()
 
+    // Generate any pending recurring task instances
+    await generateRecurringTasks()
+
     const [tasksRes, roomsRes, usersRes] = await Promise.all([
       supabase
         .from('cultivation_tasks')
         .select(
           '*, room:grow_rooms(id, room_name, room_number), assigned_user:users!cultivation_tasks_assigned_to_fkey(id, name), completed_by_user:users!cultivation_tasks_completed_by_fkey(id, name)'
         )
+        // Exclude recurring definition rows — only show actionable tasks
+        // Definition rows have frequency set AND no recurring_parent_id
+        .or('frequency.is.null,recurring_parent_id.not.is.null')
         .order('due_date'),
       supabase.from('grow_rooms').select('*').order('room_number'),
       supabase
@@ -183,6 +191,11 @@ export default function CultivationTasksPage() {
       result = result.filter((t) => t.priority === filterPriority)
     }
 
+    // Type
+    if (filterType !== 'all') {
+      result = result.filter((t) => t.task_type === filterType)
+    }
+
     // Assignee
     if (filterAssignee === 'unassigned') {
       result = result.filter((t) => !t.assigned_to)
@@ -204,7 +217,7 @@ export default function CultivationTasksPage() {
     }
 
     return result
-  }, [tasks, search, filterRoom, filterStatus, filterPriority, filterAssignee, filterDateFrom, filterDateTo, viewMode, user])
+  }, [tasks, search, filterRoom, filterStatus, filterPriority, filterType, filterAssignee, filterDateFrom, filterDateTo, viewMode, user])
 
   // --- Sorting ---
   const sortedTasks = useMemo(() => {
@@ -315,6 +328,7 @@ export default function CultivationTasksPage() {
     setFilterRoom('all')
     setFilterStatus('all')
     setFilterPriority('all')
+    setFilterType('all')
     setFilterAssignee('all')
     setFilterDateFrom('')
     setFilterDateTo('')
@@ -322,7 +336,7 @@ export default function CultivationTasksPage() {
   }
 
   const hasFilters =
-    search || filterRoom !== 'all' || filterStatus !== 'all' || filterPriority !== 'all' || filterAssignee !== 'all' || filterDateFrom || filterDateTo
+    search || filterRoom !== 'all' || filterStatus !== 'all' || filterPriority !== 'all' || filterType !== 'all' || filterAssignee !== 'all' || filterDateFrom || filterDateTo
 
   // --- Helpers ---
 
@@ -486,6 +500,18 @@ export default function CultivationTasksPage() {
             <SelectItem value="high">High</SelectItem>
             <SelectItem value="medium">Medium</SelectItem>
             <SelectItem value="low">Low</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select value={filterType} onValueChange={setFilterType}>
+          <SelectTrigger className="w-full sm:w-[160px]">
+            <SelectValue placeholder="All Types" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Types</SelectItem>
+            <SelectItem value="scheduled">Scheduled</SelectItem>
+            <SelectItem value="adhoc">Ad-hoc</SelectItem>
+            <SelectItem value="recurring">Recurring</SelectItem>
           </SelectContent>
         </Select>
 

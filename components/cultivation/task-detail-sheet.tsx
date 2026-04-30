@@ -19,6 +19,7 @@ import {
   Calendar,
   User,
   Tag,
+  Repeat,
 } from 'lucide-react'
 import type { CultivationTask, CultivationTaskStatus, TaskPriority } from '@/types/cultivation'
 import type { UserRole } from '@/lib/auth-context'
@@ -93,7 +94,7 @@ export function TaskDetailSheet({
               {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
             </Badge>
             <Badge variant="outline">
-              {task.task_type === 'scheduled' ? 'Scheduled' : 'Ad-hoc'}
+              {task.task_type === 'scheduled' ? 'Scheduled' : task.task_type === 'recurring' ? 'Recurring' : 'Ad-hoc'}
             </Badge>
           </div>
 
@@ -148,6 +149,32 @@ export function TaskDetailSheet({
                 <div>
                   <span className="text-muted-foreground">Estimated: </span>
                   <span className="font-medium">{task.estimated_minutes} min</span>
+                </div>
+              </div>
+            )}
+
+            {/* Recurring info: definition (has frequency) */}
+            {task.frequency && !task.recurring_parent_id && (
+              <div className="flex items-start gap-2">
+                <Repeat className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+                <div>
+                  <span className="text-muted-foreground">Repeats: </span>
+                  <span className="font-medium">
+                    {task.frequency.charAt(0).toUpperCase() + task.frequency.slice(1)}
+                    {(task.frequency === 'weekly' || task.frequency === 'biweekly') && task.day_of_week && (
+                      <> ({['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][task.day_of_week]})</>
+                    )}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Recurring info: generated instance (has recurring_parent_id) */}
+            {task.recurring_parent_id && (
+              <div className="flex items-start gap-2">
+                <Repeat className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+                <div>
+                  <span className="text-muted-foreground font-medium">Recurring task</span>
                 </div>
               </div>
             )}

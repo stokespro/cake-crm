@@ -56,6 +56,8 @@ export function CreateTaskSheet({
   const [priority, setPriority] = useState<TaskPriority>('medium')
   const [assignedTo, setAssignedTo] = useState<string>('unassigned')
   const [estimatedMinutes, setEstimatedMinutes] = useState('')
+  const [frequency, setFrequency] = useState<string>('')
+  const [dayOfWeek, setDayOfWeek] = useState<string>('')
   const [saving, setSaving] = useState(false)
 
   const isEditing = !!task
@@ -69,6 +71,8 @@ export function CreateTaskSheet({
       setPriority(task.priority)
       setAssignedTo(task.assigned_to || 'unassigned')
       setEstimatedMinutes(task.estimated_minutes?.toString() || '')
+      setFrequency(task.frequency || '')
+      setDayOfWeek(task.day_of_week?.toString() || '')
     } else {
       setTitle('')
       setDescription('')
@@ -77,6 +81,8 @@ export function CreateTaskSheet({
       setPriority('medium')
       setAssignedTo('unassigned')
       setEstimatedMinutes('')
+      setFrequency('')
+      setDayOfWeek('')
     }
   }, [task, open])
 
@@ -106,6 +112,9 @@ export function CreateTaskSheet({
           priority,
           assigned_to: assignedTo === 'unassigned' ? null : assignedTo,
           estimated_minutes: estimatedMinutes ? parseInt(estimatedMinutes) : null,
+          task_type: frequency && frequency !== 'none' ? 'recurring' : (task.task_type === 'scheduled' ? 'scheduled' : 'adhoc'),
+          frequency: frequency && frequency !== 'none' ? frequency : null,
+          day_of_week: dayOfWeek ? parseInt(dayOfWeek) : null,
           updated_at: new Date().toISOString(),
         })
         .eq('id', task.id)
@@ -126,7 +135,9 @@ export function CreateTaskSheet({
         priority,
         assigned_to: assignedTo === 'unassigned' ? null : assignedTo,
         estimated_minutes: estimatedMinutes ? parseInt(estimatedMinutes) : null,
-        task_type: 'adhoc',
+        task_type: frequency && frequency !== 'none' ? 'recurring' : 'adhoc',
+        frequency: frequency && frequency !== 'none' ? frequency : null,
+        day_of_week: dayOfWeek ? parseInt(dayOfWeek) : null,
         status: 'pending',
         created_by: userId,
       })
@@ -153,7 +164,7 @@ export function CreateTaskSheet({
           <SheetDescription>
             {isEditing
               ? 'Update the task details.'
-              : 'Create a new ad-hoc cultivation task.'}
+              : 'Create a new cultivation task. Set a frequency for recurring tasks.'}
           </SheetDescription>
         </SheetHeader>
 
@@ -222,6 +233,42 @@ export function CreateTaskSheet({
               </SelectContent>
             </Select>
           </div>
+
+          <div className="space-y-2">
+            <Label>Frequency</Label>
+            <Select value={frequency || 'none'} onValueChange={setFrequency}>
+              <SelectTrigger>
+                <SelectValue placeholder="One-time (default)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">One-time</SelectItem>
+                <SelectItem value="daily">Daily</SelectItem>
+                <SelectItem value="weekly">Weekly</SelectItem>
+                <SelectItem value="biweekly">Biweekly</SelectItem>
+                <SelectItem value="monthly">Monthly</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {(frequency === 'weekly' || frequency === 'biweekly') && (
+            <div className="space-y-2">
+              <Label>Day of Week</Label>
+              <Select value={dayOfWeek || '1'} onValueChange={setDayOfWeek}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Monday (default)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">Monday</SelectItem>
+                  <SelectItem value="2">Tuesday</SelectItem>
+                  <SelectItem value="3">Wednesday</SelectItem>
+                  <SelectItem value="4">Thursday</SelectItem>
+                  <SelectItem value="5">Friday</SelectItem>
+                  <SelectItem value="6">Saturday</SelectItem>
+                  <SelectItem value="7">Sunday</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="task-assignee">Assigned To</Label>

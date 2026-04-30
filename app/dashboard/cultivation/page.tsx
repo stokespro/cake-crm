@@ -11,6 +11,7 @@ import { useAuth, canManageCultivation, canCompleteCultivation } from '@/lib/aut
 import { createClient } from '@/lib/supabase/client'
 import { GrowRoom, PHASE_CONFIG, GrowPhase, CultivationTask, TaskPriority } from '@/types/cultivation'
 import { TaskCompletionSheet } from '@/components/cultivation/task-completion-sheet'
+import { generateRecurringTasks } from '@/lib/cultivation/generate-recurring-tasks'
 
 interface TaskStats {
   overdue: number
@@ -78,11 +79,15 @@ export default function CultivationPage() {
   async function fetchData() {
     const supabase = createClient()
 
+    // Generate any pending recurring task instances
+    await generateRecurringTasks()
+
     const [roomsRes, tasksRes, myTasksRes] = await Promise.all([
       supabase.from('grow_rooms').select('*').order('room_number'),
       supabase
         .from('cultivation_tasks')
-        .select('id, status, due_date, completed_at, room_id'),
+        .select('id, status, due_date, completed_at, room_id')
+        .or('frequency.is.null,recurring_parent_id.not.is.null'),
       user
         ? supabase
             .from('cultivation_tasks')
@@ -91,6 +96,7 @@ export default function CultivationPage() {
             )
             .eq('assigned_to', user.id)
             .in('status', ['pending', 'in_progress'])
+            .or('frequency.is.null,recurring_parent_id.not.is.null')
             .lte('due_date', format(new Date(), 'yyyy-MM-dd'))
             .order('due_date')
             .limit(10)

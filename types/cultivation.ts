@@ -1,7 +1,7 @@
 export type GrowPhase = 'empty' | 'dome' | 'veg' | 'flower' | 'harvest' | 'drying_curing'
 export type TaskPriority = 'low' | 'medium' | 'high' | 'critical'
 export type CultivationTaskStatus = 'pending' | 'in_progress' | 'completed' | 'skipped'
-export type CultivationTaskType = 'scheduled' | 'adhoc'
+export type CultivationTaskType = 'scheduled' | 'adhoc' | 'recurring'
 export type CycleStatus = 'active' | 'completed' | 'cancelled'
 
 export const PHASE_CONFIG: Record<GrowPhase, { label: string; weeks: number; color: string }> = {
@@ -86,6 +86,10 @@ export interface CultivationTask {
   completion_notes: string | null
   attachments: any[]
   created_by: string | null
+  frequency?: 'daily' | 'weekly' | 'biweekly' | 'monthly' | null
+  day_of_week?: number | null
+  recurring_parent_id?: string | null
+  last_generated_date?: string | null
   created_at: string
   updated_at: string
   // Joined
