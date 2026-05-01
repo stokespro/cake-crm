@@ -57,6 +57,30 @@ export async function getThreadMessages(channel: string, threadTs: string): Prom
   }))
 }
 
+let cachedBotUserId: string | null = null
+
+export async function getBotUserId(): Promise<string | null> {
+  if (cachedBotUserId) return cachedBotUserId
+
+  try {
+    const response = await fetch('https://slack.com/api/auth.test', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${SLACK_BOT_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+    })
+    const data = await response.json()
+    if (data.ok && data.user_id) {
+      cachedBotUserId = data.user_id
+      return cachedBotUserId
+    }
+  } catch (error) {
+    console.error('Failed to get bot user ID:', error)
+  }
+  return null
+}
+
 export async function lookupCakeUser(supabase: any, slackUserId: string) {
   const { data, error } = await supabase
     .from('slack_user_mappings')

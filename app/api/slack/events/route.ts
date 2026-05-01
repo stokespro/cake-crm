@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { after } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { verifySlackSignature, postMessage, lookupCakeUser, getThreadMessages } from '@/lib/slack/client'
+import { verifySlackSignature, postMessage, lookupCakeUser, getThreadMessages, getBotUserId } from '@/lib/slack/client'
 import { processMessage } from '@/lib/slack/agent'
 import type { SlackEvent } from '@/lib/slack/types'
 
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Only respond when @mentioned, or when replying in an existing thread
-  const botUserId = process.env.SLACK_BOT_USER_ID
+  const botUserId = await getBotUserId()
   const isMentioned = botUserId && slackEvent.text?.includes(`<@${botUserId}>`)
   const isThreadReply = !!slackEvent.thread_ts
 
@@ -91,10 +91,10 @@ async function processSlackMessage(event: {
   }
 
   // Strip bot mention from text so the AI doesn't see it
-  const botUserId = process.env.SLACK_BOT_USER_ID
+  const botId = await getBotUserId()
   let cleanText = event.text
-  if (botUserId) {
-    cleanText = cleanText.replace(new RegExp(`<@${botUserId}>`, 'g'), '').trim()
+  if (botId) {
+    cleanText = cleanText.replace(new RegExp(`<@${botId}>`, 'g'), '').trim()
   }
 
   // Process message with AI agent
