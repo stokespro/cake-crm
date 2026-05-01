@@ -29,12 +29,19 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 
+interface SlackMapping {
+  id: string
+  slack_user_id: string
+  cake_user_id: string
+}
+
 interface UserRecord {
   id: string
   name: string
   pin: string
   role: string
   created_at: string
+  slack_user_id?: string
 }
 
 export default function UsersPage() {
@@ -58,13 +65,29 @@ export default function UsersPage() {
 
   const fetchUsers = async () => {
     try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('id, name, pin, role, created_at')
-        .order('name')
+      const [usersResult, mappingsResult] = await Promise.all([
+        supabase
+          .from('users')
+          .select('id, name, pin, role, created_at')
+          .order('name'),
+        supabase
+          .from('slack_user_mappings')
+          .select('id, slack_user_id, cake_user_id')
+      ])
 
-      if (error) throw error
-      setUsers(data || [])
+      if (usersResult.error) throw usersResult.error
+
+      const mappings: SlackMapping[] = mappingsResult.data || []
+      const mappingsByUserId = new Map(
+        mappings.map(m => [m.cake_user_id, m.slack_user_id])
+      )
+
+      const usersWithSlack = (usersResult.data || []).map(user => ({
+        ...user,
+        slack_user_id: mappingsByUserId.get(user.id)
+      }))
+
+      setUsers(usersWithSlack)
     } catch (error) {
       console.error('Error fetching users:', error)
     } finally {
@@ -218,8 +241,9 @@ export default function UsersPage() {
                             {user.role}
                           </Badge>
                         </div>
-                        <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground flex-wrap">
                           <span>PIN: {user.pin}</span>
+                          <span>Slack: {user.slack_user_id || 'Not linked'}</span>
                           <span>Added: {formatDate(user.created_at)}</span>
                         </div>
                       </div>

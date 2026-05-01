@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
+import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { useAuth, canManageUsers } from '@/lib/auth-context'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -17,26 +18,73 @@ import {
 import { ArrowLeft, Save, User, RefreshCw } from 'lucide-react'
 import Link from 'next/link'
 
-// Generate a random 4-digit PIN
-const generatePin = () => {
-  return Math.floor(1000 + Math.random() * 9000).toString()
-}
-
-export default function NewUserPage() {
-  const [loading, setLoading] = useState(false)
+export default function EditUserPage() {
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
-    pin: generatePin(),
+    pin: '',
     role: 'standard',
     slack_user_id: ''
   })
+  const [originalSlackId, setOriginalSlackId] = useState<string | null>(null)
+  const [slackMappingId, setSlackMappingId] = useState<string | null>(null)
 
   const router = useRouter()
+  const params = useParams()
+  const userId = params.id as string
   const supabase = createClient()
+  const { user: currentUser, isLoading: authLoading } = useAuth()
+
+  const userRole = currentUser?.role || 'standard'
+  const userCanManageUsers = canManageUsers(userRole)
+
+  useEffect(() => {
+    if (userId) {
+      fetchUser()
+    }
+  }, [userId])
+
+  const fetchUser = async () => {
+    try {
+      const [userResult, mappingResult] = await Promise.all([
+        supabase
+          .from('users')
+          .select('id, name, pin, role, created_at')
+          .eq('id', userId)
+          .single(),
+        supabase
+          .from('slack_user_mappings')
+          .select('id, slack_user_id')
+          .eq('cake_user_id', userId)
+          .maybeSingle()
+      ])
+
+      if (userResult.error) throw userResult.error
+
+      const user = userResult.data
+      const mapping = mappingResult.data
+
+      setFormData({
+        name: user.name || '',
+        pin: user.pin || '',
+        role: user.role || 'standard',
+        slack_user_id: mapping?.slack_user_id || ''
+      })
+      setOriginalSlackId(mapping?.slack_user_id || null)
+      setSlackMappingId(mapping?.id || null)
+    } catch (error) {
+      console.error('Error fetching user:', error)
+      alert('Error loading user details')
+      router.push('/dashboard/users')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
+    setSaving(true)
 
     try {
       // Validate PIN is 4 digits
@@ -44,50 +92,68 @@ export default function NewUserPage() {
         throw new Error('PIN must be exactly 4 digits')
       }
 
-      // Check if PIN is already in use
+      // Check if PIN is already in use by another user
       const { data: existingUser } = await supabase
         .from('users')
         .select('id')
         .eq('pin', formData.pin)
+        .neq('id', userId)
         .single()
 
       if (existingUser) {
-        throw new Error('This PIN is already in use. Please generate a new one.')
+        throw new Error('This PIN is already in use by another user.')
       }
 
-      const { data: newUser, error } = await supabase
+      // Update user
+      const { error } = await supabase
         .from('users')
-        .insert({
+        .update({
           name: formData.name,
           pin: formData.pin,
           role: formData.role
         })
-        .select('id')
-        .single()
+        .eq('id', userId)
 
       if (error) throw error
 
-      // Create Slack mapping if Slack User ID was provided
-      if (formData.slack_user_id.trim() && newUser) {
+      // Sync Slack mapping
+      const newSlackId = formData.slack_user_id.trim()
+      const hadMapping = originalSlackId !== null
+
+      if (newSlackId && hadMapping) {
+        // Update existing mapping
+        const { error: slackError } = await supabase
+          .from('slack_user_mappings')
+          .update({ slack_user_id: newSlackId })
+          .eq('cake_user_id', userId)
+
+        if (slackError) console.error('Error updating Slack mapping:', slackError)
+      } else if (newSlackId && !hadMapping) {
+        // Insert new mapping
         const { error: slackError } = await supabase
           .from('slack_user_mappings')
           .insert({
-            slack_user_id: formData.slack_user_id.trim(),
-            cake_user_id: newUser.id
+            slack_user_id: newSlackId,
+            cake_user_id: userId
           })
 
-        if (slackError) {
-          console.error('Error creating Slack mapping:', slackError)
-          // Don't block user creation if Slack mapping fails
-        }
+        if (slackError) console.error('Error creating Slack mapping:', slackError)
+      } else if (!newSlackId && hadMapping) {
+        // Delete mapping
+        const { error: slackError } = await supabase
+          .from('slack_user_mappings')
+          .delete()
+          .eq('cake_user_id', userId)
+
+        if (slackError) console.error('Error deleting Slack mapping:', slackError)
       }
 
       router.push('/dashboard/users')
     } catch (error: unknown) {
-      console.error('Error creating user:', error)
-      alert(error instanceof Error ? error.message : 'An error occurred while creating the user')
+      console.error('Error updating user:', error)
+      alert(error instanceof Error ? error.message : 'An error occurred while updating the user')
     } finally {
-      setLoading(false)
+      setSaving(false)
     }
   }
 
@@ -101,8 +167,24 @@ export default function NewUserPage() {
   const regeneratePin = () => {
     setFormData(prev => ({
       ...prev,
-      pin: generatePin()
+      pin: Math.floor(1000 + Math.random() * 9000).toString()
     }))
+  }
+
+  if (loading || authLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-muted-foreground">Loading user...</div>
+      </div>
+    )
+  }
+
+  if (!userCanManageUsers) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-muted-foreground">You do not have permission to edit users.</div>
+      </div>
+    )
   }
 
   return (
@@ -115,8 +197,8 @@ export default function NewUserPage() {
           </Link>
         </Button>
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold">Add New User</h1>
-          <p className="text-muted-foreground">Create a new user account</p>
+          <h1 className="text-2xl md:text-3xl font-bold">Edit User</h1>
+          <p className="text-muted-foreground">Update user details and permissions</p>
         </div>
       </div>
 
@@ -167,7 +249,7 @@ export default function NewUserPage() {
                 </Button>
               </div>
               <p className="text-sm text-muted-foreground">
-                This 4-digit PIN will be used for login. Share it securely with the user.
+                Changing the PIN will require the user to use the new PIN for login.
               </p>
             </div>
 
@@ -183,14 +265,19 @@ export default function NewUserPage() {
                 <SelectContent>
                   <SelectItem value="standard">Standard</SelectItem>
                   <SelectItem value="sales">Sales</SelectItem>
+                  <SelectItem value="agent">Agent</SelectItem>
+                  <SelectItem value="vault">Vault</SelectItem>
+                  <SelectItem value="packaging">Packaging</SelectItem>
                   <SelectItem value="management">Management</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
                 </SelectContent>
               </Select>
               <div className="text-sm text-muted-foreground space-y-1">
                 <p><strong>Standard:</strong> Access to Vault and Packaging only</p>
-                <p><strong>Sales:</strong> Access to Dispensaries and Orders. Can create orders for assigned accounts</p>
-                <p><strong>Management:</strong> Full access to all sections. Can approve and edit orders</p>
+                <p><strong>Sales/Agent:</strong> Access to Dispensaries and Orders</p>
+                <p><strong>Vault:</strong> Vault, Packaging, Inventory, Products</p>
+                <p><strong>Packaging:</strong> Packaging, Materials, Inventory, Products</p>
+                <p><strong>Management:</strong> Full access to all sections</p>
                 <p><strong>Admin:</strong> Full system access including user management</p>
               </div>
             </div>
@@ -211,13 +298,13 @@ export default function NewUserPage() {
 
             {/* Actions */}
             <div className="flex gap-4 pt-4">
-              <Button type="submit" disabled={loading} className="flex-1">
-                {loading ? (
-                  'Creating User...'
+              <Button type="submit" disabled={saving} className="flex-1">
+                {saving ? (
+                  'Saving...'
                 ) : (
                   <>
                     <Save className="mr-2 h-4 w-4" />
-                    Create User
+                    Save Changes
                   </>
                 )}
               </Button>
@@ -226,19 +313,6 @@ export default function NewUserPage() {
               </Button>
             </div>
           </form>
-        </CardContent>
-      </Card>
-
-      {/* Help Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">User Creation Process</CardTitle>
-        </CardHeader>
-        <CardContent className="text-sm text-muted-foreground space-y-2">
-          <p>1. Enter the user's name</p>
-          <p>2. A 4-digit PIN is auto-generated (you can regenerate or edit it)</p>
-          <p>3. Select the appropriate role based on their responsibilities</p>
-          <p>4. Share the PIN securely with the user for login</p>
         </CardContent>
       </Card>
     </div>
