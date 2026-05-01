@@ -40,6 +40,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true })
   }
 
+  // Only respond when @mentioned, or when replying in an existing thread
+  const botUserId = process.env.SLACK_BOT_USER_ID
+  const isMentioned = botUserId && slackEvent.text?.includes(`<@${botUserId}>`)
+  const isThreadReply = !!slackEvent.thread_ts
+
+  if (!isMentioned && !isThreadReply) {
+    return NextResponse.json({ ok: true })
+  }
+
   // Use next/server after() to keep the function alive after responding
   after(async () => {
     await processSlackMessage(slackEvent)
@@ -81,8 +90,15 @@ async function processSlackMessage(event: {
     }))
   }
 
+  // Strip bot mention from text so the AI doesn't see it
+  const botUserId = process.env.SLACK_BOT_USER_ID
+  let cleanText = event.text
+  if (botUserId) {
+    cleanText = cleanText.replace(new RegExp(`<@${botUserId}>`, 'g'), '').trim()
+  }
+
   // Process message with AI agent
-  const response = await processMessage(event.text, cakeUser, supabase, threadHistory)
+  const response = await processMessage(cleanText, cakeUser, supabase, threadHistory)
 
   // Reply in thread (use thread_ts if replying in thread, otherwise use ts to start a thread)
   await postMessage(event.channel, response, event.thread_ts || event.ts)
