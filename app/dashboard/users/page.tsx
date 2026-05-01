@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { Plus, Search, User, Shield, Eye, Trash2, MoreHorizontal, Activity } from 'lucide-react'
+import { Plus, Search, User, Pencil, Trash2, MoreHorizontal } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -169,12 +169,6 @@ export default function UsersPage() {
         </div>
         {userCanManageUsers && (
           <div className="flex gap-2">
-            <Button variant="outline" asChild>
-              <Link href="/dashboard/users/activity">
-                <Activity className="mr-2 h-4 w-4" />
-                Activity Log
-              </Link>
-            </Button>
             <Button asChild>
               <Link href="/dashboard/users/new">
                 <Plus className="mr-2 h-4 w-4" />
@@ -261,14 +255,8 @@ export default function UsersPage() {
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
                             <DropdownMenuItem asChild>
                               <Link href={`/dashboard/users/${user.id}`}>
-                                <Eye className="mr-2 h-4 w-4" />
-                                View Details
-                              </Link>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem asChild>
-                              <Link href={`/dashboard/users/${user.id}/permissions`}>
-                                <Shield className="mr-2 h-4 w-4" />
-                                Manage Permissions
+                                <Pencil className="mr-2 h-4 w-4" />
+                                Edit User
                               </Link>
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />

@@ -181,17 +181,23 @@ export default function NewUserPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="standard">Standard</SelectItem>
-                  <SelectItem value="sales">Sales</SelectItem>
-                  <SelectItem value="management">Management</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="management">Management</SelectItem>
+                  <SelectItem value="sales">Sales</SelectItem>
+                  <SelectItem value="agent">Agent</SelectItem>
+                  <SelectItem value="vault">Vault</SelectItem>
+                  <SelectItem value="packaging">Packaging</SelectItem>
+                  <SelectItem value="standard">Standard</SelectItem>
                 </SelectContent>
               </Select>
               <div className="text-sm text-muted-foreground space-y-1">
-                <p><strong>Standard:</strong> Access to Vault and Packaging only</p>
-                <p><strong>Sales:</strong> Access to Dispensaries and Orders. Can create orders for assigned accounts</p>
-                <p><strong>Management:</strong> Full access to all sections. Can approve and edit orders</p>
                 <p><strong>Admin:</strong> Full system access including user management</p>
+                <p><strong>Management:</strong> Full access to all sections. Can approve and edit orders</p>
+                <p><strong>Sales:</strong> Access to Dispensaries, Orders, Comms, Tasks, My Commissions</p>
+                <p><strong>Agent:</strong> Same access as Sales</p>
+                <p><strong>Vault:</strong> Access to Vault, Packaging, Inventory, Products</p>
+                <p><strong>Packaging:</strong> Access to Packaging, Materials, Inventory, Products</p>
+                <p><strong>Standard:</strong> Access to Vault, Packaging, Products</p>
               </div>
             </div>
 
