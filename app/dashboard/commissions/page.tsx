@@ -73,7 +73,7 @@ import {
   Loader2,
 } from 'lucide-react'
 import { format } from 'date-fns'
-import { cn } from '@/lib/utils'
+import { cn, parseLocalDate } from '@/lib/utils'
 import type { Commission, CommissionStatus, Profile } from '@/types/database'
 
 interface FilterState {
@@ -208,11 +208,11 @@ export default function CommissionsPage() {
     // Filter by date range
     if (filters.dateFrom) {
       const fromDate = new Date(filters.dateFrom + 'T00:00:00')
-      filtered = filtered.filter(c => new Date(c.order_date) >= fromDate)
+      filtered = filtered.filter(c => parseLocalDate(c.order_date) >= fromDate)
     }
     if (filters.dateTo) {
       const toDate = new Date(filters.dateTo + 'T23:59:59')
-      filtered = filtered.filter(c => new Date(c.order_date) <= toDate)
+      filtered = filtered.filter(c => parseLocalDate(c.order_date) <= toDate)
     }
 
     // Filter by salesperson
@@ -404,14 +404,14 @@ export default function CommissionsPage() {
 
     const rows = filteredCommissions.map(c => [
       c.order?.order_number || '',
-      format(new Date(c.order_date), 'yyyy-MM-dd'),
+      format(parseLocalDate(c.order_date), 'yyyy-MM-dd'),
       c.salesperson?.full_name || '',
       c.order?.customer?.business_name || '',
       c.order_total.toFixed(2),
       c.rate_applied.toFixed(2),
       c.commission_amount.toFixed(2),
       c.status,
-      c.paid_at ? format(new Date(c.paid_at), 'yyyy-MM-dd') : '',
+      c.paid_at ? format(parseLocalDate(c.paid_at), 'yyyy-MM-dd') : '',
       (c.notes || '').replace(/"/g, '""'),
     ])
 
@@ -673,7 +673,7 @@ export default function CommissionsPage() {
                         )}
                       </TableCell>
                       <TableCell>
-                        {format(new Date(commission.order_date), 'MMM d, yyyy')}
+                        {format(parseLocalDate(commission.order_date), 'MMM d, yyyy')}
                       </TableCell>
                       <TableCell>{commission.salesperson?.full_name || '—'}</TableCell>
                       <TableCell className="text-right">
@@ -761,12 +761,12 @@ export default function CommissionsPage() {
                 )}
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Order Date</span>
-                  <span>{orderDetail.order.order_date ? format(new Date(orderDetail.order.order_date), 'MMM d, yyyy') : '—'}</span>
+                  <span>{orderDetail.order.order_date ? format(parseLocalDate(orderDetail.order.order_date), 'MMM d, yyyy') : '—'}</span>
                 </div>
                 {orderDetail.order.delivery_date && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Delivery Date</span>
-                    <span>{format(new Date(orderDetail.order.delivery_date), 'MMM d, yyyy')}</span>
+                    <span>{format(parseLocalDate(orderDetail.order.delivery_date), 'MMM d, yyyy')}</span>
                   </div>
                 )}
                 {orderDetail.order.notes && (

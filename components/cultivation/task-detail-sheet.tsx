@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { format, parseISO, isPast, isToday } from 'date-fns'
+import { parseLocalDate } from '@/lib/utils'
 import {
   CheckCircle,
   Play,
@@ -62,7 +63,7 @@ export function TaskDetailSheet({
 }: TaskDetailSheetProps) {
   if (!task) return null
 
-  const dueDate = parseISO(task.due_date)
+  const dueDate = parseLocalDate(task.due_date)
   const isOverdue =
     (task.status === 'pending' || task.status === 'in_progress') &&
     isPast(dueDate) &&

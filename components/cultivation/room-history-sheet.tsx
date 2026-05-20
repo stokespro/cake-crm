@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import { createClient } from '@/lib/supabase/client'
 import { GrowRoom, GrowPhase, PHASE_CONFIG, CycleStatus } from '@/types/cultivation'
 import { format } from 'date-fns'
+import { parseLocalDate } from '@/lib/utils'
 
 const PHASE_BADGE_CLASSES: Record<GrowPhase, string> = {
   empty: 'bg-gray-500 text-white',
@@ -134,12 +135,12 @@ export function RoomHistorySheet({
                 </div>
 
                 <div className="text-sm text-muted-foreground">
-                  {format(new Date(cycle.start_date), 'MMM d, yyyy')}
+                  {format(parseLocalDate(cycle.start_date), 'MMM d, yyyy')}
                   {endDate && (
                     <>
                       {' '}
                       &rarr;{' '}
-                      {format(new Date(endDate), 'MMM d, yyyy')}
+                      {format(parseLocalDate(endDate), 'MMM d, yyyy')}
                     </>
                   )}
                 </div>

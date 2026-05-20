@@ -40,6 +40,7 @@ import {
   Loader2,
 } from 'lucide-react'
 import { format, startOfMonth, endOfMonth, subMonths, startOfQuarter, startOfYear } from 'date-fns'
+import { parseLocalDate } from '@/lib/utils'
 import type { Commission, CommissionStatus } from '@/types/database'
 
 type PeriodType = 'this-month' | 'last-month' | 'this-quarter' | 'this-year' | 'all-time' | 'custom'
@@ -151,12 +152,12 @@ export default function MyCommissionsPage() {
 
     // Filter by date range
     if (filters.dateFrom) {
-      const fromDate = new Date(filters.dateFrom + 'T00:00:00')
-      filtered = filtered.filter(c => new Date(c.order_date) >= fromDate)
+      const fromDate = parseLocalDate(filters.dateFrom)
+      filtered = filtered.filter(c => parseLocalDate(c.order_date) >= fromDate)
     }
     if (filters.dateTo) {
       const toDate = new Date(filters.dateTo + 'T23:59:59')
-      filtered = filtered.filter(c => new Date(c.order_date) <= toDate)
+      filtered = filtered.filter(c => parseLocalDate(c.order_date) <= toDate)
     }
 
     // Filter by status
@@ -424,7 +425,7 @@ export default function MyCommissionsPage() {
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">
-                        {format(new Date(commission.order_date), 'MMM d, yyyy')}
+                        {format(parseLocalDate(commission.order_date), 'MMM d, yyyy')}
                       </span>
                       <span className="text-muted-foreground">{commission.rate_applied}%</span>
                     </div>
@@ -462,7 +463,7 @@ export default function MyCommissionsPage() {
                     {filteredCommissions.map((commission) => (
                       <TableRow key={commission.id}>
                         <TableCell>
-                          {format(new Date(commission.order_date), 'MMM d, yyyy')}
+                          {format(parseLocalDate(commission.order_date), 'MMM d, yyyy')}
                         </TableCell>
                         <TableCell className="font-medium">
                           {commission.order?.order_number ? (
@@ -549,12 +550,12 @@ export default function MyCommissionsPage() {
                 )}
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Order Date</span>
-                  <span>{orderDetail.order.order_date ? format(new Date(orderDetail.order.order_date), 'MMM d, yyyy') : '—'}</span>
+                  <span>{orderDetail.order.order_date ? format(parseLocalDate(orderDetail.order.order_date), 'MMM d, yyyy') : '—'}</span>
                 </div>
                 {orderDetail.order.delivery_date && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Delivery Date</span>
-                    <span>{format(new Date(orderDetail.order.delivery_date), 'MMM d, yyyy')}</span>
+                    <span>{format(parseLocalDate(orderDetail.order.delivery_date), 'MMM d, yyyy')}</span>
                   </div>
                 )}
                 {orderDetail.order.notes && (

@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { format } from 'date-fns'
+import { parseLocalDate } from '@/lib/utils'
 import type { Task, Order } from '@/types/database'
 
 export default function DashboardPage() {
@@ -217,7 +218,7 @@ export default function DashboardPage() {
                       <p className="text-sm font-medium">{task.title}</p>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <Calendar className="h-3 w-3" />
-                        <span>Due {format(new Date(task.due_date), 'MMM d, yyyy')}</span>
+                        <span>Due {format(parseLocalDate(task.due_date), 'MMM d, yyyy')}</span>
                         {task.customer && (
                           <>
                             <span>•</span>
@@ -262,7 +263,7 @@ export default function DashboardPage() {
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <span>${order.total_price.toFixed(2)}</span>
                         <span>•</span>
-                        <span>{format(new Date(order.order_date), 'MMM d, yyyy')}</span>
+                        <span>{format(parseLocalDate(order.order_date), 'MMM d, yyyy')}</span>
                       </div>
                     </div>
                     {getStatusBadge(order.status)}

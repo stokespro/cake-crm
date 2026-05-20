@@ -46,6 +46,7 @@ import {
   ArrowLeft,
 } from 'lucide-react'
 import { format, parseISO, isPast, isToday } from 'date-fns'
+import { parseLocalDate } from '@/lib/utils'
 import Link from 'next/link'
 import { useAuth, canManageCultivation, canCompleteCultivation } from '@/lib/auth-context'
 import { createClient } from '@/lib/supabase/client'
@@ -612,7 +613,7 @@ export default function CultivationTasksPage() {
                     </TableCell>
                     <TableCell>
                       <span className={taskOverdue ? 'text-red-600 font-medium' : ''}>
-                        {format(parseISO(task.due_date), 'MMM d, yyyy')}
+                        {format(parseLocalDate(task.due_date), 'MMM d, yyyy')}
                       </span>
                     </TableCell>
                     <TableCell>{task.assigned_user?.name || 'Unassigned'}</TableCell>
@@ -700,7 +701,7 @@ export default function CultivationTasksPage() {
                 {/* Row 3: due date + assignee */}
                 <div className="flex items-center justify-between text-xs">
                   <span className={taskOverdue ? 'text-red-600 font-medium' : 'text-muted-foreground'}>
-                    Due: {format(parseISO(task.due_date), 'MMM d, yyyy')}
+                    Due: {format(parseLocalDate(task.due_date), 'MMM d, yyyy')}
                   </span>
                   <span className="text-muted-foreground">
                     {task.assigned_user?.name || 'Unassigned'}

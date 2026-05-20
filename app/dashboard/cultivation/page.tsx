@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Sprout, Clock, CheckCircle, AlertTriangle, CalendarDays, Settings, Home, CheckSquare, MessageSquare } from 'lucide-react'
 import { format, isToday, isPast, startOfWeek, endOfWeek, differenceInCalendarDays } from 'date-fns'
+import { parseLocalDate } from '@/lib/utils'
 import { useAuth, canManageCultivation, canCompleteCultivation } from '@/lib/auth-context'
 import { createClient } from '@/lib/supabase/client'
 import { GrowRoom, PHASE_CONFIG, GrowPhase, CultivationTask, TaskPriority } from '@/types/cultivation'
@@ -45,7 +46,7 @@ function getWeekProgress(room: GrowRoom): { current: number; total: number } | n
   if (phase === 'empty' || !room.phase_start_date) return null
   const config = PHASE_CONFIG[phase]
   if (!config || config.weeks === 0) return null
-  const daysSinceStart = differenceInCalendarDays(new Date(), new Date(room.phase_start_date))
+  const daysSinceStart = differenceInCalendarDays(new Date(), parseLocalDate(room.phase_start_date))
   const currentWeek = Math.min(Math.floor(daysSinceStart / 7) + 1, config.weeks)
   return { current: Math.max(currentWeek, 1), total: config.weeks }
 }
@@ -124,7 +125,7 @@ export default function CultivationPage() {
       const counts: RoomTaskCounts = {}
 
       for (const task of tasksRes.data) {
-        const dueDate = new Date(task.due_date)
+        const dueDate = parseLocalDate(task.due_date)
         const isActive = task.status === 'pending' || task.status === 'in_progress'
         const isTaskOverdue = isActive && task.due_date < todayStr
 
@@ -397,7 +398,7 @@ export default function CultivationPage() {
                   {room.phase_start_date && (
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">Started</span>
-                      <span>{format(new Date(room.phase_start_date), 'MMM d, yyyy')}</span>
+                      <span>{format(parseLocalDate(room.phase_start_date), 'MMM d, yyyy')}</span>
                     </div>
                   )}
 

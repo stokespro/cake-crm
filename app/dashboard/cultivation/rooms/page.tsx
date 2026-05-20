@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft, RotateCcw, History } from 'lucide-react'
 import { format, differenceInCalendarDays } from 'date-fns'
+import { parseLocalDate } from '@/lib/utils'
 import { useAuth, canManageCultivation } from '@/lib/auth-context'
 import { createClient } from '@/lib/supabase/client'
 import { GrowRoom, PHASE_CONFIG, GrowPhase } from '@/types/cultivation'
@@ -27,7 +28,7 @@ function getWeekProgress(room: GrowRoom): { current: number; total: number } | n
   if (phase === 'empty' || !room.phase_start_date) return null
   const config = PHASE_CONFIG[phase]
   if (!config || config.weeks === 0) return null
-  const daysSinceStart = differenceInCalendarDays(new Date(), new Date(room.phase_start_date))
+  const daysSinceStart = differenceInCalendarDays(new Date(), parseLocalDate(room.phase_start_date))
   const currentWeek = Math.min(Math.floor(daysSinceStart / 7) + 1, config.weeks)
   return { current: Math.max(currentWeek, 1), total: config.weeks }
 }
@@ -178,7 +179,7 @@ export default function RoomsPage() {
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-muted-foreground">Started</span>
                         <span>
-                          {format(new Date(room.phase_start_date), 'MMM d, yyyy')}
+                          {format(parseLocalDate(room.phase_start_date), 'MMM d, yyyy')}
                         </span>
                       </div>
                     )}

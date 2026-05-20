@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/select'
 import { Plus, Search, Calendar, CheckCircle, Clock, AlertCircle } from 'lucide-react'
 import { format } from 'date-fns'
+import { parseLocalDate } from '@/lib/utils'
 import type { Task } from '@/types/database'
 
 export default function TasksPage() {
@@ -132,7 +133,7 @@ export default function TasksPage() {
   }
 
   const isOverdue = (dueDate: string) => {
-    return new Date(dueDate) < new Date() && tasks.find(t => t.due_date === dueDate)?.status === 'pending'
+    return parseLocalDate(dueDate) < new Date() && tasks.find(t => t.due_date === dueDate)?.status === 'pending'
   }
 
   if (loading) {
@@ -250,7 +251,7 @@ export default function TasksPage() {
                       <div className="flex items-center gap-1">
                         <Calendar className="h-4 w-4 text-muted-foreground" />
                         <span className={isOverdue(task.due_date) ? 'text-red-600 font-medium' : 'text-muted-foreground'}>
-                          Due {format(new Date(task.due_date), 'MMM d, yyyy')}
+                          Due {format(parseLocalDate(task.due_date), 'MMM d, yyyy')}
                         </span>
                       </div>
                       {task.status === 'pending' && (

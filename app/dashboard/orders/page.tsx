@@ -49,6 +49,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { format, parseISO } from 'date-fns'
+import { parseLocalDate } from '@/lib/utils'
 import { StatusBadgeDropdown } from '@/components/orders/status-badge-dropdown'
 import type { Order, OrderStatus } from '@/types/database'
 
@@ -244,19 +245,19 @@ export default function OrdersPage() {
 
     // Filter by delivery date range
     if (filterDeliveryFrom) {
-      const fromDate = parseISO(filterDeliveryFrom)
+      const fromDate = parseLocalDate(filterDeliveryFrom)
       filtered = filtered.filter(order => {
         if (!order.requested_delivery_date) return false
-        const deliveryDate = parseISO(order.requested_delivery_date)
+        const deliveryDate = parseLocalDate(order.requested_delivery_date)
         return deliveryDate >= fromDate
       })
     }
 
     if (filterDeliveryTo) {
-      const toDate = parseISO(filterDeliveryTo + 'T23:59:59')
+      const toDate = new Date(filterDeliveryTo + 'T23:59:59')
       filtered = filtered.filter(order => {
         if (!order.requested_delivery_date) return false
-        const deliveryDate = parseISO(order.requested_delivery_date)
+        const deliveryDate = parseLocalDate(order.requested_delivery_date)
         return deliveryDate <= toDate
       })
     }
@@ -280,12 +281,12 @@ export default function OrdersPage() {
           bVal = b.status
           break
         case 'order_date':
-          aVal = a.order_date ? parseISO(a.order_date).getTime() : 0
-          bVal = b.order_date ? parseISO(b.order_date).getTime() : 0
+          aVal = a.order_date ? parseLocalDate(a.order_date).getTime() : 0
+          bVal = b.order_date ? parseLocalDate(b.order_date).getTime() : 0
           break
         case 'delivery_date':
-          aVal = a.requested_delivery_date ? parseISO(a.requested_delivery_date).getTime() : 0
-          bVal = b.requested_delivery_date ? parseISO(b.requested_delivery_date).getTime() : 0
+          aVal = a.requested_delivery_date ? parseLocalDate(a.requested_delivery_date).getTime() : 0
+          bVal = b.requested_delivery_date ? parseLocalDate(b.requested_delivery_date).getTime() : 0
           break
         case 'total':
           aVal = a.total_price || 0
@@ -952,11 +953,11 @@ export default function OrdersPage() {
                     <StatusBadgeDropdown orderId={order.id} currentStatus={order.status} canChangeStatus={canApproveOrders} onStatusChange={quickUpdateStatus} />
                   </TableCell>
                   <TableCell>
-                    {format(parseISO(order.order_date), 'MMM d, yyyy')}
+                    {format(parseLocalDate(order.order_date), 'MMM d, yyyy')}
                   </TableCell>
                   <TableCell>
                     {order.requested_delivery_date
-                      ? format(parseISO(order.requested_delivery_date), 'MMM d, yyyy')
+                      ? format(parseLocalDate(order.requested_delivery_date), 'MMM d, yyyy')
                       : '—'}
                   </TableCell>
                   <TableCell className="text-right font-medium">
@@ -1029,7 +1030,7 @@ export default function OrdersPage() {
                           {order.requested_delivery_date && (
                             <div className="flex items-center gap-1">
                               <Truck className="h-4 w-4" />
-                              {format(parseISO(order.requested_delivery_date), 'MMM d, yyyy')}
+                              {format(parseLocalDate(order.requested_delivery_date), 'MMM d, yyyy')}
                             </div>
                           )}
                         </div>
@@ -1232,7 +1233,7 @@ export default function OrdersPage() {
                   <h3 className="text-sm font-medium text-muted-foreground mb-1">Order Date</h3>
                   <p className="flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-muted-foreground" />
-                    {format(parseISO(selectedOrder.order_date), 'MMM d, yyyy')}
+                    {format(parseLocalDate(selectedOrder.order_date), 'MMM d, yyyy')}
                   </p>
                 </div>
                 <div>
@@ -1240,7 +1241,7 @@ export default function OrdersPage() {
                   <p className="flex items-center gap-2">
                     <Truck className="h-4 w-4 text-muted-foreground" />
                     {selectedOrder.requested_delivery_date
-                      ? format(parseISO(selectedOrder.requested_delivery_date), 'MMM d, yyyy')
+                      ? format(parseLocalDate(selectedOrder.requested_delivery_date), 'MMM d, yyyy')
                       : '—'}
                   </p>
                 </div>
@@ -1373,7 +1374,7 @@ export default function OrdersPage() {
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Order Date</label>
-                  <p className="text-sm py-2">{editForm.order_date ? format(parseISO(editForm.order_date), 'MMM d, yyyy') : '—'}</p>
+                  <p className="text-sm py-2">{editForm.order_date ? format(parseLocalDate(editForm.order_date), 'MMM d, yyyy') : '—'}</p>
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Requested Delivery Date</label>

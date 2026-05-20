@@ -49,6 +49,7 @@ import { OrderSheet } from '@/components/orders/order-sheet'
 import { CustomerPricingSection } from '@/components/dispensary/customer-pricing'
 import { DispensaryContacts } from '@/components/dispensaries/dispensary-contacts'
 import { DispensaryProfile, Order } from '@/types/database'
+import { parseLocalDate } from '@/lib/utils'
 import { StatusBadgeDropdown } from '@/components/orders/status-badge-dropdown'
 import { toast } from 'sonner'
 
@@ -244,7 +245,9 @@ export default function DispensaryDetailPage() {
   }
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+    // Use parseLocalDate for date-only strings (YYYY-MM-DD) to avoid UTC off-by-one
+    const date = dateString.includes('T') ? new Date(dateString) : parseLocalDate(dateString)
+    return date.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
       year: 'numeric'
