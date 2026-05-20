@@ -817,7 +817,7 @@ function TaskCard({
                     <div key={idx} className="flex justify-between text-sm">
                       <span>
                         {source.deliveryDate && (
-                          <span className="font-medium">{format(new Date(source.deliveryDate), 'MMM d')}</span>
+                          <span className="font-medium">{format(new Date(source.deliveryDate + 'T00:00:00'), 'MMM d')}</span>
                         )}
                         {source.deliveryDate && ' — '}
                         {source.customerName}
