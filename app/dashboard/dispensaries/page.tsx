@@ -85,6 +85,7 @@ interface FilterState {
   hasOrders: boolean
   startDate: string
   endDate: string
+  status: string
   page: number
 }
 
@@ -96,6 +97,7 @@ function parseSearchParams(searchParams: URLSearchParams): FilterState {
     hasOrders: searchParams.get('hasOrders') === 'true',
     startDate: searchParams.get('startDate') || '',
     endDate: searchParams.get('endDate') || '',
+    status: searchParams.get('status') || 'active',
     page: parseInt(searchParams.get('page') || '1', 10),
   }
 }
@@ -108,6 +110,7 @@ function buildSearchParams(filters: FilterState): URLSearchParams {
   if (filters.hasOrders) params.set('hasOrders', 'true')
   if (filters.startDate) params.set('startDate', filters.startDate)
   if (filters.endDate) params.set('endDate', filters.endDate)
+  if (filters.status && filters.status !== 'active') params.set('status', filters.status)
   if (filters.page > 1) params.set('page', filters.page.toString())
   return params
 }
@@ -119,6 +122,7 @@ function countActiveFilters(filters: FilterState): number {
   if (filters.salesPersonId) count++
   if (filters.hasOrders) count++
   if (filters.startDate || filters.endDate) count++
+  if (filters.status && filters.status !== 'active') count++
   return count
 }
 
@@ -270,6 +274,13 @@ function DispensariesPageContent() {
           }
         }
 
+        // Apply status filter
+        if (filters.status === 'active') {
+          query = query.eq('is_active', true)
+        } else if (filters.status === 'inactive') {
+          query = query.eq('is_active', false)
+        }
+
         // Apply has orders filter
         if (filters.hasOrders) {
           query = query.eq('has_orders', true)
@@ -395,7 +406,25 @@ function DispensariesPageContent() {
               </div>
 
               {/* Filter Row */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                {/* Status Filter */}
+                <div className="space-y-2">
+                  <Label>Status</Label>
+                  <Select
+                    value={filters.status || 'active'}
+                    onValueChange={(value) => updateFilters({ status: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Active" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 {/* City Combobox */}
                 <div className="space-y-2">
                   <Label>City</Label>
@@ -659,7 +688,12 @@ function DispensariesPageContent() {
                           <div className="flex items-center gap-2">
                             <Building2 className="h-4 w-4 text-muted-foreground" />
                             <div>
-                              <div className="font-medium">{dispensary.business_name}</div>
+                              <div className="font-medium flex items-center gap-2">
+                                {dispensary.business_name}
+                                {dispensary.is_active === false && (
+                                  <Badge variant="secondary" className="text-xs font-normal">Inactive</Badge>
+                                )}
+                              </div>
                               <div className="text-sm text-muted-foreground md:hidden">
                                 {dispensary.city && <span>{dispensary.city}</span>}
                                 {dispensary.phone_number && (

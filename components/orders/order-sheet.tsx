@@ -34,6 +34,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
+import { Switch } from '@/components/ui/switch'
 import { Loader2, Plus, Trash2, Check, ChevronsUpDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Customer, Order } from '@/types/database'
@@ -84,6 +85,7 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [customerOpen, setCustomerOpen] = useState(false)
+  const [showAllCustomers, setShowAllCustomers] = useState(false)
   const supabase = createClient()
 
   // Fetch customer pricing when customer changes
@@ -514,7 +516,19 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
 
             <div className="grid grid-cols-1 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="customer">Customer *</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="customer">Customer *</Label>
+                  {!customerId && !order && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">Show inactive</span>
+                      <Switch
+                        checked={showAllCustomers}
+                        onCheckedChange={setShowAllCustomers}
+                        className="scale-75"
+                      />
+                    </div>
+                  )}
+                </div>
                 <Popover open={customerOpen} onOpenChange={setCustomerOpen}>
                   <PopoverTrigger asChild>
                     <Button
@@ -540,7 +554,9 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
                       <CommandList>
                         <CommandEmpty>No customer found.</CommandEmpty>
                         <CommandGroup>
-                          {customers.map((customer) => (
+                          {customers
+                            .filter((customer) => showAllCustomers || customer.is_active !== false)
+                            .map((customer) => (
                             <CommandItem
                               key={customer.id}
                               value={`${customer.business_name} ${customer.license_name || ''} ${customer.omma_license || ''} ${customer.city || ''}`}
@@ -556,7 +572,12 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
                                 )}
                               />
                               <div className="flex flex-col">
-                                <span>{customer.business_name}</span>
+                                <span>
+                                  {customer.business_name}
+                                  {customer.is_active === false && (
+                                    <span className="ml-2 text-xs text-muted-foreground">(Inactive)</span>
+                                  )}
+                                </span>
                                 {(customer.license_name || customer.city) && (
                                   <span className="text-xs text-muted-foreground">
                                     {[customer.license_name, customer.city].filter(Boolean).join(' • ')}

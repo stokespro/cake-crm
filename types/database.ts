@@ -55,6 +55,7 @@ export interface Customer {
   email?: string
   omma_license?: string
   ob_license?: string
+  is_active?: boolean
   assigned_sales_id?: string
   has_orders?: boolean
   first_order_date?: string

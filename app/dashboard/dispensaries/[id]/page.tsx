@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
 import { ArrowLeft, Building2, Phone, Mail, MapPin, FileText, MessageSquare, ShoppingCart, BarChart3, Plus, Edit, MoreHorizontal, Trash2, Search, Users } from 'lucide-react'
 import Link from 'next/link'
 import { useAuth, canCreateOrder, canEditOrder, canDeleteOrder, canAssignSales, canApproveOrder } from '@/lib/auth-context'
@@ -306,6 +308,23 @@ export default function DispensaryDetailPage() {
     }
   }
 
+  const handleToggleActive = async (isActive: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('customers')
+        .update({ is_active: isActive, updated_at: new Date().toISOString() })
+        .eq('id', dispensaryId)
+
+      if (error) throw error
+
+      toast.success(isActive ? 'Dispensary marked as active' : 'Dispensary marked as inactive')
+      fetchDispensary()
+    } catch (error) {
+      console.error('Error updating active status:', error)
+      toast.error('Failed to update active status')
+    }
+  }
+
   const handleDeleteOrder = async (order: OrderWithAgent) => {
     try {
       // First delete order items
@@ -423,7 +442,19 @@ export default function DispensaryDetailPage() {
           <h1 className="text-2xl md:text-3xl font-bold">{dispensary.business_name}</h1>
           <p className="text-muted-foreground">Dispensary Profile</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-3">
+          {canManageDispensaries && (
+            <div className="flex items-center gap-2">
+              <Label htmlFor="active-toggle" className="text-sm text-muted-foreground">
+                {dispensary.is_active === false ? 'Inactive' : 'Active'}
+              </Label>
+              <Switch
+                id="active-toggle"
+                checked={dispensary.is_active !== false}
+                onCheckedChange={handleToggleActive}
+              />
+            </div>
+          )}
           {canManageDispensaries && (
             <Button onClick={() => setEditDispensaryOpen(true)}>
               <Edit className="mr-2 h-4 w-4" />

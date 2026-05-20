@@ -14,6 +14,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { Switch } from '@/components/ui/switch'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -32,6 +33,7 @@ interface FormData {
   email: string
   omma_license: string
   ob_license: string
+  is_active: boolean
 }
 
 export function EditDispensarySheet({
@@ -47,7 +49,8 @@ export function EditDispensarySheet({
     phone_number: dispensary?.phone_number || '',
     email: dispensary?.email || '',
     omma_license: dispensary?.omma_license || '',
-    ob_license: dispensary?.ob_license || ''
+    ob_license: dispensary?.ob_license || '',
+    is_active: dispensary?.is_active !== false
   })
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<Partial<FormData>>({})
@@ -62,7 +65,8 @@ export function EditDispensarySheet({
       phone_number: dispensary?.phone_number || '',
       email: dispensary?.email || '',
       omma_license: dispensary?.omma_license || '',
-      ob_license: dispensary?.ob_license || ''
+      ob_license: dispensary?.ob_license || '',
+      is_active: dispensary?.is_active !== false
     })
     setErrors({})
   }
@@ -125,6 +129,7 @@ export function EditDispensarySheet({
         email: formData.email.trim() || null,
         omma_license: formData.omma_license.trim() || null,
         ob_license: formData.ob_license.trim() || null,
+        is_active: formData.is_active,
         updated_at: new Date().toISOString()
       }
 
@@ -261,6 +266,22 @@ export function EditDispensarySheet({
                 placeholder="OB-XXXX-XXXX"
                 value={formData.ob_license}
                 onChange={(e) => handleInputChange('ob_license', e.target.value)}
+                disabled={loading}
+              />
+            </div>
+
+            {/* Active Status */}
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <div className="space-y-0.5">
+                <Label htmlFor="is_active" className="text-sm font-medium">Active Status</Label>
+                <p className="text-xs text-muted-foreground">
+                  Inactive dispensaries are hidden from default lists and dropdowns
+                </p>
+              </div>
+              <Switch
+                id="is_active"
+                checked={formData.is_active}
+                onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_active: checked }))}
                 disabled={loading}
               />
             </div>
