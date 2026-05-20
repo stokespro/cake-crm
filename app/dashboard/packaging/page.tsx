@@ -817,12 +817,12 @@ function TaskCard({
                   {orderSources.map((source, idx) => (
                     <div key={idx} className="flex justify-between text-sm">
                       <span>
-                        {source.deliveryDate && source.deliveryDate.length >= 10 && (
+                        {source.deliveryDate && (
                           <span className="font-medium">
-                            {format(parseLocalDate(source.deliveryDate), 'MMM d')}
+                            {format(source.deliveryDate instanceof Date ? source.deliveryDate : parseLocalDate(source.deliveryDate), 'MMM d')}
                           </span>
                         )}
-                        {source.deliveryDate && source.deliveryDate.length >= 10 && ' — '}
+                        {source.deliveryDate && ' — '}
                         {source.customerName}
                       </span>
                       <span className="text-muted-foreground">x{source.quantity}</span>
