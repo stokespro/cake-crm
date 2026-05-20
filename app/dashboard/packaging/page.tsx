@@ -1,6 +1,7 @@
 'use client'
 
 import { format } from 'date-fns'
+import { parseLocalDate } from '@/lib/utils'
 import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -816,10 +817,12 @@ function TaskCard({
                   {orderSources.map((source, idx) => (
                     <div key={idx} className="flex justify-between text-sm">
                       <span>
-                        {source.deliveryDate && (
-                          <span className="font-medium">{format(new Date(source.deliveryDate + 'T00:00:00'), 'MMM d')}</span>
+                        {source.deliveryDate && source.deliveryDate.length >= 10 && (
+                          <span className="font-medium">
+                            {format(parseLocalDate(source.deliveryDate), 'MMM d')}
+                          </span>
                         )}
-                        {source.deliveryDate && ' — '}
+                        {source.deliveryDate && source.deliveryDate.length >= 10 && ' — '}
                         {source.customerName}
                       </span>
                       <span className="text-muted-foreground">x{source.quantity}</span>
