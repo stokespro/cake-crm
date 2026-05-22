@@ -31,7 +31,7 @@ export interface Order {
   id: string;
   customerName: string;         // Column A
   status: OrderStatus;          // Column B
-  deliveryDate: Date | null;    // Column Q - scheduled delivery date
+  deliveryDate: string | null;    // Column Q - scheduled delivery date (YYYY-MM-DD string)
   lastDeliveryDate: string;     // Column R - actual date when last delivered
   orderBackup: OrderBackup | null; // Column S - JSON backup of last delivered order
   lineItems: OrderLineItem[];
@@ -78,7 +78,7 @@ export interface TaskSource {
   orderId?: string;
   customerName?: string;
   quantity: number;
-  deliveryDate?: Date | string | null;
+  deliveryDate?: string | null;
 }
 
 // Packaging task

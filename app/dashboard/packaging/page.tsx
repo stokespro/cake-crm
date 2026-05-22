@@ -819,7 +819,7 @@ function TaskCard({
                       <span>
                         {source.deliveryDate && (
                           <span className="font-medium">
-                            {format(source.deliveryDate instanceof Date ? source.deliveryDate : parseLocalDate(source.deliveryDate), 'MMM d')}
+                            {format(parseLocalDate(source.deliveryDate), 'MMM d')}
                           </span>
                         )}
                         {source.deliveryDate && ' — '}

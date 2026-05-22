@@ -278,7 +278,7 @@ export async function readOrders(): Promise<Order[]> {
       id: order.id,
       customerName: (customer as { business_name: string } | null)?.business_name || 'Unknown',
       status: statusMap[order.status] || '',
-      deliveryDate: order.requested_delivery_date ? new Date(order.requested_delivery_date + 'T00:00:00') : null,
+      deliveryDate: order.requested_delivery_date || null,
       lastDeliveryDate: order.actual_delivery_date || '',
       orderBackup: null,
       lineItems,

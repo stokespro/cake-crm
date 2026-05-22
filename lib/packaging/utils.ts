@@ -96,14 +96,23 @@ export function formatTime(date: Date): string {
   });
 }
 
+// Parse a YYYY-MM-DD string into a local Date (avoids timezone shift)
+function parseDate(date: Date | string): Date {
+  if (typeof date === 'string') {
+    const [y, m, d] = date.split('-').map(Number);
+    return new Date(y, m - 1, d);
+  }
+  return date;
+}
+
 // Calculate days until date (negative if past)
-export function daysUntil(date: Date | null): number | null {
+export function daysUntil(date: Date | string | null): number | null {
   if (!date) return null;
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const targetDate = new Date(date);
+  const targetDate = parseDate(date);
   targetDate.setHours(0, 0, 0, 0);
 
   const diffTime = targetDate.getTime() - today.getTime();
