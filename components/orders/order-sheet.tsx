@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/lib/auth-context'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -86,6 +87,7 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
   const [error, setError] = useState<string | null>(null)
   const [customerOpen, setCustomerOpen] = useState(false)
   const [showAllCustomers, setShowAllCustomers] = useState(false)
+  const { user } = useAuth()
   const supabase = createClient()
 
   // Fetch customer pricing when customer changes
@@ -442,6 +444,7 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
           .from('orders')
           .insert({
             customer_id: selectedCustomerId,
+            agent_id: user?.id || null,
             order_notes: orderNotes || null,
             requested_delivery_date: requestedDeliveryDate,
             status: 'pending',
