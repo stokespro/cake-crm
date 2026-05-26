@@ -114,8 +114,9 @@ export default function OrdersPage() {
   const [deleteOrderNumber, setDeleteOrderNumber] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('card')
-  const [sortField, setSortField] = useState<SortField>('order_date')
-  const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
+  const [sortField, setSortField] = useState<SortField>('delivery_date')
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
+  const [userSortOverride, setUserSortOverride] = useState(false)
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
   const [sheetEditMode, setSheetEditMode] = useState(false)
@@ -140,7 +141,7 @@ export default function OrdersPage() {
 
   useEffect(() => {
     filterAndSortOrders()
-  }, [orders, searchTerm, filterStatus, filterDeliveryFrom, filterDeliveryTo, sortField, sortDirection])
+  }, [orders, searchTerm, filterStatus, filterDeliveryFrom, filterDeliveryTo, sortField, sortDirection, userSortOverride])
 
   const fetchSKUs = async () => {
     try {
@@ -192,7 +193,7 @@ export default function OrdersPage() {
         }
       }
 
-      const { data, error } = await query.order('order_date', { ascending: false })
+      const { data, error } = await query.order('requested_delivery_date', { ascending: true })
 
       if (error) throw error
 
@@ -262,8 +263,24 @@ export default function OrdersPage() {
       })
     }
 
+    // Status priority weights — pending (upcoming) first
+    const STATUS_WEIGHT: Record<string, number> = {
+      pending: 0,
+      confirmed: 1,
+      packed: 2,
+      delivered: 3,
+      cancelled: 4,
+    }
+
     // Sort
     filtered.sort((a, b) => {
+      // On default sort (no user override), group by status priority first
+      if (!userSortOverride) {
+        const aWeight = STATUS_WEIGHT[a.status] ?? 99
+        const bWeight = STATUS_WEIGHT[b.status] ?? 99
+        if (aWeight !== bWeight) return aWeight - bWeight
+      }
+
       let aVal: string | number | null = null
       let bVal: string | number | null = null
 
@@ -277,8 +294,8 @@ export default function OrdersPage() {
           bVal = b.customer?.business_name?.toLowerCase() || ''
           break
         case 'status':
-          aVal = a.status
-          bVal = b.status
+          aVal = STATUS_WEIGHT[a.status] ?? 99
+          bVal = STATUS_WEIGHT[b.status] ?? 99
           break
         case 'order_date':
           aVal = a.order_date ? parseLocalDate(a.order_date).getTime() : 0
@@ -304,6 +321,7 @@ export default function OrdersPage() {
   }
 
   const toggleSort = (field: SortField) => {
+    setUserSortOverride(true)
     if (sortField === field) {
       setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')
     } else {
