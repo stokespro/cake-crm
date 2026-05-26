@@ -36,6 +36,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { Switch } from '@/components/ui/switch'
+import { toast } from 'sonner'
 import { Loader2, Plus, Trash2, Check, ChevronsUpDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Customer, Order } from '@/types/database'
@@ -381,6 +382,11 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
     e.preventDefault()
     setError(null)
 
+    if (!user?.id) {
+      toast.error('Not authenticated. Please log in again.')
+      return
+    }
+
     if (!validateForm()) {
       return
     }
@@ -444,7 +450,7 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
           .from('orders')
           .insert({
             customer_id: selectedCustomerId,
-            agent_id: user?.id || null,
+            agent_id: user.id,
             order_notes: orderNotes || null,
             requested_delivery_date: requestedDeliveryDate,
             status: 'pending',
