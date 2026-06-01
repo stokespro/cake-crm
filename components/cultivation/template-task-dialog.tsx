@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/select'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
-import { TemplateTask, TaskPriority } from '@/types/cultivation'
+import { TemplateTask, TaskPriority, STAGE_ORDER, PHASE_CONFIG, PipelineStage } from '@/types/cultivation'
 
 const PRIORITY_OPTIONS: { value: TaskPriority; label: string }[] = [
   { value: 'low', label: 'Low' },
@@ -31,6 +31,11 @@ const PRIORITY_OPTIONS: { value: TaskPriority; label: string }[] = [
   { value: 'critical', label: 'Critical' },
 ]
 
+const STAGE_OPTIONS = STAGE_ORDER.map((s) => ({
+  value: s,
+  label: PHASE_CONFIG[s].label,
+}))
+
 interface TemplateTaskDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -38,6 +43,7 @@ interface TemplateTaskDialogProps {
   task: TemplateTask | null
   maxSortOrder: number
   defaultDay?: number
+  isMasterTemplate?: boolean
   onSaved: () => void
 }
 
@@ -48,6 +54,7 @@ export function TemplateTaskDialog({
   task,
   maxSortOrder,
   defaultDay,
+  isMasterTemplate,
   onSaved,
 }: TemplateTaskDialogProps) {
   const [name, setName] = useState('')
@@ -55,6 +62,7 @@ export function TemplateTaskDialog({
   const [dayNumber, setDayNumber] = useState('1')
   const [estimatedMinutes, setEstimatedMinutes] = useState('')
   const [priority, setPriority] = useState<TaskPriority>('medium')
+  const [stage, setStage] = useState<string>('')
   const [saving, setSaving] = useState(false)
 
   const isEditing = !!task
@@ -68,12 +76,14 @@ export function TemplateTaskDialog({
         task.estimated_minutes !== null ? String(task.estimated_minutes) : ''
       )
       setPriority(task.priority)
+      setStage(task.stage || '')
     } else {
       setName('')
       setDescription('')
       setDayNumber(defaultDay ? String(defaultDay) : '1')
       setEstimatedMinutes('')
       setPriority('medium')
+      setStage('')
     }
   }, [task, open, defaultDay])
 
@@ -88,6 +98,11 @@ export function TemplateTaskDialog({
     const day = parseInt(dayNumber, 10)
     if (isNaN(day) || day < 1 || day > 365) {
       toast.error('Day must be between 1 and 365')
+      return
+    }
+
+    if (isMasterTemplate && !stage) {
+      toast.error('Stage is required for master template tasks')
       return
     }
 
@@ -108,6 +123,7 @@ export function TemplateTaskDialog({
       day_number: day,
       estimated_minutes: minutes,
       priority,
+      stage: stage || null,
     }
 
     if (isEditing) {
@@ -177,6 +193,27 @@ export function TemplateTaskDialog({
               placeholder="Optional details..."
               rows={2}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="task-stage">
+              Stage {isMasterTemplate ? '*' : ''}
+            </Label>
+            <Select value={stage} onValueChange={setStage}>
+              <SelectTrigger id="task-stage">
+                <SelectValue placeholder="Select stage" />
+              </SelectTrigger>
+              <SelectContent>
+                {!isMasterTemplate && (
+                  <SelectItem value="none">None</SelectItem>
+                )}
+                {STAGE_OPTIONS.map((s) => (
+                  <SelectItem key={s.value} value={s.value}>
+                    {s.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">

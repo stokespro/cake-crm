@@ -13,7 +13,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Checkbox } from '@/components/ui/checkbox'
 import {
   Select,
   SelectContent,
@@ -25,183 +24,152 @@ import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import {
   GrowRoom,
-  GrowPhase,
-  PHASE_CONFIG,
   CycleTemplate,
+  RoomCycle,
+  STAGE_ORDER,
+  PHASE_CONFIG,
+  PipelineStage,
 } from '@/types/cultivation'
 import { format } from 'date-fns'
 
-const FLIP_PHASES = (
-  Object.entries(PHASE_CONFIG) as [GrowPhase, { label: string; color: string }][]
-).filter(([key]) => key !== 'empty')
+// ─── Start Cycle Dialog ───
 
-interface FlipRoomDialogProps {
+interface StartCycleDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   room: GrowRoom | null
-  pairedRoom: GrowRoom | null
   userId: string
-  onFlipped: () => void
+  onCompleted: () => void
 }
 
-export function FlipRoomDialog({
+export function StartCycleDialog({
   open,
   onOpenChange,
   room,
-  pairedRoom,
   userId,
-  onFlipped,
-}: FlipRoomDialogProps) {
-  const [newPhase, setNewPhase] = useState<string>('')
+  onCompleted,
+}: StartCycleDialogProps) {
   const [templateId, setTemplateId] = useState<string>('none')
   const [startDate, setStartDate] = useState(format(new Date(), 'yyyy-MM-dd'))
+  const [cycleNumber, setCycleNumber] = useState('')
   const [notes, setNotes] = useState('')
-  const [flipPaired, setFlipPaired] = useState(false)
   const [templates, setTemplates] = useState<CycleTemplate[]>([])
   const [saving, setSaving] = useState(false)
 
-  // Reset form when dialog opens
   useEffect(() => {
-    if (open) {
-      setNewPhase('')
-      setTemplateId('none')
-      setStartDate(format(new Date(), 'yyyy-MM-dd'))
-      setNotes('')
-      setFlipPaired(false)
-      setTemplates([])
-    }
-  }, [open])
+    if (!open || !room) return
+    setTemplateId('none')
+    setStartDate(format(new Date(), 'yyyy-MM-dd'))
+    setNotes('')
 
-  // Fetch templates when phase changes
-  useEffect(() => {
-    if (!newPhase || newPhase === 'empty') {
-      setTemplates([])
-      setTemplateId('none')
-      return
-    }
-
-    async function fetchTemplates() {
+    async function init() {
       const supabase = createClient()
-      const { data } = await supabase
+
+      // Fetch master templates
+      const { data: tplData } = await supabase
         .from('cycle_templates')
         .select('*')
-        .eq('phase', newPhase)
+        .eq('template_type', 'master')
         .eq('is_active', true)
         .order('name')
 
-      if (data) {
-        setTemplates(data as CycleTemplate[])
-      }
-      setTemplateId('none')
+      if (tplData) setTemplates(tplData as CycleTemplate[])
+
+      // Auto-increment cycle_number
+      const { data: lastCycle } = await supabase
+        .from('room_cycles')
+        .select('cycle_number')
+        .eq('room_id', room!.id)
+        .not('cycle_number', 'is', null)
+        .order('cycle_number', { ascending: false })
+        .limit(1)
+        .single()
+
+      const nextNum = lastCycle?.cycle_number ? lastCycle.cycle_number + 1 : 1
+      setCycleNumber(String(nextNum))
     }
 
-    fetchTemplates()
-  }, [newPhase])
+    init()
+  }, [open, room])
 
-  async function flipRoom(
-    roomId: string,
-    phase: GrowPhase,
-    selectedTemplateId: string | null,
-    date: string,
-    roomNotes: string
-  ): Promise<number> {
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!room) return
+
+    if (templateId === 'none') {
+      toast.error('Please select a master template')
+      return
+    }
+    if (!startDate) {
+      toast.error('Please select a start date')
+      return
+    }
+
+    setSaving(true)
     const supabase = createClient()
 
-    // 1. Close current cycle (if one exists)
-    const { data: activeCycle } = await supabase
-      .from('room_cycles')
-      .select('id')
-      .eq('room_id', roomId)
-      .eq('status', 'active')
-      .single()
+    try {
+      const selectedTemplate = templates.find((t) => t.id === templateId)
+      if (!selectedTemplate) throw new Error('Template not found')
 
-    if (activeCycle) {
-      await supabase
-        .from('room_cycles')
-        .update({
-          actual_end_date: new Date().toISOString().split('T')[0],
-          status: 'completed',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', activeCycle.id)
+      const durationDays = selectedTemplate.duration_days || 127
+      const startDateObj = new Date(startDate + 'T00:00:00')
+      const expectedEnd = new Date(startDateObj)
+      expectedEnd.setDate(expectedEnd.getDate() + durationDays)
+      const expectedEndDate = expectedEnd.toISOString().split('T')[0]
 
-      // Skip remaining pending tasks on the old cycle
-      await supabase
-        .from('cultivation_tasks')
-        .update({ status: 'skipped', updated_at: new Date().toISOString() })
-        .eq('room_cycle_id', activeCycle.id)
-        .eq('status', 'pending')
-    }
+      const cycleNum = parseInt(cycleNumber, 10) || null
 
-    // 2. Update the room
-    await supabase
-      .from('grow_rooms')
-      .update({
-        current_phase: phase,
-        phase_start_date: date,
-        notes: roomNotes || null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', roomId)
-
-    // 3. Create new cycle (if not setting to 'empty')
-    let newCycleId: string | null = null
-    if (phase !== 'empty') {
-      const selectedTemplate = selectedTemplateId
-        ? templates.find(t => t.id === selectedTemplateId)
-        : null
-      const durationDays = selectedTemplate?.duration_days || 0
-      const startDateObj = new Date(date + 'T00:00:00')
-      let expectedEndDate: string | null = null
-      if (durationDays > 0) {
-        const expectedEnd = new Date(startDateObj)
-        expectedEnd.setDate(expectedEnd.getDate() + durationDays)
-        expectedEndDate = expectedEnd.toISOString().split('T')[0]
-      }
-
-      const { data: newCycle } = await supabase
+      // 1. Create room_cycles with current_stage = 'clone'
+      const { data: newCycle, error: cycleErr } = await supabase
         .from('room_cycles')
         .insert({
-          room_id: roomId,
-          template_id: selectedTemplateId,
-          phase,
-          start_date: date,
+          room_id: room.id,
+          template_id: templateId,
+          current_stage: 'clone',
+          cycle_number: cycleNum,
+          start_date: startDate,
           expected_end_date: expectedEndDate,
           status: 'active',
-          notes: roomNotes || null,
+          notes: notes.trim() || null,
           created_by: userId,
         })
         .select('id')
         .single()
 
-      newCycleId = newCycle?.id || null
-    }
+      if (cycleErr || !newCycle) throw cycleErr || new Error('Failed to create cycle')
 
-    // 4. Auto-generate tasks from template
-    let taskCount = 0
-    if (selectedTemplateId && newCycleId) {
+      // 2. Update grow_rooms
+      await supabase
+        .from('grow_rooms')
+        .update({
+          current_phase: 'clone',
+          phase_start_date: startDate,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', room.id)
+
+      // 3. Generate ALL tasks from the master template
       const { data: templateTasks } = await supabase
         .from('template_tasks')
         .select('*')
-        .eq('template_id', selectedTemplateId)
+        .eq('template_id', templateId)
         .order('day_number')
         .order('sort_order')
 
+      let taskCount = 0
       if (templateTasks && templateTasks.length > 0) {
-        const startDateObj = new Date(date + 'T00:00:00')
-
         const tasksToInsert = templateTasks.map((tt) => {
           const dueDate = new Date(startDateObj)
           dueDate.setDate(dueDate.getDate() + (tt.day_number - 1))
-
           return {
-            room_cycle_id: newCycleId,
-            room_id: roomId,
+            room_cycle_id: newCycle.id,
+            room_id: room.id,
             template_task_id: tt.id,
             title: tt.name,
             description: tt.description,
             task_type: 'scheduled' as const,
-            phase,
+            phase: tt.stage, // stage from template_task becomes phase on cultivation_task
             day_number: tt.day_number,
             due_date: dueDate.toISOString().split('T')[0],
             priority: tt.priority,
@@ -214,60 +182,15 @@ export function FlipRoomDialog({
         await supabase.from('cultivation_tasks').insert(tasksToInsert)
         taskCount = tasksToInsert.length
       }
-    }
-
-    return taskCount
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-
-    if (!newPhase) {
-      toast.error('Please select a phase')
-      return
-    }
-    if (!startDate) {
-      toast.error('Please select a start date')
-      return
-    }
-    if (!room) return
-
-    setSaving(true)
-
-    try {
-      const selectedTemplate = templateId !== 'none' ? templateId : null
-      const phase = newPhase as GrowPhase
-
-      // Flip main room
-      const taskCount = await flipRoom(room.id, phase, selectedTemplate, startDate, notes)
-
-      // Flip paired room if requested
-      let pairedTaskCount = 0
-      if (flipPaired && pairedRoom) {
-        pairedTaskCount = await flipRoom(
-          pairedRoom.id,
-          phase,
-          selectedTemplate,
-          startDate,
-          notes
-        )
-      }
-
-      const totalTasks = taskCount + pairedTaskCount
-      const phaseLabel = PHASE_CONFIG[phase]?.label || phase
-      const roomLabel = flipPaired && pairedRoom
-        ? `${room.room_name} & ${pairedRoom.room_name}`
-        : room.room_name
 
       toast.success(
-        `${roomLabel} flipped to ${phaseLabel}. ${totalTasks} task${totalTasks !== 1 ? 's' : ''} generated.`
+        `Cycle #${cycleNum || '?'} started for ${room.room_name}. ${taskCount} tasks generated.`
       )
-
       onOpenChange(false)
-      onFlipped()
+      onCompleted()
     } catch (err) {
-      console.error('Flip failed:', err)
-      toast.error('Failed to flip room. Please try again.')
+      console.error('Start cycle failed:', err)
+      toast.error('Failed to start cycle. Please try again.')
     } finally {
       setSaving(false)
     }
@@ -279,68 +202,65 @@ export function FlipRoomDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Flip {room.room_name}</DialogTitle>
+          <DialogTitle>Start Cycle — {room.room_name}</DialogTitle>
           <DialogDescription>
-            Change the growth phase for this room. Any active cycle will be
-            completed and pending tasks will be skipped.
+            Begin a new master cycle. All pipeline tasks will be generated from
+            the selected template.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="flip-phase">New Phase *</Label>
-            <Select value={newPhase} onValueChange={setNewPhase}>
-              <SelectTrigger id="flip-phase">
-                <SelectValue placeholder="Select phase" />
-              </SelectTrigger>
-              <SelectContent>
-                {FLIP_PHASES.map(([key, config]) => (
-                  <SelectItem key={key} value={key}>
-                    {config.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="flip-template">Template</Label>
+            <Label htmlFor="sc-template">Master Template *</Label>
             <Select value={templateId} onValueChange={setTemplateId}>
-              <SelectTrigger id="flip-template">
-                <SelectValue placeholder="No template" />
+              <SelectTrigger id="sc-template">
+                <SelectValue placeholder="Select template" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">No template</SelectItem>
+                <SelectItem value="none">Select a template</SelectItem>
                 {templates.map((t) => (
                   <SelectItem key={t.id} value={t.id}>
-                    {t.name}
+                    {t.name}{' '}
+                    {t.duration_days ? `(${t.duration_days}d)` : ''}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            {newPhase && templates.length === 0 && (
+            {templates.length === 0 && (
               <p className="text-xs text-muted-foreground">
-                No templates available for this phase — tasks won&apos;t be
-                auto-generated.
+                No active master templates found. Create one in Templates first.
               </p>
             )}
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="flip-date">Start Date *</Label>
-            <Input
-              id="flip-date"
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              required
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="sc-date">Start Date *</Label>
+              <Input
+                id="sc-date"
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="sc-cycle-num">Cycle #</Label>
+              <Input
+                id="sc-cycle-num"
+                type="number"
+                min={1}
+                value={cycleNumber}
+                onChange={(e) => setCycleNumber(e.target.value)}
+              />
+            </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="flip-notes">Notes</Label>
+            <Label htmlFor="sc-notes">Notes</Label>
             <Textarea
-              id="flip-notes"
+              id="sc-notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Optional cycle notes..."
@@ -348,17 +268,160 @@ export function FlipRoomDialog({
             />
           </div>
 
-          {pairedRoom && (
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="flip-paired"
-                checked={flipPaired}
-                onCheckedChange={(checked) => setFlipPaired(checked === true)}
-              />
-              <Label htmlFor="flip-paired" className="text-sm font-normal">
-                Also flip paired room ({pairedRoom.room_name})?
-              </Label>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={saving || templateId === 'none'}>
+              {saving ? 'Starting...' : 'Start Cycle'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ─── Advance Stage Dialog ───
+
+interface AdvanceStageDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  room: GrowRoom | null
+  activeCycles: RoomCycle[]
+  onCompleted: () => void
+}
+
+export function AdvanceStageDialog({
+  open,
+  onOpenChange,
+  room,
+  activeCycles,
+  onCompleted,
+}: AdvanceStageDialogProps) {
+  const [selectedCycleId, setSelectedCycleId] = useState<string>('')
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (open && activeCycles.length > 0) {
+      setSelectedCycleId(activeCycles[0].id)
+    }
+  }, [open, activeCycles])
+
+  const selectedCycle = activeCycles.find((c) => c.id === selectedCycleId)
+  const currentStageIndex = selectedCycle
+    ? STAGE_ORDER.indexOf(selectedCycle.current_stage as PipelineStage)
+    : -1
+  const nextStage: PipelineStage | null =
+    currentStageIndex >= 0 && currentStageIndex < STAGE_ORDER.length - 1
+      ? STAGE_ORDER[currentStageIndex + 1]
+      : null
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!room || !selectedCycle || !nextStage) return
+
+    setSaving(true)
+    const supabase = createClient()
+
+    try {
+      const today = format(new Date(), 'yyyy-MM-dd')
+
+      // Update room_cycles.current_stage
+      await supabase
+        .from('room_cycles')
+        .update({
+          current_stage: nextStage,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', selectedCycle.id)
+
+      // Update grow_rooms.current_phase and phase_start_date
+      await supabase
+        .from('grow_rooms')
+        .update({
+          current_phase: nextStage,
+          phase_start_date: today,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', room.id)
+
+      const stageLabel = PHASE_CONFIG[nextStage]?.label || nextStage
+      toast.success(`${room.room_name} advanced to ${stageLabel}`)
+      onOpenChange(false)
+      onCompleted()
+    } catch (err) {
+      console.error('Advance stage failed:', err)
+      toast.error('Failed to advance stage.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (!room) return null
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Advance Stage — {room.room_name}</DialogTitle>
+          <DialogDescription>
+            Move an active cycle to the next stage in the pipeline.
+          </DialogDescription>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {activeCycles.length > 1 && (
+            <div className="space-y-2">
+              <Label htmlFor="as-cycle">Select Cycle</Label>
+              <Select value={selectedCycleId} onValueChange={setSelectedCycleId}>
+                <SelectTrigger id="as-cycle">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {activeCycles.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      Cycle #{c.cycle_number || '?'} — {PHASE_CONFIG[c.current_stage as PipelineStage]?.label || c.current_stage}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
+          )}
+
+          {selectedCycle && (
+            <div className="rounded-md border p-3 space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Current Stage</span>
+                <span className="font-medium">
+                  {PHASE_CONFIG[selectedCycle.current_stage as PipelineStage]?.label || selectedCycle.current_stage}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Next Stage</span>
+                <span className="font-medium">
+                  {nextStage
+                    ? PHASE_CONFIG[nextStage]?.label || nextStage
+                    : 'End of pipeline'}
+                </span>
+              </div>
+              {selectedCycle.cycle_number && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Cycle #</span>
+                  <span className="font-medium">{selectedCycle.cycle_number}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {!nextStage && selectedCycle && (
+            <p className="text-sm text-amber-600">
+              This cycle is at the final stage ({PHASE_CONFIG[selectedCycle.current_stage as PipelineStage]?.label}). No further stages to advance to.
+            </p>
           )}
 
           <DialogFooter>
@@ -369,8 +432,8 @@ export function FlipRoomDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={saving || !newPhase}>
-              {saving ? 'Flipping...' : 'Flip Room'}
+            <Button type="submit" disabled={saving || !nextStage}>
+              {saving ? 'Advancing...' : 'Advance Stage'}
             </Button>
           </DialogFooter>
         </form>

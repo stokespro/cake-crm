@@ -35,19 +35,24 @@ import {
   GrowPhase,
   PHASE_CONFIG,
   TaskPriority,
+  STAGE_ORDER,
+  PipelineStage,
 } from '@/types/cultivation'
 import { TemplateSheet } from '@/components/cultivation/template-sheet'
 import {
   TemplateTaskDialog,
 } from '@/components/cultivation/template-task-dialog'
 
-const PHASE_BADGE_CLASSES: Record<GrowPhase, string> = {
+const PHASE_BADGE_CLASSES: Record<string, string> = {
   empty: 'bg-gray-500 text-white',
+  clone: 'bg-cyan-600 text-white',
   dome: 'bg-teal-600 text-white',
   veg: 'bg-green-600 text-white',
   flower: 'bg-purple-600 text-white',
   harvest: 'bg-amber-600 text-white',
-  drying_curing: 'bg-orange-600 text-white',
+  dry: 'bg-orange-600 text-white',
+  trim: 'bg-rose-600 text-white',
+  master: 'bg-indigo-600 text-white',
 }
 
 const PRIORITY_BADGE_CLASSES: Record<TaskPriority, string> = {
@@ -97,7 +102,7 @@ export default function TemplatesPage() {
     const { data, error } = await supabase
       .from('cycle_templates')
       .select('*, template_tasks(id)')
-      .order('phase')
+      .order('template_type', { ascending: false }) // master first
       .order('name')
 
     if (error) {
@@ -250,7 +255,7 @@ export default function TemplatesPage() {
     fetchTemplates()
   }
 
-  // Group tasks by day
+  // Group tasks by day (for phase templates)
   function getTasksByDay(taskList: TemplateTask[]) {
     const grouped: Record<number, TemplateTask[]> = {}
     for (const t of taskList) {
@@ -265,6 +270,135 @@ export default function TemplatesPage() {
       .sort((a, b) => a.day - b.day)
   }
 
+  // Group tasks by stage then day (for master templates)
+  function getTasksByStage(taskList: TemplateTask[]) {
+    const grouped: Record<string, TemplateTask[]> = {}
+    for (const t of taskList) {
+      const stageKey = t.stage || 'unassigned'
+      if (!grouped[stageKey]) grouped[stageKey] = []
+      grouped[stageKey].push(t)
+    }
+    // Sort stages by STAGE_ORDER
+    const stageIndex = Object.fromEntries(STAGE_ORDER.map((s, i) => [s, i]))
+    return Object.entries(grouped)
+      .sort(([a], [b]) => (stageIndex[a] ?? 99) - (stageIndex[b] ?? 99))
+      .map(([stage, stageTasks]) => ({
+        stage: stage as PipelineStage | 'unassigned',
+        label: stage === 'unassigned' ? 'Unassigned' : PHASE_CONFIG[stage as GrowPhase]?.label || stage,
+        tasks: stageTasks.sort((a, b) => a.day_number - b.day_number || a.sort_order - b.sort_order),
+      }))
+  }
+
+  function renderTaskRow(task: TemplateTask, showStage?: boolean) {
+    return (
+      <div
+        key={task.id}
+        className="grid grid-cols-[1fr_80px_80px_72px] gap-2 px-3 py-2 text-sm items-center border-b last:border-b-0"
+      >
+        <div className="truncate font-medium">
+          {showStage && task.stage && (
+            <Badge className={`${PHASE_BADGE_CLASSES[task.stage] || 'bg-gray-500 text-white'} text-[10px] mr-1.5`}>
+              {PHASE_CONFIG[task.stage as GrowPhase]?.label || task.stage}
+            </Badge>
+          )}
+          Day {task.day_number}: {task.name}
+        </div>
+        <div>
+          <Badge
+            className={`text-xs ${PRIORITY_BADGE_CLASSES[task.priority]}`}
+          >
+            {task.priority}
+          </Badge>
+        </div>
+        <div className="text-muted-foreground flex items-center gap-1">
+          {task.estimated_minutes ? (
+            <>
+              <Clock className="h-3 w-3" />
+              {task.estimated_minutes}m
+            </>
+          ) : (
+            '\u2014'
+          )}
+        </div>
+        {canManage && (
+          <div className="flex gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => handleEditTask(task)}
+            >
+              <Edit2 className="h-3 w-3" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => handleDeleteTask(task)}
+            >
+              <Trash2 className="h-3 w-3 text-destructive" />
+            </Button>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  function renderTaskCard(task: TemplateTask, showStage?: boolean) {
+    return (
+      <div
+        key={task.id}
+        className="border rounded-md p-3 space-y-2"
+      >
+        <div className="flex items-start justify-between gap-2">
+          <span className="font-medium text-sm">
+            {showStage && task.stage && (
+              <Badge className={`${PHASE_BADGE_CLASSES[task.stage] || 'bg-gray-500 text-white'} text-[10px] mr-1.5`}>
+                {PHASE_CONFIG[task.stage as GrowPhase]?.label || task.stage}
+              </Badge>
+            )}
+            Day {task.day_number}: {task.name}
+          </span>
+          <Badge
+            className={`text-xs shrink-0 ${PRIORITY_BADGE_CLASSES[task.priority]}`}
+          >
+            {task.priority}
+          </Badge>
+        </div>
+        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+          {task.estimated_minutes && (
+            <span className="flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              {task.estimated_minutes} min
+            </span>
+          )}
+        </div>
+        {canManage && (
+          <div className="flex gap-2 pt-1">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={() => handleEditTask(task)}
+            >
+              <Edit2 className="h-3 w-3 mr-1" />
+              Edit
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs text-destructive"
+              onClick={() => handleDeleteTask(task)}
+            >
+              <Trash2 className="h-3 w-3 mr-1" />
+              Delete
+            </Button>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -275,6 +409,7 @@ export default function TemplatesPage() {
 
   const expandedTemplate = templates.find((t) => t.id === expandedId)
   const expandedDurationDays = expandedTemplate?.duration_days ?? 0
+  const expandedIsMaster = expandedTemplate?.template_type === 'master'
 
   return (
     <div className="space-y-6">
@@ -291,7 +426,7 @@ export default function TemplatesPage() {
               Cycle Templates
             </h1>
             <p className="text-muted-foreground">
-              Define task schedules for each growth phase
+              Define task schedules for growth phases or full pipeline cycles
             </p>
           </div>
         </div>
@@ -323,7 +458,8 @@ export default function TemplatesPage() {
       ) : (
         <div className="space-y-4">
           {templates.map((template) => {
-            const phaseConfig = PHASE_CONFIG[template.phase as GrowPhase]
+            const isMaster = template.template_type === 'master'
+            const phaseConfig = isMaster ? null : PHASE_CONFIG[template.phase as GrowPhase]
             const isExpanded = expandedId === template.id
             const taskCount = template.template_tasks?.length ?? 0
 
@@ -346,11 +482,12 @@ export default function TemplatesPage() {
                         </CardTitle>
                         <Badge
                           className={
-                            PHASE_BADGE_CLASSES[template.phase as GrowPhase] ||
-                            'bg-gray-500 text-white'
+                            isMaster
+                              ? PHASE_BADGE_CLASSES.master
+                              : PHASE_BADGE_CLASSES[template.phase as string] || 'bg-gray-500 text-white'
                           }
                         >
-                          {phaseConfig?.label || template.phase}
+                          {isMaster ? 'Master' : phaseConfig?.label || template.phase}
                         </Badge>
                         {template.duration_days != null && template.duration_days > 0 && (
                           <span className="text-xs text-muted-foreground">
@@ -403,10 +540,10 @@ export default function TemplatesPage() {
                       </div>
                     ) : (
                       <div className="space-y-4">
-                        {/* Phase duration indicator */}
+                        {/* Duration indicator */}
                         {expandedDurationDays > 0 && (
                           <p className="text-xs text-muted-foreground">
-                            Phase duration: {expandedDurationDays} days
+                            {expandedIsMaster ? 'Cycle' : 'Phase'} duration: {expandedDurationDays} days
                           </p>
                         )}
 
@@ -414,7 +551,40 @@ export default function TemplatesPage() {
                           <div className="text-sm text-muted-foreground py-4 text-center">
                             No tasks defined yet.
                           </div>
+                        ) : expandedIsMaster ? (
+                          // Master template: group by stage
+                          getTasksByStage(tasks).map(({ stage, label, tasks: stageTasks }) => (
+                            <div key={stage}>
+                              <div className="flex items-center gap-2 mb-2">
+                                <Badge className={PHASE_BADGE_CLASSES[stage] || 'bg-gray-500 text-white'}>
+                                  {label}
+                                </Badge>
+                                <span className="text-xs text-muted-foreground">
+                                  {stageTasks.length} {stageTasks.length === 1 ? 'task' : 'tasks'}
+                                </span>
+                              </div>
+
+                              {/* Desktop table */}
+                              <div className="hidden sm:block">
+                                <div className="border rounded-md mb-3">
+                                  <div className="grid grid-cols-[1fr_80px_80px_72px] gap-2 px-3 py-2 text-xs font-medium text-muted-foreground border-b bg-muted/50">
+                                    <div>Task</div>
+                                    <div>Priority</div>
+                                    <div>Est. Time</div>
+                                    <div></div>
+                                  </div>
+                                  {stageTasks.map((task) => renderTaskRow(task, false))}
+                                </div>
+                              </div>
+
+                              {/* Mobile cards */}
+                              <div className="sm:hidden space-y-2 mb-3">
+                                {stageTasks.map((task) => renderTaskCard(task, false))}
+                              </div>
+                            </div>
+                          ))
                         ) : (
+                          // Phase template: group by day (original behavior)
                           getTasksByDay(tasks).map(({ day, tasks: dayTasks }) => (
                             <div key={day}>
                               <div className="flex items-center justify-between mb-2">
@@ -442,105 +612,13 @@ export default function TemplatesPage() {
                                     <div>Est. Time</div>
                                     <div></div>
                                   </div>
-                                  {dayTasks.map((task) => (
-                                    <div
-                                      key={task.id}
-                                      className="grid grid-cols-[1fr_80px_80px_72px] gap-2 px-3 py-2 text-sm items-center border-b last:border-b-0"
-                                    >
-                                      <div className="truncate font-medium">
-                                        {task.name}
-                                      </div>
-                                      <div>
-                                        <Badge
-                                          className={`text-xs ${PRIORITY_BADGE_CLASSES[task.priority]}`}
-                                        >
-                                          {task.priority}
-                                        </Badge>
-                                      </div>
-                                      <div className="text-muted-foreground flex items-center gap-1">
-                                        {task.estimated_minutes ? (
-                                          <>
-                                            <Clock className="h-3 w-3" />
-                                            {task.estimated_minutes}m
-                                          </>
-                                        ) : (
-                                          '\u2014'
-                                        )}
-                                      </div>
-                                      {canManage && (
-                                        <div className="flex gap-1">
-                                          <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-7 w-7"
-                                            onClick={() => handleEditTask(task)}
-                                          >
-                                            <Edit2 className="h-3 w-3" />
-                                          </Button>
-                                          <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-7 w-7"
-                                            onClick={() => handleDeleteTask(task)}
-                                          >
-                                            <Trash2 className="h-3 w-3 text-destructive" />
-                                          </Button>
-                                        </div>
-                                      )}
-                                    </div>
-                                  ))}
+                                  {dayTasks.map((task) => renderTaskRow(task, false))}
                                 </div>
                               </div>
 
                               {/* Mobile cards */}
                               <div className="sm:hidden space-y-2">
-                                {dayTasks.map((task) => (
-                                  <div
-                                    key={task.id}
-                                    className="border rounded-md p-3 space-y-2"
-                                  >
-                                    <div className="flex items-start justify-between gap-2">
-                                      <span className="font-medium text-sm">
-                                        {task.name}
-                                      </span>
-                                      <Badge
-                                        className={`text-xs shrink-0 ${PRIORITY_BADGE_CLASSES[task.priority]}`}
-                                      >
-                                        {task.priority}
-                                      </Badge>
-                                    </div>
-                                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                                      {task.estimated_minutes && (
-                                        <span className="flex items-center gap-1">
-                                          <Clock className="h-3 w-3" />
-                                          {task.estimated_minutes} min
-                                        </span>
-                                      )}
-                                    </div>
-                                    {canManage && (
-                                      <div className="flex gap-2 pt-1">
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          className="h-7 text-xs"
-                                          onClick={() => handleEditTask(task)}
-                                        >
-                                          <Edit2 className="h-3 w-3 mr-1" />
-                                          Edit
-                                        </Button>
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          className="h-7 text-xs text-destructive"
-                                          onClick={() => handleDeleteTask(task)}
-                                        >
-                                          <Trash2 className="h-3 w-3 mr-1" />
-                                          Delete
-                                        </Button>
-                                      </div>
-                                    )}
-                                  </div>
-                                ))}
+                                {dayTasks.map((task) => renderTaskCard(task, false))}
                               </div>
                             </div>
                           ))
@@ -590,6 +668,7 @@ export default function TemplatesPage() {
               : 0
           }
           defaultDay={addTaskDay}
+          isMasterTemplate={expandedIsMaster}
           onSaved={handleTaskSaved}
         />
       )}

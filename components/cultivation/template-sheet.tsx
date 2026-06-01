@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/select'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
-import { CycleTemplate, GrowPhase, PHASE_CONFIG } from '@/types/cultivation'
+import { CycleTemplate, GrowPhase, PHASE_CONFIG, TemplateType } from '@/types/cultivation'
 
 const TEMPLATE_PHASES = (
   Object.entries(PHASE_CONFIG) as [GrowPhase, { label: string; color: string }][]
@@ -45,6 +45,7 @@ export function TemplateSheet({
   onSaved,
 }: TemplateSheetProps) {
   const [name, setName] = useState('')
+  const [templateType, setTemplateType] = useState<TemplateType>('phase')
   const [phase, setPhase] = useState<string>('')
   const [durationDays, setDurationDays] = useState('')
   const [description, setDescription] = useState('')
@@ -52,22 +53,34 @@ export function TemplateSheet({
   const [saving, setSaving] = useState(false)
 
   const isEditing = !!template
+  const isMaster = templateType === 'master'
 
   useEffect(() => {
     if (template) {
       setName(template.name)
-      setPhase(template.phase)
+      setTemplateType(template.template_type || 'phase')
+      setPhase(template.phase || '')
       setDurationDays(template.duration_days != null ? String(template.duration_days) : '')
       setDescription(template.description || '')
       setIsActive(template.is_active)
     } else {
       setName('')
+      setTemplateType('phase')
       setPhase('')
       setDurationDays('')
       setDescription('')
       setIsActive(true)
     }
   }, [template, open])
+
+  // When switching to master, default duration to 127 and clear phase
+  useEffect(() => {
+    if (isMaster) {
+      setPhase('')
+      if (!durationDays) setDurationDays('127')
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMaster])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -76,8 +89,8 @@ export function TemplateSheet({
       toast.error('Template name is required')
       return
     }
-    if (!phase) {
-      toast.error('Phase is required')
+    if (!isMaster && !phase) {
+      toast.error('Phase is required for phase templates')
       return
     }
 
@@ -90,16 +103,19 @@ export function TemplateSheet({
     setSaving(true)
     const supabase = createClient()
 
+    const payload = {
+      name: name.trim(),
+      template_type: templateType,
+      phase: isMaster ? null : phase,
+      duration_days: duration,
+      description: description.trim() || null,
+      is_active: isActive,
+    }
+
     if (isEditing) {
       const { error } = await supabase
         .from('cycle_templates')
-        .update({
-          name: name.trim(),
-          phase,
-          duration_days: duration,
-          description: description.trim() || null,
-          is_active: isActive,
-        })
+        .update(payload)
         .eq('id', template.id)
 
       if (error) {
@@ -111,11 +127,7 @@ export function TemplateSheet({
       toast.success('Template updated')
     } else {
       const { error } = await supabase.from('cycle_templates').insert({
-        name: name.trim(),
-        phase,
-        duration_days: duration,
-        description: description.trim() || null,
-        is_active: isActive,
+        ...payload,
         created_by: userId,
       })
 
@@ -141,37 +153,57 @@ export function TemplateSheet({
           <SheetDescription>
             {isEditing
               ? 'Update the cycle template details.'
-              : 'Create a new cycle template to define tasks for a growth phase.'}
+              : 'Create a new cycle template to define tasks for a growth phase or full pipeline.'}
           </SheetDescription>
         </SheetHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+          <div className="space-y-2">
+            <Label htmlFor="template-type">Template Type *</Label>
+            <Select value={templateType} onValueChange={(v) => setTemplateType(v as TemplateType)}>
+              <SelectTrigger id="template-type">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="master">Master Cycle</SelectItem>
+                <SelectItem value="phase">Phase Template</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {isMaster
+                ? 'A master cycle covers the full pipeline from clone to trim.'
+                : 'A phase template covers a single growth stage.'}
+            </p>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="template-name">Name *</Label>
             <Input
               id="template-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g., Standard Flower Cycle"
+              placeholder={isMaster ? 'e.g., Standard Cycle - 127 day' : 'e.g., Standard Flower Cycle'}
               required
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="template-phase">Phase *</Label>
-            <Select value={phase} onValueChange={setPhase}>
-              <SelectTrigger id="template-phase">
-                <SelectValue placeholder="Select phase" />
-              </SelectTrigger>
-              <SelectContent>
-                {TEMPLATE_PHASES.map(([key, config]) => (
-                  <SelectItem key={key} value={key}>
-                    {config.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {!isMaster && (
+            <div className="space-y-2">
+              <Label htmlFor="template-phase">Phase *</Label>
+              <Select value={phase} onValueChange={setPhase}>
+                <SelectTrigger id="template-phase">
+                  <SelectValue placeholder="Select phase" />
+                </SelectTrigger>
+                <SelectContent>
+                  {TEMPLATE_PHASES.map(([key, config]) => (
+                    <SelectItem key={key} value={key}>
+                      {config.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="template-duration">Duration (days) *</Label>
@@ -182,7 +214,7 @@ export function TemplateSheet({
               max={365}
               value={durationDays}
               onChange={(e) => setDurationDays(e.target.value)}
-              placeholder="e.g., 63"
+              placeholder={isMaster ? '127' : 'e.g., 63'}
               required
             />
           </div>

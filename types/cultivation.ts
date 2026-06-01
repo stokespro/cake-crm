@@ -1,16 +1,23 @@
-export type GrowPhase = 'empty' | 'dome' | 'veg' | 'flower' | 'harvest' | 'drying_curing'
+export type GrowPhase = 'empty' | 'clone' | 'dome' | 'veg' | 'flower' | 'harvest' | 'dry' | 'trim'
+export type PipelineStage = 'clone' | 'dome' | 'veg' | 'flower' | 'harvest' | 'dry' | 'trim'
+export type TemplateType = 'master' | 'phase'
+
+export const STAGE_ORDER: PipelineStage[] = ['clone', 'dome', 'veg', 'flower', 'harvest', 'dry', 'trim']
+
 export type TaskPriority = 'low' | 'medium' | 'high' | 'critical'
 export type CultivationTaskStatus = 'pending' | 'in_progress' | 'completed' | 'skipped'
 export type CultivationTaskType = 'scheduled' | 'adhoc' | 'recurring'
 export type CycleStatus = 'active' | 'completed' | 'cancelled'
 
 export const PHASE_CONFIG: Record<GrowPhase, { label: string; color: string }> = {
-  empty:         { label: 'Empty',         color: 'gray' },
-  dome:          { label: 'Clone Dome',    color: 'teal' },
-  veg:           { label: 'Veg',           color: 'green' },
-  flower:        { label: 'Flower',        color: 'purple' },
-  harvest:       { label: 'Harvest',       color: 'amber' },
-  drying_curing: { label: 'Drying/Curing', color: 'orange' },
+  empty:   { label: 'Empty',   color: 'gray' },
+  clone:   { label: 'Clone',   color: 'cyan' },
+  dome:    { label: 'Dome',    color: 'teal' },
+  veg:     { label: 'Veg',     color: 'green' },
+  flower:  { label: 'Flower',  color: 'purple' },
+  harvest: { label: 'Harvest', color: 'amber' },
+  dry:     { label: 'Dry',     color: 'orange' },
+  trim:    { label: 'Trim',    color: 'rose' },
 }
 
 export interface GrowRoom {
@@ -28,7 +35,8 @@ export interface GrowRoom {
 export interface CycleTemplate {
   id: string
   name: string
-  phase: string
+  template_type: TemplateType
+  phase: string | null
   description: string | null
   duration_days: number | null
   is_active: boolean
@@ -47,6 +55,7 @@ export interface TemplateTask {
   estimated_minutes: number | null
   priority: TaskPriority
   sort_order: number
+  stage: string | null
   created_at: string
   updated_at: string
 }
@@ -55,7 +64,8 @@ export interface RoomCycle {
   id: string
   room_id: string
   template_id: string | null
-  phase: string
+  current_stage: string
+  cycle_number: number | null
   start_date: string
   expected_end_date: string | null
   actual_end_date: string | null

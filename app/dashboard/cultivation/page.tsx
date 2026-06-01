@@ -10,7 +10,7 @@ import { format, isToday, isPast, startOfWeek, endOfWeek } from 'date-fns'
 import { parseLocalDate } from '@/lib/utils'
 import { useAuth, canManageCultivation, canCompleteCultivation } from '@/lib/auth-context'
 import { createClient } from '@/lib/supabase/client'
-import { GrowRoom, RoomCycle, PHASE_CONFIG, GrowPhase, CultivationTask, TaskPriority } from '@/types/cultivation'
+import { GrowRoom, RoomCycle, PHASE_CONFIG, GrowPhase, CultivationTask, TaskPriority, PipelineStage } from '@/types/cultivation'
 import { TaskCompletionSheet } from '@/components/cultivation/task-completion-sheet'
 import { generateRecurringTasks } from '@/lib/cultivation/generate-recurring-tasks'
 
@@ -32,18 +32,18 @@ const PRIORITY_BADGE: Record<TaskPriority, string> = {
   low: 'bg-gray-400 text-white',
 }
 
-const PHASE_BADGE_CLASSES: Record<GrowPhase, string> = {
+const PHASE_BADGE_CLASSES: Record<string, string> = {
   empty: 'bg-gray-500 text-white',
+  clone: 'bg-cyan-600 text-white',
   dome: 'bg-teal-600 text-white',
   veg: 'bg-green-600 text-white',
   flower: 'bg-purple-600 text-white',
   harvest: 'bg-amber-600 text-white',
-  drying_curing: 'bg-orange-600 text-white',
+  dry: 'bg-orange-600 text-white',
+  trim: 'bg-rose-600 text-white',
 }
 
-function getDayProgress(room: GrowRoom, activeCycle: RoomCycle | undefined): { current: number; total: number } | null {
-  const phase = room.current_phase
-  if (phase === 'empty' || !room.phase_start_date) return null
+function getDayProgress(activeCycle: RoomCycle | undefined): { current: number; total: number } | null {
   if (!activeCycle?.start_date || !activeCycle?.expected_end_date) return null
   const startDate = parseLocalDate(activeCycle.start_date)
   const endDate = parseLocalDate(activeCycle.expected_end_date)
@@ -65,7 +65,7 @@ function getPairingLabel(room: GrowRoom, rooms: GrowRoom[]): string | null {
 export default function CultivationPage() {
   const { user } = useAuth()
   const [rooms, setRooms] = useState<GrowRoom[]>([])
-  const [activeCycles, setActiveCycles] = useState<Record<string, RoomCycle>>({})
+  const [activeCyclesMap, setActiveCyclesMap] = useState<Record<string, RoomCycle[]>>({})
   const [taskStats, setTaskStats] = useState<TaskStats>({
     overdue: 0,
     dueToday: 0,
@@ -113,11 +113,12 @@ export default function CultivationPage() {
     }
 
     if (cyclesRes.data) {
-      const cycleMap: Record<string, RoomCycle> = {}
+      const map: Record<string, RoomCycle[]> = {}
       for (const cycle of cyclesRes.data as RoomCycle[]) {
-        cycleMap[cycle.room_id] = cycle
+        if (!map[cycle.room_id]) map[cycle.room_id] = []
+        map[cycle.room_id].push(cycle)
       }
-      setActiveCycles(cycleMap)
+      setActiveCyclesMap(map)
     }
 
     if (myTasksRes.data) {
@@ -351,10 +352,11 @@ export default function CultivationPage() {
         <h2 className="text-lg font-semibold mb-4">Grow Rooms</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {rooms.map((room) => {
-            const dayProgress = getDayProgress(room, activeCycles[room.id])
+            const roomCycles = activeCyclesMap[room.id] || []
+            const primaryCycle = roomCycles[0]
+            const dayProgress = getDayProgress(primaryCycle)
             const pairingLabel = getPairingLabel(room, rooms)
             const phaseConfig = PHASE_CONFIG[room.current_phase]
-
             const roomCounts = roomTaskCounts[room.id]
 
             return (
@@ -363,15 +365,32 @@ export default function CultivationPage() {
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-base">{room.room_name}</CardTitle>
-                    <Badge className={PHASE_BADGE_CLASSES[room.current_phase]}>
-                      {phaseConfig.label}
-                    </Badge>
+                    <div className="flex items-center gap-1">
+                      <Badge className={PHASE_BADGE_CLASSES[room.current_phase] || 'bg-gray-500 text-white'}>
+                        {phaseConfig?.label || room.current_phase}
+                      </Badge>
+                      {roomCycles.length > 1 && (
+                        <Badge variant="outline" className="text-xs">
+                          {roomCycles.length} active
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                   {pairingLabel && (
                     <p className="text-xs text-muted-foreground">{pairingLabel}</p>
                   )}
                 </CardHeader>
                 <CardContent className="space-y-3">
+                  {/* Current stage from primary cycle */}
+                  {primaryCycle && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Stage</span>
+                      <Badge className={`${PHASE_BADGE_CLASSES[primaryCycle.current_stage] || 'bg-gray-500 text-white'} text-xs`}>
+                        {PHASE_CONFIG[primaryCycle.current_stage as GrowPhase]?.label || primaryCycle.current_stage}
+                      </Badge>
+                    </div>
+                  )}
+
                   {/* Day progress */}
                   <div>
                     <div className="flex items-center justify-between text-sm mb-1">
@@ -385,7 +404,7 @@ export default function CultivationPage() {
                     {dayProgress ? (
                       <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
                         <div
-                          className={`h-full rounded-full ${PHASE_BADGE_CLASSES[room.current_phase].split(' ')[0]}`}
+                          className={`h-full rounded-full ${(PHASE_BADGE_CLASSES[room.current_phase] || 'bg-gray-500').split(' ')[0]}`}
                           style={{
                             width: `${Math.min((dayProgress.current / dayProgress.total) * 100, 100)}%`,
                           }}

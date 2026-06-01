@@ -14,13 +14,15 @@ import { GrowRoom, GrowPhase, PHASE_CONFIG, CycleStatus } from '@/types/cultivat
 import { format } from 'date-fns'
 import { parseLocalDate } from '@/lib/utils'
 
-const PHASE_BADGE_CLASSES: Record<GrowPhase, string> = {
+const PHASE_BADGE_CLASSES: Record<string, string> = {
   empty: 'bg-gray-500 text-white',
+  clone: 'bg-cyan-600 text-white',
   dome: 'bg-teal-600 text-white',
   veg: 'bg-green-600 text-white',
   flower: 'bg-purple-600 text-white',
   harvest: 'bg-amber-600 text-white',
-  drying_curing: 'bg-orange-600 text-white',
+  dry: 'bg-orange-600 text-white',
+  trim: 'bg-rose-600 text-white',
 }
 
 const STATUS_BADGE_CLASSES: Record<CycleStatus, string> = {
@@ -31,7 +33,8 @@ const STATUS_BADGE_CLASSES: Record<CycleStatus, string> = {
 
 interface CycleWithRelations {
   id: string
-  phase: string
+  current_stage: string
+  cycle_number: number | null
   start_date: string
   expected_end_date: string | null
   actual_end_date: string | null
@@ -109,8 +112,8 @@ export function RoomHistorySheet({
           )}
 
           {cycles.map((cycle) => {
-            const phase = cycle.phase as GrowPhase
-            const phaseConfig = PHASE_CONFIG[phase]
+            const stage = cycle.current_stage
+            const phaseConfig = PHASE_CONFIG[stage as GrowPhase]
             const completedTasks = cycle.tasks.filter(
               (t) => t.status === 'completed'
             ).length
@@ -123,9 +126,14 @@ export function RoomHistorySheet({
                 className="rounded-lg border p-4 space-y-2"
               >
                 <div className="flex items-center justify-between">
-                  <Badge className={PHASE_BADGE_CLASSES[phase] || 'bg-gray-500 text-white'}>
-                    {phaseConfig?.label || phase}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge className={PHASE_BADGE_CLASSES[stage] || 'bg-gray-500 text-white'}>
+                      {phaseConfig?.label || stage}
+                    </Badge>
+                    {cycle.cycle_number && (
+                      <span className="text-xs text-muted-foreground">Cycle #{cycle.cycle_number}</span>
+                    )}
+                  </div>
                   <Badge
                     variant="outline"
                     className={STATUS_BADGE_CLASSES[cycle.status]}

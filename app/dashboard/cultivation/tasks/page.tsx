@@ -55,7 +55,9 @@ import type {
   CultivationTaskStatus,
   TaskPriority,
   GrowRoom,
+  PipelineStage,
 } from '@/types/cultivation'
+import { STAGE_ORDER, PHASE_CONFIG } from '@/types/cultivation'
 import { TaskDetailSheet } from '@/components/cultivation/task-detail-sheet'
 import { TaskCompletionSheet } from '@/components/cultivation/task-completion-sheet'
 import { CreateTaskSheet } from '@/components/cultivation/create-task-sheet'
@@ -111,6 +113,7 @@ export default function CultivationTasksPage() {
   const [filterPriority, setFilterPriority] = useState('all')
   const [filterAssignee, setFilterAssignee] = useState('all')
   const [filterType, setFilterType] = useState('all')
+  const [filterStage, setFilterStage] = useState('all')
   const [filterDateFrom, setFilterDateFrom] = useState('')
   const [filterDateTo, setFilterDateTo] = useState('')
 
@@ -197,6 +200,11 @@ export default function CultivationTasksPage() {
       result = result.filter((t) => t.task_type === filterType)
     }
 
+    // Stage
+    if (filterStage !== 'all') {
+      result = result.filter((t) => t.phase === filterStage)
+    }
+
     // Assignee
     if (filterAssignee === 'unassigned') {
       result = result.filter((t) => !t.assigned_to)
@@ -218,7 +226,7 @@ export default function CultivationTasksPage() {
     }
 
     return result
-  }, [tasks, search, filterRoom, filterStatus, filterPriority, filterType, filterAssignee, filterDateFrom, filterDateTo, viewMode, user])
+  }, [tasks, search, filterRoom, filterStatus, filterPriority, filterType, filterStage, filterAssignee, filterDateFrom, filterDateTo, viewMode, user])
 
   // --- Sorting ---
   const sortedTasks = useMemo(() => {
@@ -330,6 +338,7 @@ export default function CultivationTasksPage() {
     setFilterStatus('all')
     setFilterPriority('all')
     setFilterType('all')
+    setFilterStage('all')
     setFilterAssignee('all')
     setFilterDateFrom('')
     setFilterDateTo('')
@@ -337,7 +346,7 @@ export default function CultivationTasksPage() {
   }
 
   const hasFilters =
-    search || filterRoom !== 'all' || filterStatus !== 'all' || filterPriority !== 'all' || filterType !== 'all' || filterAssignee !== 'all' || filterDateFrom || filterDateTo
+    search || filterRoom !== 'all' || filterStatus !== 'all' || filterPriority !== 'all' || filterType !== 'all' || filterStage !== 'all' || filterAssignee !== 'all' || filterDateFrom || filterDateTo
 
   // --- Helpers ---
 
@@ -348,7 +357,8 @@ export default function CultivationTasksPage() {
 
   function phaseDayLabel(task: CultivationTask): string {
     if (task.phase && task.day_number) {
-      return `${task.phase.charAt(0).toUpperCase() + task.phase.slice(1)} Day ${task.day_number}`
+      const label = PHASE_CONFIG[task.phase as PipelineStage]?.label || (task.phase.charAt(0).toUpperCase() + task.phase.slice(1))
+      return `${label} Day ${task.day_number}`
     }
     return '\u2014'
   }
@@ -513,6 +523,20 @@ export default function CultivationTasksPage() {
             <SelectItem value="scheduled">Scheduled</SelectItem>
             <SelectItem value="adhoc">Ad-hoc</SelectItem>
             <SelectItem value="recurring">Recurring</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select value={filterStage} onValueChange={setFilterStage}>
+          <SelectTrigger className="w-full sm:w-[160px]">
+            <SelectValue placeholder="Stage" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Stages</SelectItem>
+            {STAGE_ORDER.map((s) => (
+              <SelectItem key={s} value={s}>
+                {PHASE_CONFIG[s].label}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
 
