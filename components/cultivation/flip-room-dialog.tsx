@@ -32,7 +32,7 @@ import {
 import { format } from 'date-fns'
 
 const FLIP_PHASES = (
-  Object.entries(PHASE_CONFIG) as [GrowPhase, { label: string; weeks: number; color: string }][]
+  Object.entries(PHASE_CONFIG) as [GrowPhase, { label: string; color: string }][]
 ).filter(([key]) => key !== 'empty')
 
 interface FlipRoomDialogProps {
@@ -147,10 +147,17 @@ export function FlipRoomDialog({
     // 3. Create new cycle (if not setting to 'empty')
     let newCycleId: string | null = null
     if (phase !== 'empty') {
-      const phaseWeeks = PHASE_CONFIG[phase]?.weeks || 0
+      const selectedTemplate = selectedTemplateId
+        ? templates.find(t => t.id === selectedTemplateId)
+        : null
+      const durationDays = selectedTemplate?.duration_days || 0
       const startDateObj = new Date(date + 'T00:00:00')
-      const expectedEnd = new Date(startDateObj)
-      expectedEnd.setDate(expectedEnd.getDate() + phaseWeeks * 7)
+      let expectedEndDate: string | null = null
+      if (durationDays > 0) {
+        const expectedEnd = new Date(startDateObj)
+        expectedEnd.setDate(expectedEnd.getDate() + durationDays)
+        expectedEndDate = expectedEnd.toISOString().split('T')[0]
+      }
 
       const { data: newCycle } = await supabase
         .from('room_cycles')
@@ -159,7 +166,7 @@ export function FlipRoomDialog({
           template_id: selectedTemplateId,
           phase,
           start_date: date,
-          expected_end_date: expectedEnd.toISOString().split('T')[0],
+          expected_end_date: expectedEndDate,
           status: 'active',
           notes: roomNotes || null,
           created_by: userId,
@@ -177,7 +184,7 @@ export function FlipRoomDialog({
         .from('template_tasks')
         .select('*')
         .eq('template_id', selectedTemplateId)
-        .order('week_number')
+        .order('day_number')
         .order('sort_order')
 
       if (templateTasks && templateTasks.length > 0) {
@@ -185,12 +192,7 @@ export function FlipRoomDialog({
 
         const tasksToInsert = templateTasks.map((tt) => {
           const dueDate = new Date(startDateObj)
-          dueDate.setDate(dueDate.getDate() + (tt.week_number - 1) * 7)
-          if (tt.day_of_week) {
-            const currentDay = dueDate.getDay() || 7
-            const diff = tt.day_of_week - currentDay
-            dueDate.setDate(dueDate.getDate() + diff)
-          }
+          dueDate.setDate(dueDate.getDate() + (tt.day_number - 1))
 
           return {
             room_cycle_id: newCycleId,
@@ -200,7 +202,7 @@ export function FlipRoomDialog({
             description: tt.description,
             task_type: 'scheduled' as const,
             phase,
-            week_number: tt.week_number,
+            day_number: tt.day_number,
             due_date: dueDate.toISOString().split('T')[0],
             priority: tt.priority,
             estimated_minutes: tt.estimated_minutes,
@@ -294,7 +296,7 @@ export function FlipRoomDialog({
               <SelectContent>
                 {FLIP_PHASES.map(([key, config]) => (
                   <SelectItem key={key} value={key}>
-                    {config.label} ({config.weeks} weeks)
+                    {config.label}
                   </SelectItem>
                 ))}
               </SelectContent>

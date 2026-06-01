@@ -75,9 +75,9 @@ export function TaskDetailSheet({
   const showComplete = canComplete && (task.status === 'pending' || task.status === 'in_progress')
   const showStart = canComplete && task.status === 'pending'
 
-  const phaseWeekLabel =
-    task.phase && task.week_number
-      ? `${task.phase.charAt(0).toUpperCase() + task.phase.slice(1)} Wk ${task.week_number}`
+  const phaseDayLabel =
+    task.phase && task.day_number
+      ? `${task.phase.charAt(0).toUpperCase() + task.phase.slice(1)} Day ${task.day_number}`
       : null
 
   return (
@@ -113,12 +113,12 @@ export function TaskDetailSheet({
               </div>
             )}
 
-            {phaseWeekLabel && (
+            {phaseDayLabel && (
               <div className="flex items-start gap-2">
                 <Tag className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
                 <div>
                   <span className="text-muted-foreground">Phase: </span>
-                  <span className="font-medium">{phaseWeekLabel}</span>
+                  <span className="font-medium">{phaseDayLabel}</span>
                 </div>
               </div>
             )}

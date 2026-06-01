@@ -39,7 +39,6 @@ import {
 import { TemplateSheet } from '@/components/cultivation/template-sheet'
 import {
   TemplateTaskDialog,
-  getDayLabel,
 } from '@/components/cultivation/template-task-dialog'
 
 const PHASE_BADGE_CLASSES: Record<GrowPhase, string> = {
@@ -86,7 +85,7 @@ export default function TemplatesPage() {
   // Task dialog state
   const [taskDialogOpen, setTaskDialogOpen] = useState(false)
   const [editingTask, setEditingTask] = useState<TemplateTask | null>(null)
-  const [addTaskWeek, setAddTaskWeek] = useState<number | undefined>(undefined)
+  const [addTaskDay, setAddTaskDay] = useState<number | undefined>(undefined)
 
   // Delete task state
   const [deleteTaskDialogOpen, setDeleteTaskDialogOpen] = useState(false)
@@ -117,7 +116,7 @@ export default function TemplatesPage() {
       .from('template_tasks')
       .select('*')
       .eq('template_id', templateId)
-      .order('week_number')
+      .order('day_number')
       .order('sort_order')
 
     if (error) {
@@ -206,15 +205,15 @@ export default function TemplatesPage() {
   }
 
   // Task actions
-  function handleAddTask(week?: number) {
+  function handleAddTask(day?: number) {
     setEditingTask(null)
-    setAddTaskWeek(week)
+    setAddTaskDay(day)
     setTaskDialogOpen(true)
   }
 
   function handleEditTask(task: TemplateTask) {
     setEditingTask(task)
-    setAddTaskWeek(undefined)
+    setAddTaskDay(undefined)
     setTaskDialogOpen(true)
   }
 
@@ -251,19 +250,19 @@ export default function TemplatesPage() {
     fetchTemplates()
   }
 
-  // Group tasks by week
-  function getTasksByWeek(taskList: TemplateTask[]) {
+  // Group tasks by day
+  function getTasksByDay(taskList: TemplateTask[]) {
     const grouped: Record<number, TemplateTask[]> = {}
     for (const t of taskList) {
-      if (!grouped[t.week_number]) grouped[t.week_number] = []
-      grouped[t.week_number].push(t)
+      if (!grouped[t.day_number]) grouped[t.day_number] = []
+      grouped[t.day_number].push(t)
     }
     return Object.entries(grouped)
-      .map(([week, weekTasks]) => ({
-        week: parseInt(week, 10),
-        tasks: weekTasks,
+      .map(([day, dayTasks]) => ({
+        day: parseInt(day, 10),
+        tasks: dayTasks,
       }))
-      .sort((a, b) => a.week - b.week)
+      .sort((a, b) => a.day - b.day)
   }
 
   if (loading) {
@@ -275,9 +274,7 @@ export default function TemplatesPage() {
   }
 
   const expandedTemplate = templates.find((t) => t.id === expandedId)
-  const expandedPhaseWeeks = expandedTemplate
-    ? PHASE_CONFIG[expandedTemplate.phase as GrowPhase]?.weeks ?? 0
-    : 0
+  const expandedDurationDays = expandedTemplate?.duration_days ?? 0
 
   return (
     <div className="space-y-6">
@@ -355,6 +352,11 @@ export default function TemplatesPage() {
                         >
                           {phaseConfig?.label || template.phase}
                         </Badge>
+                        {template.duration_days != null && template.duration_days > 0 && (
+                          <span className="text-xs text-muted-foreground">
+                            {template.duration_days} days
+                          </span>
+                        )}
                         <span className="text-xs text-muted-foreground">
                           {taskCount} {taskCount === 1 ? 'task' : 'tasks'}
                         </span>
@@ -401,10 +403,10 @@ export default function TemplatesPage() {
                       </div>
                     ) : (
                       <div className="space-y-4">
-                        {/* Phase weeks indicator */}
-                        {expandedPhaseWeeks > 0 && (
+                        {/* Phase duration indicator */}
+                        {expandedDurationDays > 0 && (
                           <p className="text-xs text-muted-foreground">
-                            Phase duration: {expandedPhaseWeeks} weeks
+                            Phase duration: {expandedDurationDays} days
                           </p>
                         )}
 
@@ -413,17 +415,17 @@ export default function TemplatesPage() {
                             No tasks defined yet.
                           </div>
                         ) : (
-                          getTasksByWeek(tasks).map(({ week, tasks: weekTasks }) => (
-                            <div key={week}>
+                          getTasksByDay(tasks).map(({ day, tasks: dayTasks }) => (
+                            <div key={day}>
                               <div className="flex items-center justify-between mb-2">
                                 <h4 className="text-sm font-semibold">
-                                  Week {week}
+                                  Day {day}
                                 </h4>
                                 {canManage && (
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => handleAddTask(week)}
+                                    onClick={() => handleAddTask(day)}
                                   >
                                     <Plus className="h-3 w-3 mr-1" />
                                     Add
@@ -434,17 +436,16 @@ export default function TemplatesPage() {
                               {/* Desktop table */}
                               <div className="hidden sm:block">
                                 <div className="border rounded-md">
-                                  <div className="grid grid-cols-[1fr_80px_80px_80px_72px] gap-2 px-3 py-2 text-xs font-medium text-muted-foreground border-b bg-muted/50">
+                                  <div className="grid grid-cols-[1fr_80px_80px_72px] gap-2 px-3 py-2 text-xs font-medium text-muted-foreground border-b bg-muted/50">
                                     <div>Task</div>
                                     <div>Priority</div>
                                     <div>Est. Time</div>
-                                    <div>Day</div>
                                     <div></div>
                                   </div>
-                                  {weekTasks.map((task) => (
+                                  {dayTasks.map((task) => (
                                     <div
                                       key={task.id}
-                                      className="grid grid-cols-[1fr_80px_80px_80px_72px] gap-2 px-3 py-2 text-sm items-center border-b last:border-b-0"
+                                      className="grid grid-cols-[1fr_80px_80px_72px] gap-2 px-3 py-2 text-sm items-center border-b last:border-b-0"
                                     >
                                       <div className="truncate font-medium">
                                         {task.name}
@@ -465,9 +466,6 @@ export default function TemplatesPage() {
                                         ) : (
                                           '\u2014'
                                         )}
-                                      </div>
-                                      <div className="text-muted-foreground text-xs">
-                                        {getDayLabel(task.day_of_week)}
                                       </div>
                                       {canManage && (
                                         <div className="flex gap-1">
@@ -496,7 +494,7 @@ export default function TemplatesPage() {
 
                               {/* Mobile cards */}
                               <div className="sm:hidden space-y-2">
-                                {weekTasks.map((task) => (
+                                {dayTasks.map((task) => (
                                   <div
                                     key={task.id}
                                     className="border rounded-md p-3 space-y-2"
@@ -518,9 +516,6 @@ export default function TemplatesPage() {
                                           {task.estimated_minutes} min
                                         </span>
                                       )}
-                                      <span>
-                                        {getDayLabel(task.day_of_week)}
-                                      </span>
                                     </div>
                                     {canManage && (
                                       <div className="flex gap-2 pt-1">
@@ -594,7 +589,7 @@ export default function TemplatesPage() {
               ? Math.max(...tasks.map((t) => t.sort_order))
               : 0
           }
-          defaultWeek={addTaskWeek}
+          defaultDay={addTaskDay}
           onSaved={handleTaskSaved}
         />
       )}

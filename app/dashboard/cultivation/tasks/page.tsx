@@ -346,9 +346,9 @@ export default function CultivationTasksPage() {
     return (task.status === 'pending' || task.status === 'in_progress') && task.due_date < todayStr
   }
 
-  function phaseWeekLabel(task: CultivationTask): string {
-    if (task.phase && task.week_number) {
-      return `${task.phase.charAt(0).toUpperCase() + task.phase.slice(1)} Wk ${task.week_number}`
+  function phaseDayLabel(task: CultivationTask): string {
+    if (task.phase && task.day_number) {
+      return `${task.phase.charAt(0).toUpperCase() + task.phase.slice(1)} Day ${task.day_number}`
     }
     return '\u2014'
   }
@@ -570,7 +570,7 @@ export default function CultivationTasksPage() {
                 <TableHead className="w-[40px]"></TableHead>
                 <TableHead>Title</TableHead>
                 <TableHead>Room</TableHead>
-                <TableHead>Phase / Week</TableHead>
+                <TableHead>Phase / Day</TableHead>
                 <TableHead>Priority</TableHead>
                 <TableHead>Due Date</TableHead>
                 <TableHead>Assigned To</TableHead>
@@ -598,7 +598,7 @@ export default function CultivationTasksPage() {
                       {task.title}
                     </TableCell>
                     <TableCell>{task.room?.room_name || '\u2014'}</TableCell>
-                    <TableCell>{phaseWeekLabel(task)}</TableCell>
+                    <TableCell>{phaseDayLabel(task)}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <Badge className={PRIORITY_BADGE[task.priority]}>
@@ -695,7 +695,7 @@ export default function CultivationTasksPage() {
                 <div className="flex gap-2 text-xs text-muted-foreground">
                   <span>{task.room?.room_name || 'No room'}</span>
                   <span>&middot;</span>
-                  <span>{phaseWeekLabel(task)}</span>
+                  <span>{phaseDayLabel(task)}</span>
                 </div>
 
                 {/* Row 3: due date + assignee */}

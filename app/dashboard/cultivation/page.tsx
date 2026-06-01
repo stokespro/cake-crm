@@ -6,11 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Sprout, Clock, CheckCircle, AlertTriangle, CalendarDays, Settings, Home, CheckSquare, MessageSquare } from 'lucide-react'
-import { format, isToday, isPast, startOfWeek, endOfWeek, differenceInCalendarDays } from 'date-fns'
+import { format, isToday, isPast, startOfWeek, endOfWeek } from 'date-fns'
 import { parseLocalDate } from '@/lib/utils'
 import { useAuth, canManageCultivation, canCompleteCultivation } from '@/lib/auth-context'
 import { createClient } from '@/lib/supabase/client'
-import { GrowRoom, PHASE_CONFIG, GrowPhase, CultivationTask, TaskPriority } from '@/types/cultivation'
+import { GrowRoom, RoomCycle, PHASE_CONFIG, GrowPhase, CultivationTask, TaskPriority } from '@/types/cultivation'
 import { TaskCompletionSheet } from '@/components/cultivation/task-completion-sheet'
 import { generateRecurringTasks } from '@/lib/cultivation/generate-recurring-tasks'
 
@@ -41,14 +41,16 @@ const PHASE_BADGE_CLASSES: Record<GrowPhase, string> = {
   drying_curing: 'bg-orange-600 text-white',
 }
 
-function getWeekProgress(room: GrowRoom): { current: number; total: number } | null {
+function getDayProgress(room: GrowRoom, activeCycle: RoomCycle | undefined): { current: number; total: number } | null {
   const phase = room.current_phase
   if (phase === 'empty' || !room.phase_start_date) return null
-  const config = PHASE_CONFIG[phase]
-  if (!config || config.weeks === 0) return null
-  const daysSinceStart = differenceInCalendarDays(new Date(), parseLocalDate(room.phase_start_date))
-  const currentWeek = Math.min(Math.floor(daysSinceStart / 7) + 1, config.weeks)
-  return { current: Math.max(currentWeek, 1), total: config.weeks }
+  if (!activeCycle?.start_date || !activeCycle?.expected_end_date) return null
+  const startDate = parseLocalDate(activeCycle.start_date)
+  const endDate = parseLocalDate(activeCycle.expected_end_date)
+  const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
+  if (totalDays <= 0) return null
+  const currentDay = Math.floor((new Date().getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1
+  return { current: Math.max(Math.min(currentDay, totalDays), 1), total: totalDays }
 }
 
 function getPairingLabel(room: GrowRoom, rooms: GrowRoom[]): string | null {
@@ -63,6 +65,7 @@ function getPairingLabel(room: GrowRoom, rooms: GrowRoom[]): string | null {
 export default function CultivationPage() {
   const { user } = useAuth()
   const [rooms, setRooms] = useState<GrowRoom[]>([])
+  const [activeCycles, setActiveCycles] = useState<Record<string, RoomCycle>>({})
   const [taskStats, setTaskStats] = useState<TaskStats>({
     overdue: 0,
     dueToday: 0,
@@ -83,8 +86,9 @@ export default function CultivationPage() {
     // Generate any pending recurring task instances
     await generateRecurringTasks()
 
-    const [roomsRes, tasksRes, myTasksRes] = await Promise.all([
+    const [roomsRes, cyclesRes, tasksRes, myTasksRes] = await Promise.all([
       supabase.from('grow_rooms').select('*').order('room_number'),
+      supabase.from('room_cycles').select('*').eq('status', 'active'),
       supabase
         .from('cultivation_tasks')
         .select('id, status, due_date, completed_at, room_id')
@@ -106,6 +110,14 @@ export default function CultivationPage() {
 
     if (roomsRes.data) {
       setRooms(roomsRes.data as GrowRoom[])
+    }
+
+    if (cyclesRes.data) {
+      const cycleMap: Record<string, RoomCycle> = {}
+      for (const cycle of cyclesRes.data as RoomCycle[]) {
+        cycleMap[cycle.room_id] = cycle
+      }
+      setActiveCycles(cycleMap)
     }
 
     if (myTasksRes.data) {
@@ -339,7 +351,7 @@ export default function CultivationPage() {
         <h2 className="text-lg font-semibold mb-4">Grow Rooms</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {rooms.map((room) => {
-            const weekProgress = getWeekProgress(room)
+            const dayProgress = getDayProgress(room, activeCycles[room.id])
             const pairingLabel = getPairingLabel(room, rooms)
             const phaseConfig = PHASE_CONFIG[room.current_phase]
 
@@ -360,22 +372,22 @@ export default function CultivationPage() {
                   )}
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {/* Week progress */}
+                  {/* Day progress */}
                   <div>
                     <div className="flex items-center justify-between text-sm mb-1">
                       <span className="text-muted-foreground">Progress</span>
                       <span className="font-medium">
-                        {weekProgress
-                          ? `Week ${weekProgress.current} of ${weekProgress.total}`
+                        {dayProgress
+                          ? `Day ${dayProgress.current} of ${dayProgress.total}`
                           : '\u2014'}
                       </span>
                     </div>
-                    {weekProgress ? (
+                    {dayProgress ? (
                       <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
                         <div
                           className={`h-full rounded-full ${PHASE_BADGE_CLASSES[room.current_phase].split(' ')[0]}`}
                           style={{
-                            width: `${Math.min((weekProgress.current / weekProgress.total) * 100, 100)}%`,
+                            width: `${Math.min((dayProgress.current / dayProgress.total) * 100, 100)}%`,
                           }}
                         />
                       </div>

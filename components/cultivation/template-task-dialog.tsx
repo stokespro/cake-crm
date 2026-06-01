@@ -24,17 +24,6 @@ import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { TemplateTask, TaskPriority } from '@/types/cultivation'
 
-const DAY_OPTIONS: { value: string; label: string }[] = [
-  { value: 'any', label: 'Any Day' },
-  { value: '1', label: 'Monday' },
-  { value: '2', label: 'Tuesday' },
-  { value: '3', label: 'Wednesday' },
-  { value: '4', label: 'Thursday' },
-  { value: '5', label: 'Friday' },
-  { value: '6', label: 'Saturday' },
-  { value: '7', label: 'Sunday' },
-]
-
 const PRIORITY_OPTIONS: { value: TaskPriority; label: string }[] = [
   { value: 'low', label: 'Low' },
   { value: 'medium', label: 'Medium' },
@@ -42,21 +31,13 @@ const PRIORITY_OPTIONS: { value: TaskPriority; label: string }[] = [
   { value: 'critical', label: 'Critical' },
 ]
 
-function getDayLabel(day: number | null): string {
-  if (day === null) return 'Any'
-  const found = DAY_OPTIONS.find((d) => d.value === String(day))
-  return found ? found.label : 'Any'
-}
-
-export { getDayLabel }
-
 interface TemplateTaskDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   templateId: string
   task: TemplateTask | null
   maxSortOrder: number
-  defaultWeek?: number
+  defaultDay?: number
   onSaved: () => void
 }
 
@@ -66,13 +47,12 @@ export function TemplateTaskDialog({
   templateId,
   task,
   maxSortOrder,
-  defaultWeek,
+  defaultDay,
   onSaved,
 }: TemplateTaskDialogProps) {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
-  const [weekNumber, setWeekNumber] = useState('1')
-  const [dayOfWeek, setDayOfWeek] = useState('any')
+  const [dayNumber, setDayNumber] = useState('1')
   const [estimatedMinutes, setEstimatedMinutes] = useState('')
   const [priority, setPriority] = useState<TaskPriority>('medium')
   const [saving, setSaving] = useState(false)
@@ -83,8 +63,7 @@ export function TemplateTaskDialog({
     if (task) {
       setName(task.name)
       setDescription(task.description || '')
-      setWeekNumber(String(task.week_number))
-      setDayOfWeek(task.day_of_week !== null ? String(task.day_of_week) : 'any')
+      setDayNumber(String(task.day_number))
       setEstimatedMinutes(
         task.estimated_minutes !== null ? String(task.estimated_minutes) : ''
       )
@@ -92,12 +71,11 @@ export function TemplateTaskDialog({
     } else {
       setName('')
       setDescription('')
-      setWeekNumber(defaultWeek ? String(defaultWeek) : '1')
-      setDayOfWeek('any')
+      setDayNumber(defaultDay ? String(defaultDay) : '1')
       setEstimatedMinutes('')
       setPriority('medium')
     }
-  }, [task, open, defaultWeek])
+  }, [task, open, defaultDay])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -107,9 +85,9 @@ export function TemplateTaskDialog({
       return
     }
 
-    const week = parseInt(weekNumber, 10)
-    if (isNaN(week) || week < 1 || week > 12) {
-      toast.error('Week must be between 1 and 12')
+    const day = parseInt(dayNumber, 10)
+    if (isNaN(day) || day < 1 || day > 365) {
+      toast.error('Day must be between 1 and 365')
       return
     }
 
@@ -127,8 +105,7 @@ export function TemplateTaskDialog({
     const data = {
       name: name.trim(),
       description: description.trim() || null,
-      week_number: week,
-      day_of_week: dayOfWeek === 'any' ? null : parseInt(dayOfWeek, 10),
+      day_number: day,
       estimated_minutes: minutes,
       priority,
     }
@@ -202,35 +179,17 @@ export function TemplateTaskDialog({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="task-week">Week Number *</Label>
-              <Input
-                id="task-week"
-                type="number"
-                min={1}
-                max={12}
-                value={weekNumber}
-                onChange={(e) => setWeekNumber(e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="task-day">Day of Week</Label>
-              <Select value={dayOfWeek} onValueChange={setDayOfWeek}>
-                <SelectTrigger id="task-day">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {DAY_OPTIONS.map((day) => (
-                    <SelectItem key={day.value} value={day.value}>
-                      {day.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="task-day">Day Number *</Label>
+            <Input
+              id="task-day"
+              type="number"
+              min={1}
+              max={365}
+              value={dayNumber}
+              onChange={(e) => setDayNumber(e.target.value)}
+              required
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-4">

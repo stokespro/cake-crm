@@ -26,7 +26,7 @@ import { createClient } from '@/lib/supabase/client'
 import { CycleTemplate, GrowPhase, PHASE_CONFIG } from '@/types/cultivation'
 
 const TEMPLATE_PHASES = (
-  Object.entries(PHASE_CONFIG) as [GrowPhase, { label: string; weeks: number; color: string }][]
+  Object.entries(PHASE_CONFIG) as [GrowPhase, { label: string; color: string }][]
 ).filter(([key]) => key !== 'empty')
 
 interface TemplateSheetProps {
@@ -46,6 +46,7 @@ export function TemplateSheet({
 }: TemplateSheetProps) {
   const [name, setName] = useState('')
   const [phase, setPhase] = useState<string>('')
+  const [durationDays, setDurationDays] = useState('')
   const [description, setDescription] = useState('')
   const [isActive, setIsActive] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -56,11 +57,13 @@ export function TemplateSheet({
     if (template) {
       setName(template.name)
       setPhase(template.phase)
+      setDurationDays(template.duration_days != null ? String(template.duration_days) : '')
       setDescription(template.description || '')
       setIsActive(template.is_active)
     } else {
       setName('')
       setPhase('')
+      setDurationDays('')
       setDescription('')
       setIsActive(true)
     }
@@ -78,6 +81,12 @@ export function TemplateSheet({
       return
     }
 
+    const duration = parseInt(durationDays, 10)
+    if (isNaN(duration) || duration < 1) {
+      toast.error('Duration must be at least 1 day')
+      return
+    }
+
     setSaving(true)
     const supabase = createClient()
 
@@ -87,6 +96,7 @@ export function TemplateSheet({
         .update({
           name: name.trim(),
           phase,
+          duration_days: duration,
           description: description.trim() || null,
           is_active: isActive,
         })
@@ -103,6 +113,7 @@ export function TemplateSheet({
       const { error } = await supabase.from('cycle_templates').insert({
         name: name.trim(),
         phase,
+        duration_days: duration,
         description: description.trim() || null,
         is_active: isActive,
         created_by: userId,
@@ -155,11 +166,25 @@ export function TemplateSheet({
               <SelectContent>
                 {TEMPLATE_PHASES.map(([key, config]) => (
                   <SelectItem key={key} value={key}>
-                    {config.label} ({config.weeks} weeks)
+                    {config.label}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="template-duration">Duration (days) *</Label>
+            <Input
+              id="template-duration"
+              type="number"
+              min={1}
+              max={365}
+              value={durationDays}
+              onChange={(e) => setDurationDays(e.target.value)}
+              placeholder="e.g., 63"
+              required
+            />
           </div>
 
           <div className="space-y-2">

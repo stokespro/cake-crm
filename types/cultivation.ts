@@ -4,13 +4,13 @@ export type CultivationTaskStatus = 'pending' | 'in_progress' | 'completed' | 's
 export type CultivationTaskType = 'scheduled' | 'adhoc' | 'recurring'
 export type CycleStatus = 'active' | 'completed' | 'cancelled'
 
-export const PHASE_CONFIG: Record<GrowPhase, { label: string; weeks: number; color: string }> = {
-  empty:         { label: 'Empty',         weeks: 0,  color: 'gray' },
-  dome:          { label: 'Clone Dome',    weeks: 2,  color: 'teal' },
-  veg:           { label: 'Veg',           weeks: 4,  color: 'green' },
-  flower:        { label: 'Flower',        weeks: 9,  color: 'purple' },
-  harvest:       { label: 'Harvest',       weeks: 1,  color: 'amber' },
-  drying_curing: { label: 'Drying/Curing', weeks: 2,  color: 'orange' },
+export const PHASE_CONFIG: Record<GrowPhase, { label: string; color: string }> = {
+  empty:         { label: 'Empty',         color: 'gray' },
+  dome:          { label: 'Clone Dome',    color: 'teal' },
+  veg:           { label: 'Veg',           color: 'green' },
+  flower:        { label: 'Flower',        color: 'purple' },
+  harvest:       { label: 'Harvest',       color: 'amber' },
+  drying_curing: { label: 'Drying/Curing', color: 'orange' },
 }
 
 export interface GrowRoom {
@@ -30,6 +30,7 @@ export interface CycleTemplate {
   name: string
   phase: string
   description: string | null
+  duration_days: number | null
   is_active: boolean
   created_by: string | null
   created_at: string
@@ -41,7 +42,7 @@ export interface TemplateTask {
   template_id: string
   name: string
   description: string | null
-  week_number: number
+  day_number: number
   day_of_week: number | null
   estimated_minutes: number | null
   priority: TaskPriority
@@ -74,7 +75,7 @@ export interface CultivationTask {
   description: string | null
   task_type: CultivationTaskType
   phase: string | null
-  week_number: number | null
+  day_number: number | null
   due_date: string
   priority: TaskPriority
   estimated_minutes: number | null
