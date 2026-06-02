@@ -34,7 +34,6 @@ const PRIORITY_BADGE: Record<TaskPriority, string> = {
 
 const PHASE_BADGE_CLASSES: Record<string, string> = {
   empty: 'bg-gray-500 text-white',
-  clone: 'bg-cyan-600 text-white',
   dome: 'bg-teal-600 text-white',
   veg: 'bg-green-600 text-white',
   flower: 'bg-purple-600 text-white',

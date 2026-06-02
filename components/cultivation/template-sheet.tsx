@@ -171,7 +171,7 @@ export function TemplateSheet({
             </Select>
             <p className="text-xs text-muted-foreground">
               {isMaster
-                ? 'A master cycle covers the full pipeline from clone to trim.'
+                ? 'A master cycle covers the full pipeline from dome to trim.'
                 : 'A phase template covers a single growth stage.'}
             </p>
           </div>

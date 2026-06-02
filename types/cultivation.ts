@@ -1,8 +1,8 @@
-export type GrowPhase = 'empty' | 'clone' | 'dome' | 'veg' | 'flower' | 'harvest' | 'dry' | 'trim'
-export type PipelineStage = 'clone' | 'dome' | 'veg' | 'flower' | 'harvest' | 'dry' | 'trim'
+export type GrowPhase = 'empty' | 'dome' | 'veg' | 'flower' | 'harvest' | 'dry' | 'trim'
+export type PipelineStage = 'dome' | 'veg' | 'flower' | 'harvest' | 'dry' | 'trim'
 export type TemplateType = 'master' | 'phase'
 
-export const STAGE_ORDER: PipelineStage[] = ['clone', 'dome', 'veg', 'flower', 'harvest', 'dry', 'trim']
+export const STAGE_ORDER: PipelineStage[] = ['dome', 'veg', 'flower', 'harvest', 'dry', 'trim']
 
 export type TaskPriority = 'low' | 'medium' | 'high' | 'critical'
 export type CultivationTaskStatus = 'pending' | 'in_progress' | 'completed' | 'skipped'
@@ -11,7 +11,6 @@ export type CycleStatus = 'active' | 'completed' | 'cancelled'
 
 export const PHASE_CONFIG: Record<GrowPhase, { label: string; color: string }> = {
   empty:   { label: 'Empty',   color: 'gray' },
-  clone:   { label: 'Clone',   color: 'cyan' },
   dome:    { label: 'Dome',    color: 'teal' },
   veg:     { label: 'Veg',     color: 'green' },
   flower:  { label: 'Flower',  color: 'purple' },

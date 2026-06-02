@@ -120,13 +120,13 @@ export function StartCycleDialog({
 
       const cycleNum = parseInt(cycleNumber, 10) || null
 
-      // 1. Create room_cycles with current_stage = 'clone'
+      // 1. Create room_cycles with current_stage = 'dome'
       const { data: newCycle, error: cycleErr } = await supabase
         .from('room_cycles')
         .insert({
           room_id: room.id,
           template_id: templateId,
-          current_stage: 'clone',
+          current_stage: 'dome',
           cycle_number: cycleNum,
           start_date: startDate,
           expected_end_date: expectedEndDate,
@@ -143,7 +143,7 @@ export function StartCycleDialog({
       await supabase
         .from('grow_rooms')
         .update({
-          current_phase: 'clone',
+          current_phase: 'dome',
           phase_start_date: startDate,
           updated_at: new Date().toISOString(),
         })
