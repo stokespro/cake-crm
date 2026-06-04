@@ -30,7 +30,7 @@ import {
   PHASE_CONFIG,
   PipelineStage,
 } from '@/types/cultivation'
-import { format } from 'date-fns'
+import { format, addDays } from 'date-fns'
 
 // ─── Start Cycle Dialog ───
 
@@ -50,16 +50,44 @@ export function StartCycleDialog({
   onCompleted,
 }: StartCycleDialogProps) {
   const [templateId, setTemplateId] = useState<string>('none')
-  const [startDate, setStartDate] = useState(format(new Date(), 'yyyy-MM-dd'))
+  const [domeStart, setDomeStart] = useState(format(new Date(), 'yyyy-MM-dd'))
+  const [vegStart, setVegStart] = useState('')
+  const [flowerStart, setFlowerStart] = useState('')
+  const [harvestDate, setHarvestDate] = useState('')
+  const [dryStart, setDryStart] = useState('')
+  const [trimStart, setTrimStart] = useState('')
   const [cycleNumber, setCycleNumber] = useState('')
   const [notes, setNotes] = useState('')
   const [templates, setTemplates] = useState<CycleTemplate[]>([])
   const [saving, setSaving] = useState(false)
 
+  // Auto-suggest milestone dates when dome start changes
+  function suggestMilestones(dome: string) {
+    if (!dome) return
+    const d = new Date(dome + 'T00:00:00')
+    const veg = addDays(d, 28)
+    const flower = addDays(veg, 30)
+    const harvest = addDays(flower, 62)
+    const dry = harvest // dry starts on harvest day
+    const trim = addDays(harvest, 7)
+    setVegStart(format(veg, 'yyyy-MM-dd'))
+    setFlowerStart(format(flower, 'yyyy-MM-dd'))
+    setHarvestDate(format(harvest, 'yyyy-MM-dd'))
+    setDryStart(format(dry, 'yyyy-MM-dd'))
+    setTrimStart(format(trim, 'yyyy-MM-dd'))
+  }
+
+  function handleDomeStartChange(value: string) {
+    setDomeStart(value)
+    suggestMilestones(value)
+  }
+
   useEffect(() => {
     if (!open || !room) return
     setTemplateId('none')
-    setStartDate(format(new Date(), 'yyyy-MM-dd'))
+    const today = format(new Date(), 'yyyy-MM-dd')
+    setDomeStart(today)
+    suggestMilestones(today)
     setNotes('')
 
     async function init() {
@@ -100,8 +128,12 @@ export function StartCycleDialog({
       toast.error('Please select a master template')
       return
     }
-    if (!startDate) {
-      toast.error('Please select a start date')
+    if (!domeStart) {
+      toast.error('Please enter a Dome Start date')
+      return
+    }
+    if (!vegStart || !flowerStart || !harvestDate || !dryStart || !trimStart) {
+      toast.error('All milestone dates are required')
       return
     }
 
@@ -112,15 +144,9 @@ export function StartCycleDialog({
       const selectedTemplate = templates.find((t) => t.id === templateId)
       if (!selectedTemplate) throw new Error('Template not found')
 
-      const durationDays = selectedTemplate.duration_days || 127
-      const startDateObj = new Date(startDate + 'T00:00:00')
-      const expectedEnd = new Date(startDateObj)
-      expectedEnd.setDate(expectedEnd.getDate() + durationDays)
-      const expectedEndDate = expectedEnd.toISOString().split('T')[0]
-
       const cycleNum = parseInt(cycleNumber, 10) || null
 
-      // 1. Create room_cycles with current_stage = 'dome'
+      // 1. Create room_cycles with milestone dates
       const { data: newCycle, error: cycleErr } = await supabase
         .from('room_cycles')
         .insert({
@@ -128,8 +154,14 @@ export function StartCycleDialog({
           template_id: templateId,
           current_stage: 'dome',
           cycle_number: cycleNum,
-          start_date: startDate,
-          expected_end_date: expectedEndDate,
+          start_date: domeStart,
+          expected_end_date: trimStart,
+          dome_start: domeStart,
+          veg_start: vegStart,
+          flower_start: flowerStart,
+          harvest_date: harvestDate,
+          dry_start: dryStart,
+          trim_start: trimStart,
           status: 'active',
           notes: notes.trim() || null,
           created_by: userId,
@@ -144,12 +176,12 @@ export function StartCycleDialog({
         .from('grow_rooms')
         .update({
           current_phase: 'dome',
-          phase_start_date: startDate,
+          phase_start_date: domeStart,
           updated_at: new Date().toISOString(),
         })
         .eq('id', room.id)
 
-      // 3. Generate ALL tasks from the master template
+      // 3. Generate ALL tasks from master template using milestone-anchored dates
       const { data: templateTasks } = await supabase
         .from('template_tasks')
         .select('*')
@@ -157,27 +189,44 @@ export function StartCycleDialog({
         .order('day_number')
         .order('sort_order')
 
+      const milestones: Record<string, string> = {
+        dome: domeStart,
+        veg: vegStart,
+        flower: flowerStart,
+        harvest: harvestDate,
+        dry: dryStart,
+        trim: trimStart,
+      }
+
       let taskCount = 0
       if (templateTasks && templateTasks.length > 0) {
-        const tasksToInsert = templateTasks.map((tt) => {
-          const dueDate = new Date(startDateObj)
-          dueDate.setDate(dueDate.getDate() + (tt.day_number - 1))
-          return {
-            room_cycle_id: newCycle.id,
-            room_id: room.id,
-            template_task_id: tt.id,
-            title: tt.name,
-            description: tt.description,
-            task_type: 'scheduled' as const,
-            phase: tt.stage, // stage from template_task becomes phase on cultivation_task
-            day_number: tt.day_number,
-            due_date: dueDate.toISOString().split('T')[0],
-            priority: tt.priority,
-            estimated_minutes: tt.estimated_minutes,
-            status: 'pending' as const,
-            created_by: userId,
-          }
-        })
+        const tasksToInsert = templateTasks
+          .filter((tt) => tt.stage && milestones[tt.stage])
+          .map((tt) => {
+            const milestoneDate = milestones[tt.stage!]
+            const milestoneDateObj = new Date(milestoneDate + 'T00:00:00')
+            const dueDate = new Date(milestoneDateObj)
+            if (tt.day_number > 0) {
+              dueDate.setDate(dueDate.getDate() + (tt.day_number - 1)) // Day 1 = milestone date itself
+            } else {
+              dueDate.setDate(dueDate.getDate() + tt.day_number) // Negative = days before milestone
+            }
+            return {
+              room_cycle_id: newCycle.id,
+              room_id: room.id,
+              template_task_id: tt.id,
+              title: tt.name,
+              description: tt.description,
+              task_type: 'scheduled' as const,
+              phase: tt.stage,
+              day_number: tt.day_number,
+              due_date: dueDate.toISOString().split('T')[0],
+              priority: tt.priority,
+              estimated_minutes: tt.estimated_minutes,
+              status: 'pending' as const,
+              created_by: userId,
+            }
+          })
 
         await supabase.from('cultivation_tasks').insert(tasksToInsert)
         taskCount = tasksToInsert.length
@@ -233,28 +282,85 @@ export function StartCycleDialog({
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="sc-date">Start Date *</Label>
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold uppercase text-muted-foreground tracking-wide">Milestone Dates</Label>
+            <p className="text-xs text-muted-foreground">
+              Set Dome Start to auto-suggest the rest. Override any date as needed.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label htmlFor="sc-dome" className="text-xs">Dome Start (clone cut) *</Label>
               <Input
-                id="sc-date"
+                id="sc-dome"
                 type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+                value={domeStart}
+                onChange={(e) => handleDomeStartChange(e.target.value)}
                 required
               />
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="sc-cycle-num">Cycle #</Label>
+            <div className="space-y-1">
+              <Label htmlFor="sc-veg" className="text-xs">Veg Start (transplant) *</Label>
               <Input
-                id="sc-cycle-num"
-                type="number"
-                min={1}
-                value={cycleNumber}
-                onChange={(e) => setCycleNumber(e.target.value)}
+                id="sc-veg"
+                type="date"
+                value={vegStart}
+                onChange={(e) => setVegStart(e.target.value)}
+                required
               />
             </div>
+            <div className="space-y-1">
+              <Label htmlFor="sc-flower" className="text-xs">Flower Start (flip) *</Label>
+              <Input
+                id="sc-flower"
+                type="date"
+                value={flowerStart}
+                onChange={(e) => setFlowerStart(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="sc-harvest" className="text-xs">Harvest Date *</Label>
+              <Input
+                id="sc-harvest"
+                type="date"
+                value={harvestDate}
+                onChange={(e) => setHarvestDate(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="sc-dry" className="text-xs">Dry Start *</Label>
+              <Input
+                id="sc-dry"
+                type="date"
+                value={dryStart}
+                onChange={(e) => setDryStart(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="sc-trim" className="text-xs">Trim Start *</Label>
+              <Input
+                id="sc-trim"
+                type="date"
+                value={trimStart}
+                onChange={(e) => setTrimStart(e.target.value)}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="sc-cycle-num">Cycle #</Label>
+            <Input
+              id="sc-cycle-num"
+              type="number"
+              min={1}
+              value={cycleNumber}
+              onChange={(e) => setCycleNumber(e.target.value)}
+            />
           </div>
 
           <div className="space-y-2">

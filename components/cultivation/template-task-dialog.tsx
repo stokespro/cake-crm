@@ -96,8 +96,8 @@ export function TemplateTaskDialog({
     }
 
     const day = parseInt(dayNumber, 10)
-    if (isNaN(day) || day < 1 || day > 365) {
-      toast.error('Day must be between 1 and 365')
+    if (isNaN(day) || day < -30 || day > 365) {
+      toast.error('Day must be between -30 and 365')
       return
     }
 
@@ -217,16 +217,19 @@ export function TemplateTaskDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="task-day">Day Number *</Label>
+            <Label htmlFor="task-day">Day within Phase *</Label>
             <Input
               id="task-day"
               type="number"
-              min={1}
+              min={-30}
               max={365}
               value={dayNumber}
               onChange={(e) => setDayNumber(e.target.value)}
               required
             />
+            <p className="text-xs text-muted-foreground">
+              Positive = days after phase starts. Negative = days before (prep tasks).
+            </p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

@@ -288,6 +288,14 @@ export default function TemplatesPage() {
       }))
   }
 
+  function formatPhaseDay(task: TemplateTask): string {
+    const stageLabel = task.stage ? (PHASE_CONFIG[task.stage as GrowPhase]?.label || task.stage) : ''
+    if (task.day_number < 0) {
+      return `${stageLabel} Day ${task.day_number} (prep)`
+    }
+    return `${stageLabel} Day ${task.day_number}`
+  }
+
   function renderTaskRow(task: TemplateTask, showStage?: boolean) {
     return (
       <div
@@ -300,7 +308,7 @@ export default function TemplatesPage() {
               {PHASE_CONFIG[task.stage as GrowPhase]?.label || task.stage}
             </Badge>
           )}
-          Day {task.day_number}: {task.name}
+          {formatPhaseDay(task)}: {task.name}
         </div>
         <div>
           <Badge
@@ -356,7 +364,7 @@ export default function TemplatesPage() {
                 {PHASE_CONFIG[task.stage as GrowPhase]?.label || task.stage}
               </Badge>
             )}
-            Day {task.day_number}: {task.name}
+            {formatPhaseDay(task)}: {task.name}
           </span>
           <Badge
             className={`text-xs shrink-0 ${PRIORITY_BADGE_CLASSES[task.priority]}`}

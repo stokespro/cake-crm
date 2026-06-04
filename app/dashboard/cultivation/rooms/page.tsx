@@ -395,6 +395,7 @@ export default function RoomsPage() {
                     {roomCycles.map((cycle) => {
                       const progress = getDayProgress(cycle)
                       const stageConfig = PHASE_CONFIG[cycle.current_stage as GrowPhase]
+                      const hasMilestones = cycle.dome_start || cycle.veg_start || cycle.flower_start || cycle.harvest_date || cycle.trim_start
                       return (
                         <div key={cycle.id} className="space-y-1">
                           <div className="flex items-center justify-between text-sm">
@@ -421,6 +422,15 @@ export default function RoomsPage() {
                                   width: `${Math.min((progress.current / progress.total) * 100, 100)}%`,
                                 }}
                               />
+                            </div>
+                          )}
+                          {hasMilestones && (
+                            <div className="text-[11px] text-muted-foreground leading-relaxed pt-1">
+                              {cycle.dome_start && <span>Dome: {format(parseLocalDate(cycle.dome_start), 'MMM d')}</span>}
+                              {cycle.veg_start && <span> &rarr; Veg: {format(parseLocalDate(cycle.veg_start), 'MMM d')}</span>}
+                              {cycle.flower_start && <span> &rarr; Flower: {format(parseLocalDate(cycle.flower_start), 'MMM d')}</span>}
+                              {cycle.harvest_date && <span> &rarr; Harvest: {format(parseLocalDate(cycle.harvest_date), 'MMM d')}</span>}
+                              {cycle.trim_start && <span> &rarr; Trim: {format(parseLocalDate(cycle.trim_start), 'MMM d')}</span>}
                             </div>
                           )}
                         </div>

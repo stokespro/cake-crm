@@ -68,11 +68,26 @@ export interface RoomCycle {
   start_date: string
   expected_end_date: string | null
   actual_end_date: string | null
+  dome_start: string | null
+  veg_start: string | null
+  flower_start: string | null
+  harvest_date: string | null
+  dry_start: string | null
+  trim_start: string | null
   status: CycleStatus
   notes: string | null
   created_by: string | null
   created_at: string
   updated_at: string
+}
+
+export const MILESTONE_FIELD: Record<PipelineStage, string> = {
+  dome: 'dome_start',
+  veg: 'veg_start',
+  flower: 'flower_start',
+  harvest: 'harvest_date',
+  dry: 'dry_start',
+  trim: 'trim_start',
 }
 
 export interface CultivationTask {
