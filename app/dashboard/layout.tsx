@@ -89,8 +89,16 @@ const allNavigation: NavigationItem[] = [
   // Materials inventory - packaging, management, admin
   { name: 'Materials', href: '/dashboard/materials', icon: Boxes, roles: ['packaging', 'management', 'admin'] },
 
-  // Compliance log - vault, packaging, management, admin
-  { name: 'Compliance', href: '/dashboard/compliance', icon: ClipboardList, roles: ['vault', 'packaging', 'management', 'admin'] },
+  // Compliance - vault, packaging, management, admin
+  {
+    name: 'Compliance',
+    icon: ClipboardList,
+    roles: ['vault', 'packaging', 'management', 'admin'],
+    subItems: [
+      { name: 'Compliance Log', href: '/dashboard/compliance' },
+      { name: 'DEA Briefing', href: '/dashboard/compliance/dea-briefing' },
+    ]
+  },
 
   // Cultivation - vault, packaging, standard, management, admin
   { name: 'Cultivation', href: '/dashboard/cultivation', icon: Sprout, roles: ['vault', 'packaging', 'standard', 'management', 'admin'] },
