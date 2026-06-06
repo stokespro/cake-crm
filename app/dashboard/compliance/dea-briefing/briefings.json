@@ -163,45 +163,6 @@
       "pinned": true
     },
     {
-      "id": "fda-misses-deadline-cannabinoid-lists",
-      "headline": "FDA Misses Statutory Deadline to Publish Cannabinoid Lists — Compliance Void Continues",
-      "date": "2026-02-10",
-      "summary": "The November 2025 hemp law required FDA to publish four lists within 90 days: naturally produced cannabinoids; naturally occurring THC-class cannabinoids; THC-similar cannabinoids; and the definition of a \"container.\" FDA missed the February 10, 2026 deadline and, as of early June 2026, had not published. The synthetic-exclusion turns on whether a cannabinoid is \"naturally produced,\" a determination only FDA can make.",
-      "whyItMatters": "Without the lists, producers, retailers, and law enforcement lack a definitive line between legal hemp and Schedule I — industry is reformulating blind.",
-      "tags": ["federal"],
-      "source": {
-        "name": "Marijuana Moment",
-        "url": "https://www.marijuanamoment.net/fda-misses-deadline-to-publish-cannabinoid-list-and-define-hemp-containers-drawing-industry-criticism/"
-      },
-      "pinned": false
-    },
-    {
-      "id": "trump-eo-expedited-rescheduling-schedule-iii",
-      "headline": "Trump Executive Order Directs Expedited Rescheduling to Schedule III",
-      "date": "2025-12-18",
-      "summary": "The EO \"Increasing Medical Marijuana and Cannabidiol Research\" directed the AG to complete rescheduling to Schedule III \"in the most expeditious manner,\" and tasked HHS, FDA, CMS, and NIH with real-world evidence research models for hemp-derived cannabinoids. It reactivated a process that had stalled through most of 2025.",
-      "whyItMatters": "This executive order triggered the April 2026 DEA final order within four months, establishing the legal and political context for the entire current rescheduling framework.",
-      "tags": ["federal"],
-      "source": {
-        "name": "White House EO",
-        "url": "https://www.whitehouse.gov/presidential-actions/2025/12/increasing-medical-marijuana-and-cannabidiol-research/"
-      },
-      "pinned": false
-    },
-    {
-      "id": "safer-banking-stalled-rescheduling-does-not-fix",
-      "headline": "SAFER Banking Stalled — Rescheduling Does Not Fix Cannabis Banking",
-      "date": "2026-01-01",
-      "summary": "SAFER Banking has passed the House and cleared Senate Banking Committee but has no scheduled Senate floor vote in the 119th Congress. Rescheduling to Schedule III does not by itself fix banking: it doesn't change FinCEN guidance or BSA/AML obligations, doesn't make marijuana FDA-approved, and doesn't remove SAR-filing requirements.",
-      "whyItMatters": "Newly Schedule III-compliant medical operators still face limited banking, card processing, and SBA-loan access; the industry remains cash-heavy despite the historic rescheduling.",
-      "tags": ["federal"],
-      "source": {
-        "name": "Cannabis Business Times",
-        "url": "https://www.cannabisbusinesstimes.com/business-issues-benchmarks/safe-banking-act/news/15825992/safe-banking-act-nowhere-to-be-found-in-wake-of-schedule-iii-cannabis-order"
-      },
-      "pinned": false
-    },
-    {
       "id": "omma-monitors-rescheduling-280e-relief-applies",
       "headline": "OMMA Monitors Rescheduling & Confirms 280E Relief Applies Regardless of DEA Registration Status",
       "date": "2026-05-06",
@@ -211,45 +172,6 @@
       "source": {
         "name": "OMMA Official Notice",
         "url": "https://oklahoma.gov/omma/about/news/2026/update-omma-monitors-dea-rescheduling-status-shares-recently-filed-lawsuit.html"
-      },
-      "pinned": false
-    },
-    {
-      "id": "sb1066-physicians-must-register-omma",
-      "headline": "SB 1066: Physicians Must Register With OMMA to Recommend — Effective Jan 1, 2026",
-      "date": "2026-01-01",
-      "summary": "Physicians must complete a state-approved continuing education course and register with OMMA before issuing recommendations; they must stay in good standing, follow standards of care, and not operate from a dispensary location including virtual. Patient applications with an unregistered physician's signature are rejected as of January 1, 2026. Recommendations signed before December 31, 2025 remain valid for their 30-day window.",
-      "whyItMatters": "A new bottleneck in the patient pipeline that can affect dispensary and grow sales volume if physician supply does not keep pace with registration requirements.",
-      "tags": ["oklahoma"],
-      "source": {
-        "name": "OMMA Physician Reminder",
-        "url": "https://oklahoma.gov/omma/about/news/2026/reminder-physician-medical-marijuana-recommendation-requirements-now-in-effect.html"
-      },
-      "pinned": false
-    },
-    {
-      "id": "sq837-adult-use-failed-qualify-2026-ballot",
-      "headline": "State Question 837 (Adult-Use Legalization) Failed to Qualify for 2026 Ballot",
-      "date": "2025-11-03",
-      "summary": "The \"Oklahoma Responsible Cannabis Act\" would have legalized adult-use for 21+, set a 10% sales tax (eliminating the 7% medical tax), allowed home grow up to 12 plants, and added privacy/anti-discrimination protections. It needed 172,993 valid signatures by November 3, 2025; petitioners did not submit signature sheets by the deadline, so it will not appear on the November 3, 2026 ballot. Law-enforcement opposition — including from OBNDD Director Anderson — was a significant headwind.",
-      "whyItMatters": "Oklahoma stays medical-only through at least 2026, preserving the current market structure that cultivators operate within.",
-      "tags": ["oklahoma"],
-      "source": {
-        "name": "Ballotpedia",
-        "url": "https://ballotpedia.org/Oklahoma_State_Question_837,_Marijuana_Legalization_Initiative_(2026)"
-      },
-      "pinned": false
-    },
-    {
-      "id": "omma-enforcement-6000-inspections-704-recalls",
-      "headline": "OMMA Enforcement: 6,000+ Inspections, 1,400+ Administrative Cases, 704 Products Recalled",
-      "date": "2026-02-17",
-      "summary": "OMMA reported 6,000+ compliance inspections, 1,400+ administrative cases, and 704 products recalled through June 2024. A February 17, 2026 update reported 17 more administrative actions in three weeks, embargoing thousands of unregulated plants and products. Enforcement targets include secret-shopping 50 dispensaries and testing 100+ samples per month at OMMA's QA Reference Lab.",
-      "whyItMatters": "OMMA is in an active enforcement posture; growers and processors should treat Metrc accuracy, labeling, and credentialing as live enforcement priorities, not administrative formalities.",
-      "tags": ["oklahoma"],
-      "source": {
-        "name": "OMMA Admin Actions Update",
-        "url": "https://oklahoma.gov/omma/about/news/2026/continued-progress-recent-administrative-actions.html"
       },
       "pinned": false
     },
@@ -276,32 +198,6 @@
       "source": {
         "name": "DEA Press Release",
         "url": "https://www.dea.gov/press-releases/2026/04/27/homeland-security-task-force-investigation-results-51-defendant"
-      },
-      "pinned": false
-    },
-    {
-      "id": "hb2807-mandatory-pre-packaging-flower-june-2025",
-      "headline": "HB 2807: Mandatory Pre-Packaging of All Flower — Effective June 1, 2025; Grace Period Ended Nov 1, 2025",
-      "date": "2025-06-01",
-      "summary": "All flower-based products — flower, trim, shake, kief — must be sold to dispensaries pre-packaged in units of 0.5 g to 3 oz, packaged at the grower or processor level before reaching the dispensary floor. Deli-style inventory received before June 1, 2025 had to be sold, transferred, or wasted by November 1, 2025.",
-      "whyItMatters": "A direct operational mandate for cultivators and processors — packaging equipment, materials, labeling, and Metrc tagging at the grow/processing stage are now prerequisites for a legal transfer.",
-      "tags": ["oklahoma", "cultivation"],
-      "source": {
-        "name": "OMMA Pre-Pack Rules",
-        "url": "https://oklahoma.gov/omma/businesses/pre-pack.html"
-      },
-      "pinned": false
-    },
-    {
-      "id": "hb3519-sb640-land-reclamation-fee-cleanup-mandates",
-      "headline": "HB 3519 & SB 640: New Land-Reclamation Fee and Cleanup Mandates for Growers (PENDING — Not Yet Law)",
-      "date": "2026-01-01",
-      "summary": "HB 3519 would require grower applicants to pay a $2,000 land-reclamation fee, create a remediation revolving fund, exempt applicants who have owned the land 5+ years, and eliminate the $50,000 surety-bond requirement. SB 640 (Sen. Cynthia Roe) would require all licensed businesses to remove surface trash/waste and complete cleanup within 30 days after a license is revoked, expires, or goes inactive — or the property becomes a public nuisance subject to abatement, with fines of $5,000 then $25,000. Both bills are pending and NOT YET LAW.",
-      "whyItMatters": "Changes the cost calculus for license transfers and surrenders — growers must budget for remediation or face nuisance designation; the bond elimination partially offsets the new fee.",
-      "tags": ["oklahoma", "cultivation", "pending"],
-      "source": {
-        "name": "OMMA Legislative Updates",
-        "url": "https://oklahoma.gov/omma/rules-and-legislation/legislative-updates.html"
       },
       "pinned": false
     }
