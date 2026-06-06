@@ -1,5 +1,105 @@
 {
   "lastUpdated": "2026-06-06",
+  "deaRegistrationStatus": {
+    "lastVerified": "2026-06-06",
+    "headline": "DEA Registration Status — Oklahoma Operators",
+    "tracks": [
+      {
+        "audience": "Dispensaries",
+        "status": "Portal LIVE — optional (per OMMA)",
+        "statusLevel": "live",
+        "detail": "The DEA Medical Marijuana Dispensary Registration Portal opened April 29, 2026 at mmapplication.diversion.dea.gov. Fee $794/yr (PayPal only). OMMA states registration is OPTIONAL for dispensaries — non-registrants may continue operating under Oklahoma state law. Vertically integrated operators that also hold a manufacturer/distributor license are still subject to the OBNDD requirement below.",
+        "sources": [
+          { "name": "DEA Dispensary Registration Portal", "url": "https://mmapplication.diversion.dea.gov/" },
+          { "name": "OMMA — DEA application instructions for dispensaries", "url": "https://oklahoma.gov/omma/about/news/2026/update-dea-provides-application-instructions-to-medical-marijuana-dispensaries.html" }
+        ]
+      },
+      {
+        "audience": "Cultivators / Manufacturers / Labs / Distributors",
+        "status": "No dedicated portal yet — OBNDD says required",
+        "statusLevel": "pending",
+        "detail": "As of 2026-06-06 the dedicated DEA application forms for Medical Marijuana Manufacturer, Bulk Manufacturer (cultivator/grower), Analytical Lab, and Distributor are NOT yet live. A DEA Diversion Control notice (~May 11, 2026) said forms are 'coming in the coming weeks.' A parallel pathway exists via the existing DEA Form 225 using medical-marijuana drug codes (7362 / 7353 / 7386) — this is the standard Form 225 process, not a cannabis-specific portal. OBNDD (May 8, 2026) states manufacturers and distributors are REQUIRED to obtain DEA registration; enforcement grace period runs to January 1, 2027.",
+        "sources": [
+          { "name": "DEA Diversion Control — registration page", "url": "https://www.deadiversion.usdoj.gov/drugreg/registration.html" },
+          { "name": "OBNDD Director bulletin (May 8, 2026)", "url": "https://www.obndd.ok.gov/home/showpublisheddocument/887" },
+          { "name": "MJBizDaily — Oklahoma cultivators must register", "url": "https://mjbizdaily.com/news/oklahoma-cannabis-cultivators-must-obtain-dea-registration-state-says/615971/" }
+        ]
+      }
+    ],
+    "expeditedWindow": "60-day expedited window closes ~June 26–27, 2026 (60 days from the April 28, 2026 Federal Register publication). The 'June 22' date circulating online is a miscalculation — do not rely on it.",
+    "caution": "Multiple consultants and vendors are marketing paid 'DEA registration' services, some implying guaranteed or expedited approval. The portal is a direct-to-applicant system; the DEA makes all decisions and cites a six-month review period. Treat approval guarantees, unofficial 'portal' links, and the 'June 22' deadline as red flags. The application's Section 4 self-incrimination question (prior manufacture/distribution without DEA registration) warrants independent legal counsel before any owner/officer answers and files.",
+    "officialSources": [
+      { "name": "DEA — Marijuana Rescheduling Regulatory Actions", "url": "https://www.dea.gov/marijuana-rescheduling-regulatory-actions" },
+      { "name": "Federal Register — Rescheduling of Marijuana (state-licensed medical)", "url": "https://www.federalregister.gov/documents/2026/04/28/2026-08177/schedules-of-controlled-substances-rescheduling-of-marijuana" },
+      { "name": "OMMA — monitoring DEA status & SAM lawsuit", "url": "https://oklahoma.gov/omma/about/news/2026/update-omma-monitors-dea-rescheduling-status-shares-recently-filed-lawsuit.html" }
+    ]
+  },
+  "discourse": [
+    {
+      "id": "watch-consultants-paid-dea-registration",
+      "headline": "Consultants marketing paid 'DEA registration' services",
+      "claim": "Consulting firms and law practices are selling paid services to prepare/file DEA Schedule III registrations, framing the 7-section form as too complex to self-file; some imply a single SOP error will delay federal approval.",
+      "caution": "The portal is direct-to-applicant with a $794 fee paid to DEA; there is no official statement that paid representation is required. Counsel may be prudent for the Section 4 liability question, but be skeptical of vendors implying only they can navigate a self-registration process.",
+      "source": { "name": "CannDelta", "url": "https://canndelta.com/dea-reschedules-medical-marijuana-to-schedule-iii-a-guide-for-state-licensees-dea-registration-instructions/" },
+      "date": "2026-05"
+    },
+    {
+      "id": "watch-section4-self-incrimination",
+      "headline": "Section 4 'have you distributed without DEA registration?' debate",
+      "claim": "The application asks whether owners/operators previously manufactured/distributed a controlled substance without DEA registration — which nearly every existing cannabis operator must answer 'yes' to. DEA publicly said the question is 'not intended as a categorical barrier.'",
+      "caution": "DEA's reassurance is informal — not published policy or rulemaking, not binding. Former federal prosecutors have warned against treating it as legal protection. Independent counsel before submitting is essential.",
+      "source": { "name": "Cannabis Business Times", "url": "https://www.cannabisbusinesstimes.com/top-stories/news/15825312/dea-says-redflag-question-on-schedule-iii-application-not-intended-as-a-categorical-barrier" },
+      "date": "2026-05"
+    },
+    {
+      "id": "watch-conflicting-deadlines-june22",
+      "headline": "Conflicting deadlines circulating: 'June 22' vs June 26/27",
+      "claim": "Different sites cite June 22, June 26, or June 27 as the expedited-window cutoff.",
+      "caution": "The correct calculation is 60 days from April 28 = June 27 (Sat); June 26 is the last business day. 'June 22' appears to be an uncorroborated error — do not rely on it.",
+      "source": { "name": "WeedPress (June 27) vs misc 'June 22' sites", "url": "https://weedpress.org/2026/05/29/the-june-27-dea-registration-deadline-is-coming-fast-south-dakota-operators-face-a-compliance-cliff-as-the-safe-harbor-window-closes/" },
+      "date": "2026-05"
+    },
+    {
+      "id": "watch-280e-without-registration",
+      "headline": "'280E relief applies whether or not you register with DEA'",
+      "claim": "OMMA guidance and several sources assert 280E relief applies to all state-licensed medical operators by virtue of Schedule III, regardless of DEA registration — used by some to justify skipping registration.",
+      "caution": "IRS/Treasury has not issued formal guidance; OMMA's statement is its interpretation, not a binding ruling. Some tax attorneys dispute it. Acting on it before Treasury guidance carries material tax risk.",
+      "source": { "name": "OMMA notice / Marijuana Policy Project Q&A", "url": "https://www.mpp.org/policy/federal/doj-reschedules-state-legal-medical-cannabis-to-schedule-iii-questions-and-answers/" },
+      "date": "2026-04"
+    },
+    {
+      "id": "watch-framework-could-be-voided",
+      "headline": "Claims the whole rescheduling/registration framework could be voided",
+      "claim": "The SAM/NDASA D.C. Circuit petition, if it gets a stay, could void the Final Order and potentially unwind registrations filed under it; commentators warn operators are 'racing through a door that could be slammed shut.'",
+      "caution": "Active litigation — OMMA itself warned all information 'remains subject to change pending the lawsuit's outcome.' Factor this into any large federal-compliance capital spend.",
+      "source": { "name": "OMMA — SAM lawsuit update", "url": "https://oklahoma.gov/omma/about/news/2026/update-omma-monitors-dea-rescheduling-status-shares-recently-filed-lawsuit.html" },
+      "date": "2026-05"
+    },
+    {
+      "id": "watch-guaranteed-expedited-approvals",
+      "headline": "Vendors implying guaranteed or expedited DEA approvals",
+      "claim": "Some marketing implies engaging a firm ensures approval or prevents delays; a Newswire PR item touts a vendor as having 'the answer' to DEA's registration questions.",
+      "caution": "DEA makes registration decisions; no third party can guarantee outcomes or speed DEA's stated six-month review. Guarantees of approval or 'special access' are red flags. Paid PR is not verified reporting.",
+      "source": { "name": "Newswire (paid PR)", "url": "https://www.newswire.com/news/deas-new-marijuana-registration-questions-redefining-the-cannabis-industry-and" },
+      "date": "2026-05"
+    },
+    {
+      "id": "watch-interstate-commerce-claim",
+      "headline": "'DEA registration unlocks interstate commerce'",
+      "claim": "Some consultants suggest DEA registration will enable interstate cannabis commerce, used as a reason to register fast.",
+      "caution": "Interstate cannabis commerce is not authorized by the Final Order, the Federal Register rules, or any located federal guidance. This claim outruns any verified source — do not act on it.",
+      "source": { "name": "Cannabis Industry Lawyer", "url": "https://www.cannabisindustrylawyer.com/dea-cannabis-registration/" },
+      "date": "2026-05"
+    },
+    {
+      "id": "watch-oklahoma-operator-confusion",
+      "headline": "Oklahoma operators confused over OMMA 'optional' vs OBNDD 'required'",
+      "claim": "Local Oklahoma coverage and industry media show operators unsure whether to register now or wait for the manufacturer portal, and confused that OMMA calls dispensary registration optional while OBNDD calls manufacturer/distributor registration mandatory.",
+      "caution": "These are different agencies governing different license types — not contradictory. Industry media is not a substitute for counsel. Much of the live conversation is in private Facebook/Slack operator groups not publicly indexed.",
+      "source": { "name": "KXII (Oklahoma) coverage", "url": "https://www.kxii.com/2026/05/10/oklahoma-medical-marijuana-businesses-face-new-federal-registration-requirement/" },
+      "date": "2026-05"
+    }
+  ],
   "keyDeadlines": [
     {
       "id": "kd-dea-60-day-window",
@@ -60,14 +160,18 @@
     },
     {
       "id": "dea-registration-required-expedited-window-june-2026",
-      "headline": "DEA Registration Now Required for Medical Marijuana Operators — Expedited Window Closes ~June 26, 2026",
+      "headline": "DEA Registration Now Required — Expedited Window Closes ~June 26–27, 2026",
       "date": "2026-06-26",
-      "summary": "State-licensed medical operators must obtain DEA Schedule III registration. The dispensary portal opened April 29; manufacturer, cultivator, lab, and distributor forms were announced May 11, 2026. Filing within 60 days of the April 28 Federal Register publication lets operators keep running under state license during a committed six-month DEA review. Annual fees: manufacturers $3,699; distributors $1,850; dispensers $888 per three-year registration. Applications require SSNs for all staff with controlled-substance access, upstream supplier DEA numbers, security documentation, and SOPs.",
-      "whyItMatters": "Every operator — cultivator, processor, lab, distributor, dispensary — now faces a federal registration obligation that did not previously exist; missing the window risks shutdown during review.",
-      "tags": ["federal", "deadline"],
+      "summary": "Dispensary portal opened April 29, 2026 at mmapplication.diversion.dea.gov ($794/yr, PayPal only) — OMMA states registration is OPTIONAL for dispensaries. Dedicated DEA application forms for Manufacturer, Bulk Manufacturer (cultivator/grower), Analytical Lab, and Distributor are NOT yet live as of 2026-06-06; a DEA Diversion Control notice (~May 11) said forms are 'coming in the coming weeks.' A parallel pathway exists via DEA Form 225 using codes 7362/7353/7386. OBNDD states manufacturers and distributors are REQUIRED to register; enforcement grace period runs to January 1, 2027. The expedited 60-day window closes ~June 26–27 (60 days from April 28 Federal Register publication) — the 'June 22' date circulating online is a miscalculation; do not rely on it.",
+      "whyItMatters": "Every cultivator, processor, lab, distributor, and dispensary faces a new federal registration layer. Dispensaries have a live portal but optional status per OMMA. Manufacturers/cultivators must use Form 225 or await the dedicated portal — OBNDD says non-registration risks sanctions. Missing the expedited window means operating without safe-harbor during a six-month DEA review.",
+      "tags": ["federal", "deadline", "dispensary"],
       "source": {
         "name": "Marijuana Moment",
         "url": "https://www.marijuanamoment.net/dea-announces-new-marijuana-registration-forms-for-manufacturing-distribution-and-testing-businesses/"
+      },
+      "secondarySource": {
+        "name": "OMMA — dispensary instructions",
+        "url": "https://oklahoma.gov/omma/about/news/2026/update-dea-provides-application-instructions-to-medical-marijuana-dispensaries.html"
       },
       "pinned": true
     },
@@ -77,7 +181,7 @@
       "date": "2026-05-08",
       "summary": "OBNDD Director Donnie Anderson directed that every OMMA registrant who is a \"distributor or manufacturer\" must obtain federal DEA registration. Applying within 60 days of the April 28 publication (~June 27, 2026) lets a business keep operating under state authority during DEA's six-month review. Anderson warned that failure \"could result in OBNDD administrative sanctions up to and including the potential revocation\" of OBNDD registrations, with an enforcement grace period running until January 1, 2027. The DEA application has seven sections and costs approximately $794.",
       "whyItMatters": "OBNDD's requirement reaches ALL licensed manufacturers (growers) and distributors, not just dispensaries; growers who miss it risk losing the OBNDD manufacturer registration that underpins their OMMA grower license.",
-      "tags": ["oklahoma", "deadline"],
+      "tags": ["oklahoma", "deadline", "cultivation"],
       "source": {
         "name": "Marijuana Moment",
         "url": "https://www.marijuanamoment.net/oklahoma-officials-say-medical-marijuana-businesses-must-register-with-federal-dea-to-avoid-punishment/"
@@ -142,7 +246,7 @@
       "date": "2026-04-28",
       "summary": "State-licensed medical marijuana is no longer Schedule I/II, so operators are no longer subject to the IRC Section 280E deduction disallowance. Treasury/IRS guidance announced April 23, 2026 is forthcoming and expected to treat rescheduling as applying for the full 2026 tax year. No retroactive relief for prior years has been announced; recreational-only operators remain fully subject to 280E.",
       "whyItMatters": "Potentially tens of millions in aggregate annual tax savings for medical operators; dual-use states face apportionment questions still unresolved.",
-      "tags": ["federal"],
+      "tags": ["federal", "dispensary"],
       "source": {
         "name": "U.S. Treasury",
         "url": "https://home.treasury.gov/news/press-releases/sb0471"
@@ -155,7 +259,7 @@
       "date": "2026-11-12",
       "summary": "The Continuing Appropriations and Extensions Act, 2026 (H.R. 5371 §781), enacted November 12, 2025, rewrote the federal hemp definition: the 0.3% THC threshold now counts total THC including THCA; final consumable products are capped at 0.4 mg total THC per container; intermediates are capped at 0.3% total THC dry-weight post-decarboxylation; cannabinoids not naturally produced by the plant or synthesized outside it are excluded and treated as Schedule I. Products exceeding thresholds after November 12, 2026 revert to Schedule I.",
       "whyItMatters": "Functionally eliminates the current Delta-8/Delta-10/THCA-flower intoxicating-hemp market unless reformulated or Congress acts before the effective date.",
-      "tags": ["federal", "deadline"],
+      "tags": ["federal", "deadline", "dispensary"],
       "source": {
         "name": "Arnold & Porter Advisory",
         "url": "https://www.arnoldporter.com/en/perspectives/advisories/2025/12/major-changes-to-federal-regulation-of-hemp-derived-products"
@@ -163,15 +267,93 @@
       "pinned": true
     },
     {
+      "id": "fda-misses-deadline-cannabinoid-lists",
+      "headline": "FDA Misses Statutory Deadline to Publish Cannabinoid Lists — Compliance Void Continues",
+      "date": "2026-02-10",
+      "summary": "The November 2025 hemp law required FDA to publish four lists within 90 days: naturally produced cannabinoids; naturally occurring THC-class cannabinoids; THC-similar cannabinoids; and the definition of a \"container.\" FDA missed the February 10, 2026 deadline and, as of early June 2026, had not published. The synthetic-exclusion turns on whether a cannabinoid is \"naturally produced,\" a determination only FDA can make.",
+      "whyItMatters": "Without the lists, producers, retailers, and law enforcement lack a definitive line between legal hemp and Schedule I — industry is reformulating blind.",
+      "tags": ["federal", "dispensary"],
+      "source": {
+        "name": "Marijuana Moment",
+        "url": "https://www.marijuanamoment.net/fda-misses-deadline-to-publish-cannabinoid-list-and-define-hemp-containers-drawing-industry-criticism/"
+      },
+      "pinned": false
+    },
+    {
+      "id": "trump-eo-expedited-rescheduling-schedule-iii",
+      "headline": "Trump Executive Order Directs Expedited Rescheduling to Schedule III",
+      "date": "2025-12-18",
+      "summary": "The EO \"Increasing Medical Marijuana and Cannabidiol Research\" directed the AG to complete rescheduling to Schedule III \"in the most expeditious manner,\" and tasked HHS, FDA, CMS, and NIH with real-world evidence research models for hemp-derived cannabinoids. It reactivated a process that had stalled through most of 2025.",
+      "whyItMatters": "This executive order triggered the April 2026 DEA final order within four months, establishing the legal and political context for the entire current rescheduling framework.",
+      "tags": ["federal"],
+      "source": {
+        "name": "White House EO",
+        "url": "https://www.whitehouse.gov/presidential-actions/2025/12/increasing-medical-marijuana-and-cannabidiol-research/"
+      },
+      "pinned": false
+    },
+    {
+      "id": "safer-banking-stalled-rescheduling-does-not-fix",
+      "headline": "SAFER Banking Stalled — Rescheduling Does Not Fix Cannabis Banking",
+      "date": "2026-01-01",
+      "summary": "SAFER Banking has passed the House and cleared Senate Banking Committee but has no scheduled Senate floor vote in the 119th Congress. Rescheduling to Schedule III does not by itself fix banking: it doesn't change FinCEN guidance or BSA/AML obligations, doesn't make marijuana FDA-approved, and doesn't remove SAR-filing requirements.",
+      "whyItMatters": "Newly Schedule III-compliant medical operators still face limited banking, card processing, and SBA-loan access; the industry remains cash-heavy despite the historic rescheduling.",
+      "tags": ["federal", "dispensary"],
+      "source": {
+        "name": "Cannabis Business Times",
+        "url": "https://www.cannabisbusinesstimes.com/business-issues-benchmarks/safe-banking-act/news/15825992/safe-banking-act-nowhere-to-be-found-in-wake-of-schedule-iii-cannabis-order"
+      },
+      "pinned": false
+    },
+    {
       "id": "omma-monitors-rescheduling-280e-relief-applies",
       "headline": "OMMA Monitors Rescheduling & Confirms 280E Relief Applies Regardless of DEA Registration Status",
       "date": "2026-05-06",
       "summary": "OMMA's official notice confirms it is monitoring DEA rescheduling, that approximately 4,000 OMMA licensees are affected, and that 280E removal applies to Oklahoma medical operators regardless of whether a licensee pursues DEA registration. OMMA cautioned that all information \"remains subject to change pending petition outcomes\" — a reference to the consolidated D.C. Circuit litigation.",
       "whyItMatters": "Oklahoma operators get federal tax relief now, but the pending lawsuits are the key wildcard that could reverse it.",
-      "tags": ["oklahoma"],
+      "tags": ["oklahoma", "dispensary"],
       "source": {
         "name": "OMMA Official Notice",
         "url": "https://oklahoma.gov/omma/about/news/2026/update-omma-monitors-dea-rescheduling-status-shares-recently-filed-lawsuit.html"
+      },
+      "pinned": false
+    },
+    {
+      "id": "sb1066-physicians-must-register-omma",
+      "headline": "SB 1066: Physicians Must Register With OMMA to Recommend — Effective Jan 1, 2026",
+      "date": "2026-01-01",
+      "summary": "Physicians must complete a state-approved continuing education course and register with OMMA before issuing recommendations; they must stay in good standing, follow standards of care, and not operate from a dispensary location including virtual. Patient applications with an unregistered physician's signature are rejected as of January 1, 2026. Recommendations signed before December 31, 2025 remain valid for their 30-day window.",
+      "whyItMatters": "A new bottleneck in the patient pipeline that can affect dispensary and grow sales volume if physician supply does not keep pace with registration requirements.",
+      "tags": ["oklahoma", "dispensary"],
+      "source": {
+        "name": "OMMA Physician Reminder",
+        "url": "https://oklahoma.gov/omma/about/news/2026/reminder-physician-medical-marijuana-recommendation-requirements-now-in-effect.html"
+      },
+      "pinned": false
+    },
+    {
+      "id": "sq837-adult-use-failed-qualify-2026-ballot",
+      "headline": "State Question 837 (Adult-Use Legalization) Failed to Qualify for 2026 Ballot",
+      "date": "2025-11-03",
+      "summary": "The \"Oklahoma Responsible Cannabis Act\" would have legalized adult-use for 21+, set a 10% sales tax (eliminating the 7% medical tax), allowed home grow up to 12 plants, and added privacy/anti-discrimination protections. It needed 172,993 valid signatures by November 3, 2025; petitioners did not submit signature sheets by the deadline, so it will not appear on the November 3, 2026 ballot. Law-enforcement opposition — including from OBNDD Director Anderson — was a significant headwind.",
+      "whyItMatters": "Oklahoma stays medical-only through at least 2026, preserving the current market structure that cultivators operate within.",
+      "tags": ["oklahoma"],
+      "source": {
+        "name": "Ballotpedia",
+        "url": "https://ballotpedia.org/Oklahoma_State_Question_837,_Marijuana_Legalization_Initiative_(2026)"
+      },
+      "pinned": false
+    },
+    {
+      "id": "omma-enforcement-6000-inspections-704-recalls",
+      "headline": "OMMA Enforcement: 6,000+ Inspections, 1,400+ Administrative Cases, 704 Products Recalled",
+      "date": "2026-02-17",
+      "summary": "OMMA reported 6,000+ compliance inspections, 1,400+ administrative cases, and 704 products recalled through June 2024. A February 17, 2026 update reported 17 more administrative actions in three weeks, embargoing thousands of unregulated plants and products. Enforcement targets include secret-shopping 50 dispensaries and testing 100+ samples per month at OMMA's QA Reference Lab.",
+      "whyItMatters": "OMMA is in an active enforcement posture; growers and processors should treat Metrc accuracy, labeling, and credentialing as live enforcement priorities, not administrative formalities.",
+      "tags": ["oklahoma", "dispensary"],
+      "source": {
+        "name": "OMMA Admin Actions Update",
+        "url": "https://oklahoma.gov/omma/about/news/2026/continued-progress-recent-administrative-actions.html"
       },
       "pinned": false
     },
@@ -198,6 +380,32 @@
       "source": {
         "name": "DEA Press Release",
         "url": "https://www.dea.gov/press-releases/2026/04/27/homeland-security-task-force-investigation-results-51-defendant"
+      },
+      "pinned": false
+    },
+    {
+      "id": "hb2807-mandatory-pre-packaging-flower-june-2025",
+      "headline": "HB 2807: Mandatory Pre-Packaging of All Flower — Effective June 1, 2025; Grace Period Ended Nov 1, 2025",
+      "date": "2025-06-01",
+      "summary": "All flower-based products — flower, trim, shake, kief — must be sold to dispensaries pre-packaged in units of 0.5 g to 3 oz, packaged at the grower or processor level before reaching the dispensary floor. Deli-style inventory received before June 1, 2025 had to be sold, transferred, or wasted by November 1, 2025.",
+      "whyItMatters": "A direct operational mandate for cultivators and processors — packaging equipment, materials, labeling, and Metrc tagging at the grow/processing stage are now prerequisites for a legal transfer.",
+      "tags": ["oklahoma", "cultivation", "dispensary"],
+      "source": {
+        "name": "OMMA Pre-Pack Rules",
+        "url": "https://oklahoma.gov/omma/businesses/pre-pack.html"
+      },
+      "pinned": false
+    },
+    {
+      "id": "hb3519-sb640-land-reclamation-fee-cleanup-mandates",
+      "headline": "HB 3519 & SB 640: New Land-Reclamation Fee and Cleanup Mandates for Growers (PENDING — Not Yet Law)",
+      "date": "2026-01-01",
+      "summary": "HB 3519 would require grower applicants to pay a $2,000 land-reclamation fee, create a remediation revolving fund, exempt applicants who have owned the land 5+ years, and eliminate the $50,000 surety-bond requirement. SB 640 (Sen. Cynthia Roe) would require all licensed businesses to remove surface trash/waste and complete cleanup within 30 days after a license is revoked, expires, or goes inactive — or the property becomes a public nuisance subject to abatement, with fines of $5,000 then $25,000. Both bills are pending and NOT YET LAW.",
+      "whyItMatters": "Changes the cost calculus for license transfers and surrenders — growers must budget for remediation or face nuisance designation; the bond elimination partially offsets the new fee.",
+      "tags": ["oklahoma", "cultivation", "pending"],
+      "source": {
+        "name": "OMMA Legislative Updates",
+        "url": "https://oklahoma.gov/omma/rules-and-legislation/legislative-updates.html"
       },
       "pinned": false
     }
