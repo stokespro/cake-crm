@@ -1,7 +1,7 @@
 {
-  "lastUpdated": "2026-06-07",
+  "lastUpdated": "2026-06-08",
   "deaRegistrationStatus": {
-    "lastVerified": "2026-06-07",
+    "lastVerified": "2026-06-08",
     "headline": "DEA Registration Status — Oklahoma Operators",
     "tracks": [
       {
@@ -18,7 +18,7 @@
         "audience": "Cultivators / Manufacturers / Labs / Distributors",
         "status": "No dedicated portal yet — OBNDD says required",
         "statusLevel": "pending",
-        "detail": "As of 2026-06-07 the dedicated DEA application forms for Medical Marijuana Manufacturer, Bulk Manufacturer (cultivator/grower), Analytical Lab, and Distributor are NOT yet live. A DEA Diversion Control notice (~May 11, 2026) said forms are 'coming in the coming weeks' — nearly four weeks later, no dedicated portal has launched. The only current pathway is DEA Form 225 with medical-marijuana drug codes 7362 / 7353 / 7386 — this is the standard Form 225 process, not a cannabis-specific portal. OBNDD (May 8, 2026) states manufacturers and distributors are REQUIRED to obtain DEA registration; enforcement grace period runs to January 1, 2027. The expedited 60-day window closes ~June 26–27; if the dedicated forms are not live before then, Form 225 is the only pathway to meet the expedited deadline.",
+        "detail": "As of 2026-06-08 the dedicated DEA application forms for Medical Marijuana Manufacturer, Bulk Manufacturer (cultivator/grower), Analytical Lab, and Distributor are NOT yet live. A DEA Diversion Control notice (~May 11, 2026) said forms are 'coming in the coming weeks' — four weeks later, no dedicated portal has launched. The current pathway is DEA Form 225 with medical-marijuana drug codes 7362 / 7353 / 7386. CRITICAL: DEA has confirmed that operators who apply via Form 225 before the dedicated portal launches do NOT need to reapply — DEA will contact them to continue processing. Apply via Form 225 now; do not wait for the dedicated portal. OBNDD (May 8, 2026) states manufacturers and distributors are REQUIRED to obtain DEA registration; enforcement grace period runs to January 1, 2027. The expedited 60-day window closes ~June 26–27; Form 225 is the only pathway available to meet that deadline.",
         "sources": [
           { "name": "DEA Diversion Control — registration page", "url": "https://www.deadiversion.usdoj.gov/drugreg/registration.html" },
           { "name": "OBNDD Director bulletin (May 8, 2026)", "url": "https://www.obndd.ok.gov/home/showpublisheddocument/887" },
@@ -26,7 +26,7 @@
         ]
       }
     ],
-    "expeditedWindow": "60-day expedited window closes ~June 26–27, 2026 (60 days from the April 28, 2026 Federal Register publication). The 'June 22' date circulating online is a miscalculation — do not rely on it. D.C. Circuit briefing: SAM/NDASA filed their opening brief June 4; Nebraska/Indiana brief due June 26. No stay has been granted as of June 7, 2026.",
+    "expeditedWindow": "60-day expedited window closes ~June 26–27, 2026 (60 days from the April 28, 2026 Federal Register publication; June 26 is the last business day; June 27 is the last calendar day). The 'June 22' date circulating in law firm alerts and operator forums is WRONG for registration — but June 22 IS a real DEA date: the April 28 Federal Register document also sets June 22 as the date the AG/DEA will notify selected participants in the June 29 broader-rescheduling ALJ hearing. Operators and advisors appear to have conflated the two June dates from the same document. D.C. Circuit briefing: SAM/NDASA filed their opening brief June 4; Nebraska/Indiana brief due June 26. No stay has been granted as of June 8, 2026.",
     "caution": "Multiple consultants and vendors are marketing paid 'DEA registration' services, some implying guaranteed or expedited approval. The portal is a direct-to-applicant system; the DEA makes all decisions and cites a six-month review period. Treat approval guarantees, unofficial 'portal' links, and the 'June 22' deadline as red flags. The application's Section 4 self-incrimination question (prior manufacture/distribution without DEA registration) warrants independent legal counsel before any owner/officer answers and files. Separately, registration grants DEA on-demand unscheduled inspection authority over the facility — operators should assess this operational exposure with counsel.",
     "officialSources": [
       { "name": "DEA — Marijuana Rescheduling Regulatory Actions", "url": "https://www.dea.gov/marijuana-rescheduling-regulatory-actions" },
@@ -300,11 +300,11 @@
     },
     {
       "id": "watch-conflicting-deadlines-june22",
-      "headline": "Conflicting deadlines circulating: 'June 22' vs June 26/27",
-      "claim": "Different sites cite June 22, June 26, or June 27 as the expedited-window cutoff.",
-      "caution": "The correct calculation is 60 days from April 28 = June 27 (Sat); June 26 is the last business day. 'June 22' appears to be an uncorroborated error — do not rely on it.",
-      "source": { "name": "WeedPress (June 27) vs misc 'June 22' sites", "url": "https://weedpress.org/2026/05/29/the-june-27-dea-registration-deadline-is-coming-fast-south-dakota-operators-face-a-compliance-cliff-as-the-safe-harbor-window-closes/" },
-      "date": "2026-05"
+      "headline": "Conflicting deadlines circulating: 'June 22' vs June 26/27 — source of confusion now identified",
+      "claim": "Named law firms (e.g., Fennemore Craig) and multiple cannabis outlets cite June 22 as the registration deadline. The correct last-business-day cutoff is June 26; the last calendar day is June 27. The 'June 22' figure is NOT the registration deadline.",
+      "caution": "The source of the error has been traced: the April 28, 2026 Federal Register document (the same one that published the rescheduling order) also set June 22 as the date the AG/DEA will 'notify interested persons selected to participate' in the June 29 broader-rescheduling ALJ hearing. This is an entirely different proceeding — not the 60-day registration window. The two dates appear in the same document and operators and advisors are conflating them. Because a credentialed law firm is propagating this error, operators asking about 'June 22' may genuinely believe they have counsel-backed authority for the date. Correct them with the Federal Register citation: 91 FR [2026-08177] sets registration at 60 days from April 28 = June 27; it sets June 22 as the ALJ notification date.",
+      "source": { "name": "Fennemore Craig — 'Portal is Open Through June 22, 2026'", "url": "https://www.fennemorelaw.com/dea-calls-for-registration-of-medical-marijuana-licensees-portal-is-open-through-june-22-2026/" },
+      "date": "2026-06"
     },
     {
       "id": "watch-280e-without-registration",
