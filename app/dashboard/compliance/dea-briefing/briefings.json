@@ -1,7 +1,7 @@
 {
-  "lastUpdated": "2026-06-09",
+  "lastUpdated": "2026-06-10",
   "deaRegistrationStatus": {
-    "lastVerified": "2026-06-09",
+    "lastVerified": "2026-06-10",
     "headline": "DEA Registration Status — Oklahoma Operators",
     "tracks": [
       {
@@ -382,6 +382,14 @@
       "caution": "The primary promotion of this theory originates in MMJ BioPharma press releases distributed via Newswire and AccessNewswire — a company that is itself an interested party. While the DOJ's February 2025 change of position on ALJ removal protections is real (it reflects a broader Trump-DOJ stance applied across federal agencies, not just cannabis), the legal consequence for the June 29 hearing is contested and no court has issued a pre-hearing stay as of June 9. The more likely scenario is that the hearing proceeds and constitutional objections are raised within the proceeding or via separate district-court action. Treat any claim that 'the June 29 hearing has been cancelled' or 'will definitely not proceed' as unverified until confirmed by the DEA or a federal court order.",
       "source": { "name": "PharmiWeb — June 29 Hearing Faces Constitutional Issues (May 18, 2026)", "url": "https://www.pharmiweb.com/press-release/2026-05-18/june-29-marijuana-rescheduling-hearing-faces-constitutional-issues-before-it-even-begins" },
       "date": "2026-05"
+    },
+    {
+      "id": "watch-former-prosecutors-warn-dea-registration-rush",
+      "headline": "Former federal prosecutor and IRS attorney warn: Do Not Rush DEA Registration",
+      "claim": "A former federal prosecutor and a former IRS attorney are publicly advising cannabis operators NOT to file DEA registration before the June 27 expedited deadline without first consulting specialized criminal-defense and tax counsel. Arguments: (1) the Section 4 prior-distribution question documents conduct that was federally illegal when it occurred, and DEA's informal 'not a categorical barrier' statement is not binding policy; (2) the D.C. Circuit challenges could stay or vacate the entire order, making rushed registrations moot; (3) for operators whose primary concern is state-license continuity rather than federal supply-chain expansion, the registration risk may outweigh the benefit.",
+      "caution": "This advice conflicts with OBNDD Director Anderson's directive that ALL Oklahoma OMMA manufacturers and distributors MUST register by ~June 27 to avoid OBNDD administrative sanctions up to license revocation. Unlike dispensaries (for whom OMMA calls registration optional), Oklahoma cultivators and processors face a state-level mandate from OBNDD — not merely a federal opportunity. Operators following this national commentary without accounting for Oklahoma's OBNDD requirement risk losing their OBNDD manufacturer registration and by extension their OMMA grower/processor license. Consult Oklahoma-licensed counsel familiar with both DEA registration and OBNDD requirements before deciding.",
+      "source": { "name": "Cannabis Business Times — Former Prosecutors Warn Against Rushing", "url": "https://www.cannabisbusinesstimes.com/cannabis-rescheduling/news/15825348/former-federal-prosecutor-former-irs-lawyer-warn-cannabis-industry-about-jumping-on-dea-registration-bandwagon" },
+      "date": "2026-06"
     }
   ]
 }
