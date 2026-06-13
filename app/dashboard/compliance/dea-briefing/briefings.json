@@ -1,7 +1,7 @@
 {
-  "lastUpdated": "2026-06-12",
+  "lastUpdated": "2026-06-13",
   "deaRegistrationStatus": {
-    "lastVerified": "2026-06-11",
+    "lastVerified": "2026-06-13",
     "headline": "DEA Registration Status — Oklahoma Operators",
     "tracks": [
       {
@@ -18,7 +18,7 @@
         "audience": "Cultivators / Manufacturers / Labs / Distributors",
         "status": "No dedicated portal yet — OBNDD says required",
         "statusLevel": "pending",
-        "detail": "As of 2026-06-12 the dedicated DEA application forms for Medical Marijuana Manufacturer, Bulk Manufacturer (cultivator/grower), Analytical Lab, and Distributor are NOT yet live. A DEA Diversion Control notice (~May 11, 2026) said forms are 'coming in the coming weeks' — now six weeks later with the deadline 14 days out, no dedicated portal has launched and it is effectively certain one will not launch before June 26–27. DEA Form 225 with medical-marijuana drug codes 7362 / 7353 / 7386 is the ONLY viable pathway to meet the expedited deadline. Do not wait. Fees under Form 225: $3,699/yr (Manufacturer), $1,850/yr (Distributor), $296/yr (Analytical Lab). CRITICAL: DEA has confirmed that operators who apply via Form 225 before the dedicated portal launches do NOT need to reapply — DEA will contact them to continue processing. OBNDD (May 8, 2026) states manufacturers and distributors are REQUIRED to obtain DEA registration; enforcement grace period runs to January 1, 2027.",
+        "detail": "As of 2026-06-13 the dedicated DEA application forms for Medical Marijuana Manufacturer, Bulk Manufacturer (cultivator/grower), Analytical Lab, and Distributor are NOT yet live. A DEA Diversion Control notice (~May 11, 2026) said forms are 'coming in the coming weeks' — now nearly five weeks later with the expedited window closing in approximately 13 days (June 26–27), no dedicated portal has launched and it is effectively certain one will not launch before the deadline. DEA Form 225 with medical-marijuana drug codes 7362 / 7353 / 7386 is the ONLY viable pathway to meet the expedited deadline. Do not wait. Fees under Form 225: $3,699/yr (Manufacturer), $1,850/yr (Distributor), $296/yr (Analytical Lab). CRITICAL: DEA has confirmed that operators who apply via Form 225 before the dedicated portal launches do NOT need to reapply — DEA will contact them to continue processing. OBNDD (May 8, 2026) states manufacturers and distributors are REQUIRED to obtain DEA registration; enforcement grace period runs to January 1, 2027.",
         "sources": [
           { "name": "DEA Diversion Control — registration page", "url": "https://www.deadiversion.usdoj.gov/drugreg/registration.html" },
           { "name": "OBNDD Director bulletin (May 8, 2026)", "url": "https://www.obndd.ok.gov/home/showpublisheddocument/887" },
@@ -26,7 +26,7 @@
         ]
       }
     ],
-    "expeditedWindow": "60-day expedited window closes ~June 26–27, 2026 (60 days from the April 28, 2026 Federal Register publication; June 26 is the last business day; June 27 is the last calendar day). The 'June 22' date circulating in law firm alerts and operator forums is WRONG for registration — but June 22 IS a real DEA date: the April 28 Federal Register document also sets June 22 as the date the AG/DEA will notify selected participants in the June 29 broader-rescheduling ALJ hearing. Operators and advisors appear to have conflated the two June dates from the same document. D.C. Circuit briefing: SAM/NDASA filed their opening brief June 4; Nebraska/Indiana brief due June 26. No stay has been granted as of June 9, 2026.",
+    "expeditedWindow": "60-day expedited window closes ~June 26–27, 2026 (60 days from the April 28, 2026 Federal Register publication; June 26 is the last business day; June 27 is the last calendar day). The 'June 22' date circulating in law firm alerts and operator forums is WRONG for registration — but June 22 IS a real DEA date: the April 28 Federal Register document also sets June 22 as the date the AG/DEA will notify selected participants in the June 29 broader-rescheduling ALJ hearing. Operators and advisors appear to have conflated the two June dates from the same document. D.C. Circuit briefing: SAM/NDASA filed their opening brief June 4; Nebraska/Indiana brief due June 26. No stay has been granted as of June 13, 2026. The NDASA/MMJ stay motion (filed June 9) remains pending before the D.C. Circuit — no government response or court ruling has issued as of June 13.",
     "caution": "Multiple consultants and vendors are marketing paid 'DEA registration' services, some implying guaranteed or expedited approval. The portal is a direct-to-applicant system; the DEA makes all decisions and cites a six-month review period. Treat approval guarantees, unofficial 'portal' links, and the 'June 22' deadline as red flags. The application's Section 4 self-incrimination question (prior manufacture/distribution without DEA registration) warrants independent legal counsel before any owner/officer answers and files. Separately, registration grants DEA on-demand unscheduled inspection authority over the facility — operators should assess this operational exposure with counsel.",
     "officialSources": [
       { "name": "DEA — Marijuana Rescheduling Regulatory Actions", "url": "https://www.dea.gov/marijuana-rescheduling-regulatory-actions" },
@@ -304,6 +304,23 @@
         "url": "https://oklahoma.gov/omma/businesses/commercial-licenses/testing-laboratory-license/laboratory-standardization.html"
       },
       "pinned": false
+    },
+    {
+      "id": "oklahoma-cannabis-market-collapse-oversupply-2026",
+      "headline": "Oklahoma Cannabis Market in Freefall — Wholesale Prices Down 63%, 6,000+ Grows Shuttered",
+      "date": "2026-06-02",
+      "summary": "Oklahoma Watch and KGOU (NPR Oklahoma) reported June 2, 2026 that the state's medical cannabis market is in severe contraction. Wholesale prices have fallen from approximately $3,000/lb at peak to $1,100/lb (≈63% decline), making Oklahoma the national price floor at $2.11/gram. A 2023 study found licensed supply exceeded patient demand by roughly 64 to 1. At peak, Oklahoma had nearly 14,000 licensed businesses including ~9,400 growers; more than 6,000 grow locations have since shut down or been abandoned. The industry generated $670M+ in retail sales and $1.1B+ in wholesale transactions in 2025, contributing ~$47M in excise taxes and $60M+ in state and local sales taxes — but revenue and margins are collapsing. Commercial real estate agents describe a glut of vacant cannabis warehouses with specialized lighting and climate systems that are difficult to repurpose. Governor Stitt is calling for voters to shut the program down entirely; legislative leadership has resisted abolition.",
+      "whyItMatters": "Oklahoma cultivators and processors face existential margin pressure from oversupply and falling wholesale prices at the same moment new DEA registration costs ($3,699/yr for manufacturers) are being imposed. Dispensary customers face the same squeeze from the retail side. The license moratorium extension (HB 3143, signed May 2026) prevents new entrants but does nothing to reduce the existing licensed supply overhang. CAKE and its wholesale dispensary customers operate in this environment — the cost and compliance burden of DEA registration compounds an already-stressed market.",
+      "tags": ["oklahoma", "cultivation", "dispensary"],
+      "source": {
+        "name": "Oklahoma Watch — Growers Say Cannabis Bonanza Is Going to Pot",
+        "url": "https://oklahomawatch.org/2026/06/02/growers-say-oklahomas-cannabis-bonanza-is-going-to-pot/"
+      },
+      "secondarySource": {
+        "name": "KGOU NPR Oklahoma — Same Report",
+        "url": "https://www.kgou.org/business-and-economy/2026-06-02/growers-say-oklahomas-cannabis-bonanza-is-going-to-pot"
+      },
+      "pinned": false
     }
   ],
   "discourse": [
@@ -393,6 +410,14 @@
       "claim": "A former federal prosecutor and a former IRS attorney are publicly advising cannabis operators NOT to file DEA registration before the June 27 expedited deadline without first consulting specialized criminal-defense and tax counsel. Arguments: (1) the Section 4 prior-distribution question documents conduct that was federally illegal when it occurred, and DEA's informal 'not a categorical barrier' statement is not binding policy; (2) the D.C. Circuit challenges could stay or vacate the entire order, making rushed registrations moot; (3) for operators whose primary concern is state-license continuity rather than federal supply-chain expansion, the registration risk may outweigh the benefit.",
       "caution": "This advice conflicts with OBNDD Director Anderson's directive that ALL Oklahoma OMMA manufacturers and distributors MUST register by ~June 27 to avoid OBNDD administrative sanctions up to license revocation. Unlike dispensaries (for whom OMMA calls registration optional), Oklahoma cultivators and processors face a state-level mandate from OBNDD — not merely a federal opportunity. Operators following this national commentary without accounting for Oklahoma's OBNDD requirement risk losing their OBNDD manufacturer registration and by extension their OMMA grower/processor license. Consult Oklahoma-licensed counsel familiar with both DEA registration and OBNDD requirements before deciding.",
       "source": { "name": "Cannabis Business Times — Former Prosecutors Warn Against Rushing", "url": "https://www.cannabisbusinesstimes.com/cannabis-rescheduling/news/15825348/former-federal-prosecutor-former-irs-lawyer-warn-cannabis-industry-about-jumping-on-dea-registration-bandwagon" },
+      "date": "2026-06"
+    },
+    {
+      "id": "watch-mmj-fraudulent-safety-testing-claim",
+      "headline": "'Federal rescheduling rewards a cannabis supply chain built on fraudulent safety testing' — MMJ International press campaign",
+      "claim": "MMJ International Holdings (press release via AccessNewswire, June 3, 2026) claims the April 28 rescheduling order granted Schedule III status to a supply chain characterized by 'documented lab fraud, contaminated products, and a near-total absence of safety science' — without requiring a single state-licensed product to demonstrate safety, purity, or clinical efficacy. The company calls on federal courts and Congress to scrutinize the state-licensed supply chain before extending federal legitimacy. MMJ International is simultaneously a D.C. Circuit petitioner in Case 26-1136 and a co-filer of the June 9 stay motion.",
+      "caution": "MMJ International Holdings is an interested litigation party — this is paid-wire advocacy, not independent journalism. Oklahoma has had documented lab-fraud cases (OMMA has acted on testing violations and issued product recalls involving fraudulent or failed lab results), so the underlying concern about testing integrity is not fabricated; however, the framing is designed to advance MMJ International's litigation strategy and commercial interests (they invested years and millions developing cannabinoid pharmaceuticals through FDA/DEA channels and now compete against newly-legitimized state-licensed operators). As of June 13, no court has accepted this argument as grounds for a stay or vacatur. Oklahoma operators should monitor whether this argument gains traction in the D.C. Circuit, as a ruling that imposed additional safety-testing conditions on DEA registration would directly affect cultivators and manufacturers.",
+      "source": { "name": "AccessNewswire — MMJ International Holdings (June 3, 2026)", "url": "https://www.accessnewswire.com/newsroom/en/healthcare-and-pharmaceutical/federal-rescheduling-is-rewarding-a-cannabis-supply-chain-built-on-fr-1172962" },
       "date": "2026-06"
     }
   ]
