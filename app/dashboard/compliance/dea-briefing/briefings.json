@@ -1,24 +1,25 @@
 {
-  "lastUpdated": "2026-06-13",
+  "lastUpdated": "2026-06-14",
   "deaRegistrationStatus": {
-    "lastVerified": "2026-06-13",
+    "lastVerified": "2026-06-14",
     "headline": "DEA Registration Status — Oklahoma Operators",
     "tracks": [
       {
         "audience": "Dispensaries",
-        "status": "Portal LIVE — optional (per OMMA)",
+        "status": "Portal LIVE — likely closing June 22 (per MJBizDaily/Fennemore Craig); optional per OMMA",
         "statusLevel": "live",
-        "detail": "The DEA Medical Marijuana Dispensary Registration Portal opened April 29, 2026 at mmapplication.diversion.dea.gov. Fee $794/yr (PayPal only). OMMA states registration is OPTIONAL for dispensaries — non-registrants may continue operating under Oklahoma state law. Vertically integrated operators that also hold a manufacturer/distributor license are still subject to the OBNDD requirement below.",
+        "detail": "The DEA Medical Marijuana Dispensary Registration Portal opened April 29, 2026 at mmapplication.diversion.dea.gov. Fee $794/yr (PayPal only). OMMA states registration is OPTIONAL for dispensaries — non-registrants may continue operating under Oklahoma state law. CRITICAL UPDATE — PORTAL CLOSING DATE: Multiple credible sources including MJBizDaily (June 5, 2026) and law firm Fennemore Craig cite June 22, 2026 as the dispensary portal's own hard closing date — 5 days before the official 60-day Federal Register window (June 27). This has not been confirmed in a standalone official DEA press release, but dispensaries should treat June 22 as the effective filing deadline and act immediately — 8 days remain as of June 14. Vertically integrated operators that also hold a manufacturer/distributor license are still subject to the OBNDD requirement below.",
         "sources": [
           { "name": "DEA Dispensary Registration Portal", "url": "https://mmapplication.diversion.dea.gov/" },
-          { "name": "OMMA — DEA application instructions for dispensaries", "url": "https://oklahoma.gov/omma/about/news/2026/update-dea-provides-application-instructions-to-medical-marijuana-dispensaries.html" }
+          { "name": "OMMA — DEA application instructions for dispensaries", "url": "https://oklahoma.gov/omma/about/news/2026/update-dea-provides-application-instructions-to-medical-marijuana-dispensaries.html" },
+          { "name": "MJBizDaily — DEA registration is a tough choice (June 5, 2026)", "url": "https://mjbizdaily.com/news/dea-registration-medical-marijuana/616354/" }
         ]
       },
       {
         "audience": "Cultivators / Manufacturers / Labs / Distributors",
-        "status": "No dedicated portal yet — OBNDD says required",
+        "status": "No dedicated portal yet — OBNDD says required — Form 225 is only current path",
         "statusLevel": "pending",
-        "detail": "As of 2026-06-13 the dedicated DEA application forms for Medical Marijuana Manufacturer, Bulk Manufacturer (cultivator/grower), Analytical Lab, and Distributor are NOT yet live. A DEA Diversion Control notice (~May 11, 2026) said forms are 'coming in the coming weeks' — now nearly five weeks later with the expedited window closing in approximately 13 days (June 26–27), no dedicated portal has launched and it is effectively certain one will not launch before the deadline. DEA Form 225 with medical-marijuana drug codes 7362 / 7353 / 7386 is the ONLY viable pathway to meet the expedited deadline. Do not wait. Fees under Form 225: $3,699/yr (Manufacturer), $1,850/yr (Distributor), $296/yr (Analytical Lab). CRITICAL: DEA has confirmed that operators who apply via Form 225 before the dedicated portal launches do NOT need to reapply — DEA will contact them to continue processing. OBNDD (May 8, 2026) states manufacturers and distributors are REQUIRED to obtain DEA registration; enforcement grace period runs to January 1, 2027.",
+        "detail": "As of 2026-06-14 the dedicated DEA application forms for Medical Marijuana Manufacturer, Bulk Manufacturer (cultivator/grower), Analytical Lab, and Distributor are NOT yet live. A DEA Diversion Control notice (~May 11, 2026) said forms are 'coming in the coming weeks' — now nearly seven weeks later with the expedited window closing in approximately 12–13 days (June 26–27), no dedicated portal has launched and it is effectively certain one will not launch before the deadline. DEA Form 225 with medical-marijuana drug codes 7362 / 7353 / 7386 is the ONLY viable pathway to meet the expedited deadline. Do not wait. Fees under Form 225: $3,699/yr (Manufacturer), $1,850/yr (Distributor), $296/yr (Analytical Lab). CRITICAL: DEA has confirmed that operators who apply via Form 225 before the dedicated portal launches do NOT need to reapply — DEA will contact them to continue processing. OBNDD (May 8, 2026) states manufacturers and distributors are REQUIRED to obtain DEA registration; enforcement grace period runs to January 1, 2027.",
         "sources": [
           { "name": "DEA Diversion Control — registration page", "url": "https://www.deadiversion.usdoj.gov/drugreg/registration.html" },
           { "name": "OBNDD Director bulletin (May 8, 2026)", "url": "https://www.obndd.ok.gov/home/showpublisheddocument/887" },
@@ -26,8 +27,8 @@
         ]
       }
     ],
-    "expeditedWindow": "60-day expedited window closes ~June 26–27, 2026 (60 days from the April 28, 2026 Federal Register publication; June 26 is the last business day; June 27 is the last calendar day). The 'June 22' date circulating in law firm alerts and operator forums is WRONG for registration — but June 22 IS a real DEA date: the April 28 Federal Register document also sets June 22 as the date the AG/DEA will notify selected participants in the June 29 broader-rescheduling ALJ hearing. Operators and advisors appear to have conflated the two June dates from the same document. D.C. Circuit briefing: SAM/NDASA filed their opening brief June 4; Nebraska/Indiana brief due June 26. No stay has been granted as of June 13, 2026. The NDASA/MMJ stay motion (filed June 9) remains pending before the D.C. Circuit — no government response or court ruling has issued as of June 13.",
-    "caution": "Multiple consultants and vendors are marketing paid 'DEA registration' services, some implying guaranteed or expedited approval. The portal is a direct-to-applicant system; the DEA makes all decisions and cites a six-month review period. Treat approval guarantees, unofficial 'portal' links, and the 'June 22' deadline as red flags. The application's Section 4 self-incrimination question (prior manufacture/distribution without DEA registration) warrants independent legal counsel before any owner/officer answers and files. Separately, registration grants DEA on-demand unscheduled inspection authority over the facility — operators should assess this operational exposure with counsel.",
+    "expeditedWindow": "60-day expedited window closes ~June 26–27, 2026 (60 days from the April 28, 2026 Federal Register publication; June 26 is the last business day; June 27 is the last calendar day). DISPENSARY PORTAL CLOSING EARLIER: Multiple credible sources including MJBizDaily (June 5) and Fennemore Craig now cite June 22 as the date the dispensary portal itself closes — 5 days before the 60-day window. If accurate, dispensaries have 8 days remaining as of June 14 and should file immediately. Whether Form 225 serves as a fallback for dispensaries after June 22 is unclear; do not rely on it. For manufacturers/cultivators the 'June 22' deadline remains WRONG — June 26–27 is the correct window for Form 225 filers. The original explanation that June 22 is the ALJ hearing participant notification date (from the same April 28 Federal Register document) also remains accurate for that separate purpose. D.C. Circuit briefing: SAM/NDASA filed their opening brief June 4; Nebraska/Indiana opening brief expected ~June 26; government (DOJ) response to Nebraska/Indiana petition due July 2. No stay has been granted as of June 14, 2026. The NDASA/MMJ stay motion (filed June 9) remains pending — no court ruling has issued as of June 14.",
+    "caution": "Multiple consultants and vendors are marketing paid 'DEA registration' services, some implying guaranteed or expedited approval. The portal is a direct-to-applicant system; the DEA makes all decisions and cites a six-month review period. For manufacturers/cultivators: 'June 22' as a general registration deadline is a red flag — the correct date is June 26–27 via Form 225. For dispensaries: June 22 is now cited by multiple credible sources as the portal closing date — treat it as the operative deadline. The application's Section 4 self-incrimination question warrants independent legal counsel before any owner/officer answers and files. Registration grants DEA on-demand unscheduled inspection authority — operators should assess this exposure with counsel. UNVETTED SOURCES: Content-marketing websites with no editorial credentials (HealthDataConsortium.org, WeedPress, hrzenden.com/Zen Den Co.) are appearing in search results alongside legitimate law-firm guidance — verify all compliance information against .gov primary sources only.",
     "officialSources": [
       { "name": "DEA — Marijuana Rescheduling Regulatory Actions", "url": "https://www.dea.gov/marijuana-rescheduling-regulatory-actions" },
       { "name": "Federal Register — Rescheduling of Marijuana (state-licensed medical)", "url": "https://www.federalregister.gov/documents/2026/04/28/2026-08177/schedules-of-controlled-substances-rescheduling-of-marijuana" },
@@ -36,31 +37,38 @@
   },
   "keyDeadlines": [
     {
+      "id": "kd-dispensary-portal-closes",
+      "label": "Dispensary DEA Portal Likely Closes — June 22, 2026",
+      "date": "June 22, 2026 — URGENT",
+      "description": "Multiple credible sources including MJBizDaily (June 5, 2026) and law firm Fennemore Craig cite June 22, 2026 as the closing date of the DEA Medical Marijuana Dispensary Registration Portal at mmapplication.diversion.dea.gov — 5 days before the official 60-day Federal Register window (June 27). OMMA states dispensary registration is optional, but dispensaries choosing to register must act by June 22. 8 days remain as of June 14. Not confirmed in a standalone official DEA press release; treat June 22 as the operative deadline.",
+      "urgency": "urgent"
+    },
+    {
       "id": "kd-dea-60-day-window",
       "label": "DEA Expedited 60-Day Registration Window",
       "date": "~ June 26–27, 2026 — URGENT",
-      "description": "DEA expedited 60-day registration window closes. Apply within 60 days of the April 28 Federal Register publication to keep operating during the six-month DEA review. Applies to all medical operators: cultivators, processors, labs, distributors, dispensaries.",
+      "description": "DEA expedited 60-day registration window closes. Apply within 60 days of the April 28 Federal Register publication to keep operating during the six-month DEA review. Only 12–13 days remain as of June 14. For cultivators, manufacturers, labs, and distributors: the dedicated DEA portal has NOT launched — use DEA Form 225 with drug codes 7362/7353/7386 NOW. Do not wait for the dedicated portal.",
       "urgency": "urgent"
     },
     {
       "id": "kd-obndd-manufacturer-distributor",
       "label": "OBNDD Deadline — OMMA Manufacturers & Distributors",
       "date": "~ June 27, 2026 — URGENT (Oklahoma)",
-      "description": "OBNDD deadline for OMMA manufacturers & distributors to file for DEA registration. Failure may result in OBNDD administrative sanctions including revocation of the OBNDD registration that underpins OMMA grower licenses.",
+      "description": "OBNDD deadline for OMMA manufacturers & distributors to file for DEA registration. Failure may result in OBNDD administrative sanctions including revocation of the OBNDD registration that underpins OMMA grower licenses. Use DEA Form 225 with medical marijuana drug codes — the dedicated manufacturer portal has not yet launched.",
       "urgency": "urgent"
     },
     {
       "id": "kd-dc-circuit-states-brief",
-      "label": "D.C. Circuit — Nebraska/Indiana States' Brief Due",
+      "label": "D.C. Circuit — Nebraska/Indiana Brief; Govt Response July 2",
       "date": "June 26, 2026",
-      "description": "Nebraska and Indiana AGs must file their opening brief in D.C. Circuit Case No. 26-1136, challenging the DEA rescheduling order. SAM/NDASA filed their opening brief June 4. A court ruling granting a stay would revert marijuana to Schedule I and nullify all registrations filed under the expedited pathway.",
+      "description": "Nebraska and Indiana AGs' opening brief expected ~June 26 in D.C. Circuit consolidated cases (26-1106/1130/1136), challenging the DEA rescheduling order. SAM/NDASA filed their opening brief June 4. Government (DOJ) response to Nebraska/Indiana petition due July 2. A court ruling granting a stay would revert marijuana to Schedule I and nullify registrations filed under the expedited pathway. NDASA/MMJ stay motion (filed June 9) remains pending as of June 14.",
       "urgency": "urgent"
     },
     {
       "id": "kd-alj-hearing",
       "label": "Broader-Rescheduling ALJ Hearing",
       "date": "June 29 – July 15, 2026",
-      "description": "Broader-rescheduling ALJ hearing (DEA Arlington, VA). Determines whether adult-use marijuana also moves to Schedule III. July 3 recess included. Hearing faces a pre-hearing constitutional challenge over the DEA ALJ structure.",
+      "description": "Broader-rescheduling ALJ hearing (DEA Arlington, VA). Determines whether adult-use marijuana also moves to Schedule III. July 3 recess included. Hearing faces a pre-hearing constitutional challenge over the DEA ALJ structure. No pre-hearing stay has been granted as of June 14, 2026; hearing remains on schedule.",
       "urgency": "standard"
     },
     {
@@ -103,8 +111,8 @@
       "id": "dea-registration-required-expedited-window-june-2026",
       "headline": "DEA Registration Now Required — Expedited Window Closes ~June 26–27, 2026",
       "date": "2026-06-26",
-      "summary": "Dispensary portal opened April 29, 2026 at mmapplication.diversion.dea.gov ($794/yr, PayPal only) — OMMA states registration is OPTIONAL for dispensaries. Dedicated DEA application forms for Manufacturer, Bulk Manufacturer (cultivator/grower), Analytical Lab, and Distributor are NOT yet live as of 2026-06-09; a DEA Diversion Control notice (~May 11) said forms are 'coming in the coming weeks,' and five weeks later no dedicated portal has launched. The parallel pathway is DEA Form 225 with codes 7362/7353/7386 (fees: $3,699/yr manufacturer; $1,850/yr distributor; $296/yr lab). OBNDD states manufacturers and distributors are REQUIRED to register; enforcement grace period runs to January 1, 2027. The expedited 60-day window closes ~June 26–27 (60 days from April 28 Federal Register publication) — the 'June 22' date circulating online is a miscalculation; do not rely on it.",
-      "whyItMatters": "Every cultivator, processor, lab, distributor, and dispensary faces a new federal registration layer. Dispensaries have a live portal but optional status per OMMA. Manufacturers/cultivators must use Form 225 or await the dedicated portal — OBNDD says non-registration risks sanctions. Missing the expedited window means operating without safe-harbor during a six-month DEA review.",
+      "summary": "Dispensary portal opened April 29, 2026 at mmapplication.diversion.dea.gov ($794/yr, PayPal only) — OMMA states registration is OPTIONAL for dispensaries; multiple credible sources including MJBizDaily cite June 22 as the portal's own closing date, 5 days before the 60-day Federal Register window. Dedicated DEA application forms for Manufacturer, Bulk Manufacturer (cultivator/grower), Analytical Lab, and Distributor are NOT yet live as of 2026-06-14; a DEA Diversion Control notice (~May 11) said forms are 'coming in the coming weeks,' and nearly seven weeks later no dedicated portal has launched. The parallel pathway is DEA Form 225 with codes 7362/7353/7386 (fees: $3,699/yr manufacturer; $1,850/yr distributor; $296/yr lab). OBNDD states manufacturers and distributors are REQUIRED to register; enforcement grace period runs to January 1, 2027. The expedited 60-day window closes ~June 26–27 (60 days from April 28 Federal Register publication).",
+      "whyItMatters": "Every cultivator, processor, lab, distributor, and dispensary faces a new federal registration layer. Dispensaries have a live portal but must act by June 22 per multiple credible sources. Manufacturers/cultivators must use Form 225 now — OBNDD says non-registration risks sanctions. Missing the expedited window means operating without safe-harbor during a six-month DEA review.",
       "tags": ["federal", "deadline", "dispensary"],
       "source": {
         "name": "Marijuana Moment",
@@ -133,8 +141,8 @@
       "id": "ok-house-moratorium-extension-hb3143-hb3144",
       "headline": "Oklahoma Moratorium Extended to 2028 — HB 3143 Signed May 7; HB 3144 Cultivation Cap Pending Confirmation",
       "date": "2026-05-07",
-      "summary": "Governor Kevin Stitt signed HB 3143 into law on May 7, 2026, extending Oklahoma's new-license moratorium from August 1, 2026 to August 1, 2028; the bill also prohibits transfer of any license currently under investigation. Companion HB 3144 — which would cap total cultivation licenses at 2,500 statewide — passed the House (82–15); its enactment status is not yet confirmed in available sources. At House passage Oklahoma had 2,164 active grows, 686 processors, 1,421 dispensaries, and 58 transporters. The moratorium applies only to new licenses; existing licensees in good standing may still open new locations or transfer licenses with OMMA approval.",
-      "whyItMatters": "The two-year moratorium extension is now law — no new cultivation or other cannabis licenses will be issued until at least August 2028. Existing grow licenses become scarcer and more valuable as transferable assets. If HB 3144 is enacted, the 2,500 cap locks the total count near its current level.",
+      "summary": "Governor Kevin Stitt signed HB 3143 into law on May 7, 2026, extending Oklahoma's new-license moratorium from August 1, 2026 to August 1, 2028; the bill also prohibits transfer of any license currently under investigation. Companion HB 3144 — which would cap total cultivation licenses at 2,500 statewide — passed the House (82–15); its enactment status remains unconfirmed as of June 14, 2026. The Oklahoma legislature adjourned sine die on May 14, 2026, closing the 2026 session. At House passage Oklahoma had 2,164 active grows, 686 processors, 1,421 dispensaries, and 58 transporters. The moratorium applies only to new licenses; existing licensees in good standing may still open new locations or transfer licenses with OMMA approval.",
+      "whyItMatters": "The two-year moratorium extension is now law — no new cultivation or other cannabis licenses will be issued until at least August 2028. Existing grow licenses become scarcer and more valuable as transferable assets. If HB 3144 was enacted before sine die adjournment, the 2,500 cap locks the total count near its current level.",
       "tags": ["oklahoma", "cultivation"],
       "source": {
         "name": "MJBizDaily — Oklahoma extends moratorium",
@@ -161,10 +169,10 @@
     },
     {
       "id": "legal-challenges-dc-circuit-vacate-rescheduling",
-      "headline": "D.C. Circuit Case No. 26-1136: SAM/NDASA Brief Filed June 4 — Nebraska/Indiana Brief Due June 26; Louisiana Withdrew",
+      "headline": "D.C. Circuit Cases 26-1106/1130/1136: SAM/NDASA Brief Filed June 4 — Nebraska/Indiana Brief Expected June 26; Govt Response July 2; Louisiana Withdrew",
       "date": "2026-06-04",
-      "summary": "Three consolidated petition sets challenge the April 23 order: (1) Smart Approaches to Marijuana (SAM) + NDASA, filed May 4 — opening brief filed June 4; (2) AGs of Nebraska and Indiana, filed May 22 — brief due June 26 (Louisiana initially co-filed but AG Liz Murrill asked for dismissal May 29, leaving only Nebraska and Indiana); (3) a coalition of five 'aggrieved persons' including addiction-treatment organizations (New Directions) and others, filed May 28. Arguments include: exceeds AG authority, violates APA notice-and-comment, implicates the major questions doctrine, and relies on a possibly unconstitutional ALJ structure. All petitioner groups seek both a stay and full vacatur. On June 9, NDASA + MMJ International Holdings + MMJ BioPharma Cultivation + MMJ BioPharma Labs separately filed a formal stay motion in Case 26-1136 — the first concrete stay motion filed in the case (see companion item). No stay has been granted as of June 12, 2026.",
-      "whyItMatters": "A stay could freeze the entire order — reverting state medical marijuana to Schedule I and nullifying registration, 280E relief, and research expansion. The June 26 Nebraska/Indiana brief and any subsequent stay ruling are the next immediate court triggers.",
+      "summary": "Three consolidated petition sets challenge the April 28 order: (1) Smart Approaches to Marijuana (SAM) + NDASA, filed May 4 — opening brief filed June 4; (2) AGs of Nebraska and Indiana, filed May 22 — opening brief expected ~June 26; government (DOJ) response to Nebraska/Indiana petition due July 2 (Louisiana initially co-filed but AG Liz Murrill sought dismissal May 29, leaving only Nebraska and Indiana); (3) a coalition of five 'aggrieved persons' including addiction-treatment organizations (New Directions) and others, filed May 28. Arguments include: exceeds AG authority, violates APA notice-and-comment, implicates the major questions doctrine, and relies on a possibly unconstitutional ALJ structure. All petitioner groups seek both a stay and full vacatur. On June 9, NDASA + MMJ International Holdings + MMJ BioPharma Cultivation + MMJ BioPharma Labs separately filed a formal stay motion in Case 26-1136. No stay has been granted as of June 14, 2026.",
+      "whyItMatters": "A stay could freeze the entire order — reverting state medical marijuana to Schedule I and nullifying registration, 280E relief, and research expansion. The Nebraska/Indiana brief (~June 26) and government response (July 2) are the next immediate court milestones; any subsequent stay ruling is the key risk event for Oklahoma operators.",
       "tags": ["federal"],
       "source": {
         "name": "NORML",
@@ -180,12 +188,12 @@
       "id": "dea-rescheduling-stay-motion-ndasa-mmj-june9",
       "headline": "NDASA + MMJ BioPharma File D.C. Circuit Stay Motion — First Formal Stay Request in Case 26-1136",
       "date": "2026-06-09",
-      "summary": "On June 9, 2026, the National Drug and Alcohol Screening Association (NDASA), MMJ International Holdings, MMJ BioPharma Cultivation, and MMJ BioPharma Labs jointly filed a motion in D.C. Circuit Case No. 26-1136 seeking a stay of Attorney General Order No. 6754-2026 (the April 28 medical-marijuana rescheduling order). The petitioners argue (1) the order bypassed required notice-and-comment rulemaking; (2) the AG lacked authority to act without completing the statutory DEA hearing; and (3) MMJ International/MMJ BioPharma — which invested more than $10 million and nearly a decade developing cannabinoid pharmaceuticals through FDA/DEA channels — suffer commercial harm from state-licensed marijuana operators now competing under the same Schedule III classification without equivalent safety review. NDASA was a co-filer of the SAM/NDASA opening brief on June 4; this is a distinct subsequent stay motion. Petitioners may also seek emergency relief before the June 29 broader-rescheduling ALJ hearing. The government must now respond; no court ruling has issued as of June 12.",
-      "whyItMatters": "This is the first formal, concrete motion in Case 26-1136 asking the D.C. Circuit to actually halt the order — not just seek vacatur at the end of the case. A granted stay would revert state medical marijuana to Schedule I, nullify all DEA registrations filed under the expedited pathway, and undo 280E relief. Oklahoma operators filing DEA registration before the June 26–27 window preserves the safe-harbor regardless of litigation outcome; the risk of not registering (OBNDD sanctions, license jeopardy) is immediate and certain, while stay risk is real but not yet realized.",
+      "summary": "On June 9, 2026, the National Drug and Alcohol Screening Association (NDASA), MMJ International Holdings, MMJ BioPharma Cultivation, and MMJ BioPharma Labs jointly filed a motion in D.C. Circuit Case No. 26-1136 seeking a stay of Attorney General Order No. 6754-2026 (the April 28 medical-marijuana rescheduling order). The petitioners argue (1) the order bypassed required notice-and-comment rulemaking; (2) the AG lacked authority to act without completing the statutory DEA hearing; and (3) MMJ International/MMJ BioPharma — which invested more than $10 million and nearly a decade developing cannabinoid pharmaceuticals through FDA/DEA channels — suffer commercial harm from state-licensed marijuana operators now competing under the same Schedule III classification without equivalent safety review. This is a distinct stay motion from the June 4 SAM/NDASA opening brief. Petitioners may also seek emergency relief before the June 29 broader-rescheduling ALJ hearing. No court ruling has issued as of June 14.",
+      "whyItMatters": "This is the first formal motion in Case 26-1136 asking the D.C. Circuit to actually halt the order. A granted stay would revert state medical marijuana to Schedule I, nullify all DEA registrations filed under the expedited pathway, and undo 280E relief. Oklahoma operators filing DEA registration before the June 26–27 window preserves the safe-harbor regardless of litigation outcome; the risk of not registering (OBNDD sanctions, license jeopardy) is immediate and certain, while stay risk is real but not yet realized.",
       "tags": ["federal"],
       "source": {
         "name": "Marijuana Herald — NDASA/MMJ Ask Court to Pause Rescheduling",
-        "url": "https://themarijuanaherald.com/2026/06/drug-testing-group-marijuana-pharmaceutical-companies-ask-court-to-pause-federal-rescheduling-order/"
+        "url": "https://themarijuanaherald.com/2026/06/drug-testing-industry-and-pharmaceutical-company-ask-court-to-pause-federal-rescheduling-order/"
       },
       "secondarySource": {
         "name": "Marijuana Moment — Drug Testing Industry Asks Court to Pause",
@@ -197,8 +205,8 @@
       "id": "broader-rescheduling-alj-hearing-june-july-2026",
       "headline": "Broader-Rescheduling ALJ Hearing Set for June 29 – July 15, 2026 — Faces Pre-Hearing Constitutional Challenge",
       "date": "2026-06-29",
-      "summary": "Alongside the partial rescheduling, DEA withdrew its stalled August 2024 proceeding and issued a new Notice of Hearing for an expedited ALJ proceeding on whether ALL marijuana — including adult-use — should move to Schedule III via notice-and-comment rulemaking. The hearing runs June 29 – July 15, 2026 (July 3 recess) at DEA's Arlington, VA facility. A pre-hearing constitutional challenge is circulating: the DOJ formally admitted in MMJ BioPharma Cultivation Inc. v. Bondi (Feb. 27, 2025) that DEA ALJ removal protections are unconstitutional; challengers argue that under Axon v. FTC (2022), subjecting parties to proceedings before an unlawful tribunal is itself an irreparable injury — providing grounds for a federal court intervention before the hearing begins. No pre-hearing stay has been issued as of June 9, 2026.",
-      "whyItMatters": "Determines whether recreational marijuana joins medical in Schedule III; any final rule would also be subject to a Congressional Review Act challenge. If the constitutional challenge succeeds in obtaining a pre-hearing stay, the broader-rescheduling process stalls indefinitely.",
+      "summary": "Alongside the partial rescheduling, DEA withdrew its stalled August 2024 proceeding and issued a new Notice of Hearing for an expedited ALJ proceeding on whether ALL marijuana — including adult-use — should move to Schedule III via notice-and-comment rulemaking. The hearing runs June 29 – July 15, 2026 (July 3 recess) at DEA's Arlington, VA facility. A pre-hearing constitutional challenge is active: the DOJ formally admitted in MMJ BioPharma Cultivation Inc. v. Bondi (Feb. 27, 2025) that DEA ALJ removal protections are unconstitutional; challengers argue that under Axon v. FTC (2022), subjecting parties to proceedings before an unlawful tribunal is itself irreparable injury. MMJ International announced plans to seek emergency injunctive relief against the hearing; no such injunction has been granted and the hearing remains on schedule as of June 14, 2026.",
+      "whyItMatters": "Determines whether recreational marijuana joins medical in Schedule III; any final rule would also be subject to a Congressional Review Act challenge. If the constitutional challenge succeeds in obtaining a pre-hearing stay, the broader-rescheduling process stalls indefinitely. The April 28 state-medical-marijuana Schedule III order is a separate instrument and is not automatically affected by the hearing's outcome.",
       "tags": ["federal", "deadline"],
       "source": {
         "name": "Gibson Dunn",
@@ -212,16 +220,33 @@
     },
     {
       "id": "280e-tax-deduction-bar-lifted-medical-operators",
-      "headline": "280E Tax Deduction Bar Lifted for Medical Operators — Retroactive Relief Uncertain",
+      "headline": "280E Tax Deduction Bar Lifted for Medical Operators — Binding IRS/Treasury Guidance Still Pending",
       "date": "2026-04-28",
-      "summary": "State-licensed medical marijuana is no longer Schedule I/II, so operators are no longer subject to the IRC Section 280E deduction disallowance. Treasury/IRS guidance announced April 23, 2026 is forthcoming and expected to treat rescheduling as applying for the full 2026 tax year. No retroactive relief for prior years has been announced; recreational-only operators remain fully subject to 280E.",
-      "whyItMatters": "Potentially tens of millions in aggregate annual tax savings for medical operators; dual-use states face apportionment questions still unresolved.",
+      "summary": "State-licensed medical marijuana is no longer Schedule I/II, so operators are no longer subject to the IRC Section 280E deduction disallowance. Treasury/IRS announced April 23, 2026 that formal guidance is forthcoming and expected to treat rescheduling as applying for the full 2026 tax year. As of June 14, 2026 — more than six weeks after the order took effect — no revenue ruling, IRS notice, proposed regulation, or other binding written guidance has been published. Seven House Democrats formally demanded IRS and Treasury expedite guidance on May 28 (see companion item). No retroactive relief for prior years has been announced; recreational-only operators remain fully subject to 280E.",
+      "whyItMatters": "Potentially tens of millions in aggregate annual tax savings for medical operators; however, operators and CPAs are acting on legal interpretation alone until IRS publishes binding guidance. Allocation methodologies for mixed-use operators and retroactivity scope remain unresolved.",
       "tags": ["federal", "dispensary"],
       "source": {
         "name": "U.S. Treasury",
         "url": "https://home.treasury.gov/news/press-releases/sb0471"
       },
       "pinned": true
+    },
+    {
+      "id": "irs-280e-guidance-still-pending-house-demand-may2026",
+      "headline": "IRS/Treasury 280E Guidance Still Not Issued — Seven House Democrats Demand Action",
+      "date": "2026-05-28",
+      "summary": "Seven House Democrats led by Reps. Steven Horsford and Steve Cohen wrote to IRS Commissioner Danny Bisignano and Treasury Secretary Scott Bessent on May 28, 2026, demanding prompt publication of formal 280E guidance following the April 28 medical-marijuana rescheduling order. As of June 14, 2026 — more than six weeks after rescheduling took effect — neither IRS nor Treasury has published a revenue ruling, IRS notice, proposed regulation, or other binding written guidance on how 280E applies to Schedule III medical-marijuana operators. The April 23 Treasury press release (SB0471) announced intent to issue guidance including a transition rule treating relief as applying for the full 2026 taxable year; it is not itself binding. Operators and CPAs are acting on the legal interpretation that 280E does not apply to state-licensed medical activity, but without IRS confirmation of allocation methodologies or treatment of mixed-use operators.",
+      "whyItMatters": "Oklahoma medical-marijuana operators — cultivators, processors, and dispensaries — cannot finalize 2026 tax strategy with certainty until IRS publishes formal guidance. The six-week gap between the rescheduling order and any binding IRS action leaves operators exposed if Treasury ultimately limits relief in ways not currently anticipated.",
+      "tags": ["federal", "dispensary", "cultivation"],
+      "source": {
+        "name": "Cannabis Business Times — 7 House Democrats Demand 280E Guidance",
+        "url": "https://www.cannabisbusinesstimes.com/legislation-and-regulation/cannabis-tax-law/news/15826367/7-house-democrats-demand-irs-treasury-provide-280e-cannabis-guidance"
+      },
+      "secondarySource": {
+        "name": "The Marijuana Herald — Lawmakers Urge IRS and Treasury",
+        "url": "https://themarijuanaherald.com/2026/05/lawmakers-urge-irs-and-treasury-to-clarify-marijuana-tax-rules-following-rescheduling-order/"
+      },
+      "pinned": false
     },
     {
       "id": "congress-closes-hemp-loophole-delta8-thca-nov-2026",
@@ -309,7 +334,7 @@
       "id": "oklahoma-cannabis-market-collapse-oversupply-2026",
       "headline": "Oklahoma Cannabis Market in Freefall — Wholesale Prices Down 63%, 6,000+ Grows Shuttered",
       "date": "2026-06-02",
-      "summary": "Oklahoma Watch and KGOU (NPR Oklahoma) reported June 2, 2026 that the state's medical cannabis market is in severe contraction. Wholesale prices have fallen from approximately $3,000/lb at peak to $1,100/lb (≈63% decline), making Oklahoma the national price floor at $2.11/gram. A 2023 study found licensed supply exceeded patient demand by roughly 64 to 1. At peak, Oklahoma had nearly 14,000 licensed businesses including ~9,400 growers; more than 6,000 grow locations have since shut down or been abandoned. The industry generated $670M+ in retail sales and $1.1B+ in wholesale transactions in 2025, contributing ~$47M in excise taxes and $60M+ in state and local sales taxes — but revenue and margins are collapsing. Commercial real estate agents describe a glut of vacant cannabis warehouses with specialized lighting and climate systems that are difficult to repurpose. Governor Stitt is calling for voters to shut the program down entirely; legislative leadership has resisted abolition.",
+      "summary": "Oklahoma Watch and KGOU (NPR Oklahoma) reported June 2, 2026 that the state's medical cannabis market is in severe contraction. Wholesale prices have fallen from approximately $3,000/lb at peak to $1,100/lb (≈63% decline), making Oklahoma the national price floor at $2.11/gram. A 2023 study found licensed supply exceeded patient demand by roughly 64 to 1. At peak, Oklahoma had nearly 14,000 licensed businesses including ~9,400 growers; more than 6,000 grow locations have since shut down or been abandoned. The industry generated $670M+ in retail sales and $1.1B+ in wholesale transactions in 2025, contributing ~$47M in excise taxes and $60M+ in state and local sales taxes — but revenue and margins are collapsing. Governor Stitt is calling for voters to shut the program down entirely; legislative leadership has resisted abolition.",
       "whyItMatters": "Oklahoma cultivators and processors face existential margin pressure from oversupply and falling wholesale prices at the same moment new DEA registration costs ($3,699/yr for manufacturers) are being imposed. Dispensary customers face the same squeeze from the retail side. The license moratorium extension (HB 3143, signed May 2026) prevents new entrants but does nothing to reduce the existing licensed supply overhang. CAKE and its wholesale dispensary customers operate in this environment — the cost and compliance burden of DEA registration compounds an already-stressed market.",
       "tags": ["oklahoma", "cultivation", "dispensary"],
       "source": {
@@ -342,9 +367,9 @@
     },
     {
       "id": "watch-conflicting-deadlines-june22",
-      "headline": "Conflicting deadlines circulating: 'June 22' vs June 26/27 — source of confusion now identified",
-      "claim": "Named law firms (e.g., Fennemore Craig) and multiple cannabis outlets cite June 22 as the registration deadline. The correct last-business-day cutoff is June 26; the last calendar day is June 27. The 'June 22' figure is NOT the registration deadline. As of June 9, multiple additional sites (HealthDataConsortium.org, hrzenden.com/Zen Den Co.) are still publishing 'June 22' as the operative date.",
-      "caution": "The source of the error has been traced: the April 28, 2026 Federal Register document (the same one that published the rescheduling order) also set June 22 as the date the AG/DEA will 'notify interested persons selected to participate' in the June 29 broader-rescheduling ALJ hearing. This is an entirely different proceeding — not the 60-day registration window. The two dates appear in the same document and operators and advisors are conflating them. Because credentialed law firms and multiple web publications are propagating this error, operators asking about 'June 22' may genuinely believe they have authority for the date. Correct them with the Federal Register citation: 91 FR [2026-08177] sets registration at 60 days from April 28 = June 27; it sets June 22 as the ALJ notification date. As of June 11, 2026, HealthDataConsortium.org has published a second article with 'June 22' literally in its headline — 'June 22, 2026: What Medical Cannabis Operators Must Do Now' (healthdataconsortium.org/medical-marijuana-schedule-iii-patient-impact-2026/) — further amplifying the wrong date as the deadline approaches.",
+      "headline": "June 22 deadline confusion: WRONG for manufacturers/cultivators; NOW CONFIRMED as dispensary portal closing date by credible sources",
+      "claim": "Named law firms (e.g., Fennemore Craig) and multiple cannabis outlets including MJBizDaily (June 5, 2026) cite June 22 as the registration deadline. New finding as of June 14: June 22 now appears to be the dispensary portal's own administrative closing date — distinct from the 60-day Federal Register window (June 27). For manufacturers and cultivators using Form 225, the correct window is June 26–27. Multiple unvetted sites (HealthDataConsortium.org, hrzenden.com/Zen Den Co.) continue to publish 'June 22' as the universal deadline.",
+      "caution": "The situation has evolved: June 22 is NOT the general 60-day window deadline (June 26–27 is), but it IS now cited by MJBizDaily and Fennemore Craig as the dispensary-specific portal closing date. Oklahoma dispensaries should treat June 22 as their operative deadline. For CAKE as a cultivator/manufacturer, the operative deadline is June 26–27 via Form 225 — do not confuse the dispensary portal cutoff with the manufacturer window. The original explanation that June 22 is the ALJ hearing participant notification date (from the April 28 Federal Register) may also still apply; DEA appears to have used June 22 for multiple purposes in the same document. The source of the original confusion (conflating ALJ notification date with the registration deadline) has been compounded by the portal's own June 22 cutoff.",
       "source": { "name": "Fennemore Craig — 'Portal is Open Through June 22, 2026'", "url": "https://www.fennemorelaw.com/dea-calls-for-registration-of-medical-marijuana-licensees-portal-is-open-through-june-22-2026/" },
       "date": "2026-06"
     },
@@ -374,10 +399,10 @@
     },
     {
       "id": "watch-interstate-commerce-claim",
-      "headline": "'DEA registration unlocks interstate commerce'",
-      "claim": "Some consultants suggest DEA registration will enable interstate cannabis commerce, used as a reason to register fast.",
-      "caution": "Interstate cannabis commerce is not authorized by the Final Order, the Federal Register rules, or any located federal guidance. This claim outruns any verified source — do not act on it.",
-      "source": { "name": "Cannabis Industry Lawyer", "url": "https://www.cannabisindustrylawyer.com/dea-cannabis-registration/" },
+      "headline": "'DEA registration unlocks interstate commerce' — now being promoted by named companies via press release",
+      "claim": "Some consultants suggest DEA registration will enable interstate cannabis commerce. This claim escalated in May 2026 when LEEF Brands (a California cannabis company) issued a May 8, 2026 press release titled 'LEEF Brands Files Applications for DEA Registration, Positioning for Interstate and Global Export Opportunities,' framing registration as the gateway to selling across state lines and exporting internationally. The release was picked up by Cannabis Business Times.",
+      "caution": "Interstate cannabis commerce is not authorized by the Final Order, the Federal Register rules, or any federal guidance. The DOJ order explicitly states registered operators remain 'subject to the limitations of their state license.' The treaty conflict with the 1961 Single Convention further blocks export pathways. LEEF Brands' release uses future-conditional language ('as regulatory frameworks evolve'), but the headline framing has been treated as current fact in trade coverage. Do not make Oklahoma business decisions premised on interstate commerce unlocking via DEA registration.",
+      "source": { "name": "LEEF Brands / GlobeNewswire (May 8, 2026)", "url": "https://www.globenewswire.com/news-release/2026/05/08/3291058/0/en/LEEF-Brands-Files-Applications-for-DEA-Registration-Positioning-for-Interstate-and-Global-Export-Opportunities.html" },
       "date": "2026-05"
     },
     {
@@ -398,11 +423,11 @@
     },
     {
       "id": "watch-alj-constitutional-challenge-june-hearing",
-      "headline": "Constitutional challenge to DEA ALJ structure claimed to threaten the June 29 broader-rescheduling hearing",
-      "claim": "MMJ BioPharma Cultivation, Inc. and others argue the June 29 DEA rescheduling hearing is constitutionally tainted because the DOJ formally admitted in MMJ BioPharma v. Bondi (Feb. 27, 2025) that the DEA ALJ structure violates the Constitution. Under Axon v. FTC (2022), a party subjected to proceedings before an unlawful tribunal suffers an injury 'impossible to remedy once the proceeding is over,' giving challengers grounds for pre-hearing federal court intervention. Some observers have suggested an emergency stay motion targeting the hearing could be filed in the days before June 29.",
-      "caution": "The primary promotion of this theory originates in MMJ BioPharma press releases distributed via Newswire and AccessNewswire — a company that is itself an interested party. While the DOJ's February 2025 change of position on ALJ removal protections is real (it reflects a broader Trump-DOJ stance applied across federal agencies, not just cannabis), the legal consequence for the June 29 hearing is contested and no court has issued a pre-hearing stay as of June 9. The more likely scenario is that the hearing proceeds and constitutional objections are raised within the proceeding or via separate district-court action. Treat any claim that 'the June 29 hearing has been cancelled' or 'will definitely not proceed' as unverified until confirmed by the DEA or a federal court order.",
+      "headline": "MMJ International press campaign claims June 29 hearing unconstitutional — 'DELAYED AGAIN!'; hearing remains on schedule",
+      "claim": "Since May 18, 2026, MMJ International Holdings has run an escalating public press campaign with alarming headlines: 'DELAYED AGAIN! Will Marijuana Rescheduling Survive Constitutional Challenges?' (May 26); 'DEA's Last Marijuana Gamble: Unconstitutional ALJ System Collapses'; and others via AccessNewswire and pressrelease.com. MMJ formally joined the D.C. Circuit challenge (cases 26-1106/1130/1136) on May 29, and on June 9 co-filed the stay motion. MMJ has also announced plans to seek emergency injunctive relief against the June 29 hearing itself on constitutional grounds (DOJ admitted DEA ALJs' removal protections are unconstitutional in MMJ BioPharma v. Bondi, Feb. 27, 2025). As of June 14, 2026, no court has granted any injunction or stay, and the hearing remains on schedule.",
+      "caution": "MMJ International is an interested litigation party — a pharmaceutical company that spent 7+ years pursuing FDA/DEA approval channels and now competes against newly-Schedule-III state-licensed operators. Its press campaign is advocacy, not journalism. The constitutional issue over DEA ALJ removal protections is real (DOJ conceded it), but it primarily affects the broader rescheduling hearing, not the April 28 state-medical-marijuana Schedule III order already in effect. Treat any claim that the June 29 hearing 'has been cancelled' or 'will definitely not proceed' as unverified until confirmed by the DEA or a federal court order. The risk of Oklahoma cultivators/processors not registering before June 27 due to MMJ's 'framework may be voided' narrative is concrete and immediate; the stay risk, while real, has not materialized.",
       "source": { "name": "PharmiWeb — June 29 Hearing Faces Constitutional Issues (May 18, 2026)", "url": "https://www.pharmiweb.com/press-release/2026-05-18/june-29-marijuana-rescheduling-hearing-faces-constitutional-issues-before-it-even-begins" },
-      "date": "2026-05"
+      "date": "2026-06"
     },
     {
       "id": "watch-former-prosecutors-warn-dea-registration-rush",
@@ -416,8 +441,16 @@
       "id": "watch-mmj-fraudulent-safety-testing-claim",
       "headline": "'Federal rescheduling rewards a cannabis supply chain built on fraudulent safety testing' — MMJ International press campaign",
       "claim": "MMJ International Holdings (press release via AccessNewswire, June 3, 2026) claims the April 28 rescheduling order granted Schedule III status to a supply chain characterized by 'documented lab fraud, contaminated products, and a near-total absence of safety science' — without requiring a single state-licensed product to demonstrate safety, purity, or clinical efficacy. The company calls on federal courts and Congress to scrutinize the state-licensed supply chain before extending federal legitimacy. MMJ International is simultaneously a D.C. Circuit petitioner in Case 26-1136 and a co-filer of the June 9 stay motion.",
-      "caution": "MMJ International Holdings is an interested litigation party — this is paid-wire advocacy, not independent journalism. Oklahoma has had documented lab-fraud cases (OMMA has acted on testing violations and issued product recalls involving fraudulent or failed lab results), so the underlying concern about testing integrity is not fabricated; however, the framing is designed to advance MMJ International's litigation strategy and commercial interests (they invested years and millions developing cannabinoid pharmaceuticals through FDA/DEA channels and now compete against newly-legitimized state-licensed operators). As of June 13, no court has accepted this argument as grounds for a stay or vacatur. Oklahoma operators should monitor whether this argument gains traction in the D.C. Circuit, as a ruling that imposed additional safety-testing conditions on DEA registration would directly affect cultivators and manufacturers.",
+      "caution": "MMJ International Holdings is an interested litigation party — this is paid-wire advocacy, not independent journalism. Oklahoma has had documented lab-fraud cases (OMMA has acted on testing violations and issued product recalls involving fraudulent or failed lab results), so the underlying concern about testing integrity is not fabricated; however, the framing is designed to advance MMJ International's litigation strategy and commercial interests. As of June 14, no court has accepted this argument as grounds for a stay or vacatur. Oklahoma operators should monitor whether this argument gains traction in the D.C. Circuit, as a ruling that imposed additional safety-testing conditions on DEA registration would directly affect cultivators and manufacturers.",
       "source": { "name": "AccessNewswire — MMJ International Holdings (June 3, 2026)", "url": "https://www.accessnewswire.com/newsroom/en/healthcare-and-pharmaceutical/federal-rescheduling-is-rewarding-a-cannabis-supply-chain-built-on-fr-1172962" },
+      "date": "2026-06"
+    },
+    {
+      "id": "watch-unvetted-content-sites-dea-guidance",
+      "headline": "Unvetted content-marketing websites publishing authoritative-sounding but unreliable DEA compliance guidance",
+      "claim": "Multiple websites with no identifiable editorial standards, named authors, or organizational credentials are publishing DEA registration guidance that appears in Google results alongside legitimate law-firm content: HealthDataConsortium.org ('June 22, 2026: What Medical Cannabis Operators Must Do Now' — no author, no organizational affiliation found); hrzenden.com / Zen Den Co. ('DEA Registration Deadline Cannabis June 22' — apparent lead-generation content from a non-cannabis business); WeedPress 'The Paper Trail' (aggressive compliance-cliff framing, operated by an individual, targeting South Dakota operators but indexed broadly). These sites are amplifying the June 22 deadline confusion and creating additional noise for operators seeking reliable guidance.",
+      "caution": "Oklahoma operators searching for DEA registration guidance are encountering these sites in search results, sometimes above credible law-firm or government content. Their articles may contain factual errors, be out of date, or be designed primarily for lead generation rather than compliance accuracy. No website is an authoritative source unless it ends in .gov. Cross-check any guidance against primary sources: the Federal Register notice (federalregister.gov/documents/2026/04/28/2026-08177), the DEA Diversion Control page (deadiversion.usdoj.gov), OMMA official bulletins (oklahoma.gov/omma), and OBNDD's director bulletin (obndd.ok.gov).",
+      "source": { "name": "HealthDataConsortium.org — 'June 22, 2026: What Medical Cannabis Operators Must Do Now'", "url": "https://healthdataconsortium.org/medical-marijuana-schedule-iii-patient-impact-2026/" },
       "date": "2026-06"
     }
   ]
