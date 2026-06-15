@@ -1,0 +1,425 @@
+'use server'
+
+import { createClient } from '@/lib/supabase/server'
+import { readInventory, readOrders, getSkuId } from '@/lib/packaging/db'
+import { generateTaskQueue } from '@/lib/packaging/allocation-engine'
+import { readActiveClaims, readDoneItemsToday, insertClaim, releaseClaim, completeClaim } from '@/lib/packaging/claims'
+import type { InventoryMap, PriorityTier, TaskType } from '@/lib/packaging/types'
+import type {
+  BoardData,
+  SkuBoardCard,
+  OrderLine,
+  ActiveClaimSummary,
+  ActiveClaimRecord,
+  PackagingUser,
+} from '@/lib/packaging/board-types'
+
+// ============================================
+// GET BOARD DATA
+// ============================================
+
+export async function getBoardData(): Promise<BoardData> {
+  const lastUpdated = new Date().toISOString()
+
+  try {
+    // 1. Parallel fetch: inventory, orders, active claims
+    const [inventory, orders, activeClaims] = await Promise.all([
+      readInventory(),
+      readOrders(),
+      readActiveClaims().catch(() => [] as Awaited<ReturnType<typeof readActiveClaims>>),
+    ])
+
+    // 2. Build adjusted inventory: FILL claims reduce staged
+    const claimedStagedBySku: Record<string, number> = {}
+    for (const claim of activeClaims) {
+      if (claim.taskType === 'FILL') {
+        claimedStagedBySku[claim.sku] = (claimedStagedBySku[claim.sku] ?? 0) + claim.claimedQuantity
+      }
+    }
+
+    const adjustedInventory: InventoryMap = {}
+    for (const [sku, levels] of Object.entries(inventory)) {
+      adjustedInventory[sku] = {
+        ...levels,
+        staged: Math.max(0, levels.staged - (claimedStagedBySku[sku] ?? 0)),
+      }
+    }
+
+    // 3. Generate tasks from adjusted inventory
+    const tasks = generateTaskQueue(adjustedInventory, orders)
+
+    // 4. Group tasks by (sku, type) into SkuBoardCards
+    const cardMap = new Map<string, SkuBoardCard>()
+
+    for (const task of tasks) {
+      const cardKey = `${task.sku}-${task.type}`
+      const existing = cardMap.get(cardKey)
+
+      const lines: OrderLine[] = task.sources.map((s) => ({
+        orderId: s.type === 'ORDER' ? (s.orderId ?? null) : null,
+        customerName: s.type === 'ORDER' ? (s.customerName ?? null) : 'Stock build',
+        quantity: s.quantity,
+        priority: task.priority,
+        deliveryDate: s.deliveryDate ?? null,
+      }))
+
+      if (existing) {
+        existing.totalQuantity += task.quantity
+        existing.orderLines.push(...lines)
+        if (task.priority === 'URGENT') existing.urgentUnits += task.quantity
+        else if (task.priority === 'TOMORROW') existing.tomorrowUnits += task.quantity
+        else if (task.priority === 'UPCOMING') existing.upcomingUnits += task.quantity
+        else if (task.priority === 'BACKFILL') existing.backfillUnits += task.quantity
+        if (task.status === 'BLOCKED') existing.hasBlocked = true
+      } else {
+        cardMap.set(cardKey, {
+          sku: task.sku,
+          taskType: task.type,
+          totalQuantity: task.quantity,
+          urgentUnits: task.priority === 'URGENT' ? task.quantity : 0,
+          tomorrowUnits: task.priority === 'TOMORROW' ? task.quantity : 0,
+          upcomingUnits: task.priority === 'UPCOMING' ? task.quantity : 0,
+          backfillUnits: task.priority === 'BACKFILL' ? task.quantity : 0,
+          orderLines: lines,
+          hasBlocked: task.status === 'BLOCKED',
+          activeClaim: null,
+        })
+      }
+    }
+
+    // 5. Attach active claims — board claim task_key = `${taskType}-${sku}`
+    // Build a lookup: claimKey -> claim
+    const claimByKey = new Map<string, ActiveClaimRecord>()
+    for (const claim of activeClaims) {
+      claimByKey.set(`${claim.taskType}-${claim.sku}`, claim)
+    }
+
+    for (const [, card] of cardMap) {
+      const claimKey = `${card.taskType}-${card.sku}`
+      const claim = claimByKey.get(claimKey)
+      if (claim) {
+        const summary: ActiveClaimSummary = {
+          id: claim.id,
+          claimedByUserId: claim.claimedByUserId,
+          claimedByName: claim.claimedByName,
+          sessionUserId: claim.sessionUserId,
+          sessionUserName: claim.sessionUserName,
+          claimedQuantity: claim.claimedQuantity,
+          claimedAt: claim.claimedAt,
+          expiresAt: claim.expiresAt,
+        }
+        card.activeClaim = summary
+      }
+    }
+
+    // 6. Sort cards: urgent first, then tomorrow, upcoming, backfill; tie-break urgentUnits desc
+    const priorityRank: Record<PriorityTier, number> = {
+      URGENT: 0,
+      TOMORROW: 1,
+      UPCOMING: 2,
+      BACKFILL: 3,
+    }
+
+    function cardTopPriority(card: SkuBoardCard): PriorityTier {
+      if (card.urgentUnits > 0) return 'URGENT'
+      if (card.tomorrowUnits > 0) return 'TOMORROW'
+      if (card.upcomingUnits > 0) return 'UPCOMING'
+      return 'BACKFILL'
+    }
+
+    function sortCards(cards: SkuBoardCard[]): SkuBoardCard[] {
+      return cards.sort((a, b) => {
+        const aPri = priorityRank[cardTopPriority(a)]
+        const bPri = priorityRank[cardTopPriority(b)]
+        if (aPri !== bPri) return aPri - bPri
+        return b.urgentUnits - a.urgentUnits
+      })
+    }
+
+    const allCards = Array.from(cardMap.values())
+    const toFillCards = sortCards(allCards.filter((c) => c.taskType === 'FILL'))
+    const toCaseCards = sortCards(allCards.filter((c) => c.taskType === 'CASE'))
+
+    // 7. Done items
+    const doneItems = await readDoneItemsToday().catch(() => [])
+
+    return { toFillCards, toCaseCards, doneItems, lastUpdated }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    return {
+      toFillCards: [],
+      toCaseCards: [],
+      doneItems: [],
+      lastUpdated,
+      error: msg,
+    }
+  }
+}
+
+// ============================================
+// GET PACKAGING USERS
+// ============================================
+
+export async function getPackagingUsers(): Promise<PackagingUser[]> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('users')
+    .select('id, name, role')
+    .in('role', ['admin', 'management', 'packaging', 'vault', 'standard'])
+    .order('name', { ascending: true })
+
+  if (error) throw new Error(`Failed to fetch packaging users: ${error.message}`)
+  return (data || []) as PackagingUser[]
+}
+
+// ============================================
+// CLAIM TASK
+// ============================================
+
+export interface ClaimTaskParams {
+  taskKey: string
+  sku: string
+  taskType: TaskType
+  priority: PriorityTier
+  claimedQuantity: number
+  claimedByUserId: string
+  claimedByName: string
+  sessionUserId: string | null
+  sessionUserName: string | null
+}
+
+export type ClaimTaskResult =
+  | { success: true; claimId: string }
+  | { success: false; error: string }
+
+export async function claimTask(params: ClaimTaskParams): Promise<ClaimTaskResult> {
+  return insertClaim({
+    taskKey: params.taskKey,
+    sku: params.sku,
+    taskType: params.taskType,
+    priority: params.priority,
+    claimedQuantity: params.claimedQuantity,
+    claimedByUserId: params.claimedByUserId,
+    claimedByName: params.claimedByName,
+    sessionUserId: params.sessionUserId,
+    sessionUserName: params.sessionUserName,
+  })
+}
+
+// ============================================
+// RELEASE TASK
+// ============================================
+
+export interface ReleaseTaskParams {
+  claimId: string
+  releasedByUserId: string
+  releasedByName: string
+  reason?: string
+}
+
+export type ReleaseTaskResult =
+  | { success: true }
+  | { success: false; error: string }
+
+export async function releaseTask(params: ReleaseTaskParams): Promise<ReleaseTaskResult> {
+  const supabase = await createClient()
+
+  // Fetch the claim
+  const { data: claim, error: fetchError } = await supabase
+    .from('packaging_claims')
+    .select('id, status, claimed_by_user_id, claimed_by_name')
+    .eq('id', params.claimId)
+    .single()
+
+  if (fetchError || !claim) {
+    return { success: false, error: 'Claim not found' }
+  }
+
+  if (claim.status !== 'ACTIVE') {
+    return { success: false, error: `Claim is already ${String(claim.status).toLowerCase()}` }
+  }
+
+  // Authorize: worker can release own claim; admin/management can release any
+  const isSelf = claim.claimed_by_user_id === params.releasedByUserId
+
+  if (!isSelf) {
+    // Fetch releasor role from DB (do not trust client)
+    const { data: releasorUser, error: userError } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', params.releasedByUserId)
+      .single()
+
+    if (userError || !releasorUser) {
+      return { success: false, error: 'Could not verify your permissions' }
+    }
+
+    const role = releasorUser.role as string
+    if (role !== 'admin' && role !== 'management') {
+      return { success: false, error: 'You can only release your own claims' }
+    }
+  }
+
+  return releaseClaim({
+    claimId: params.claimId,
+    reason: params.reason ?? 'worker_released',
+  })
+}
+
+// ============================================
+// ADVANCE CLAIMED
+// ============================================
+
+export interface AdvanceClaimedParams {
+  claimId: string
+  sku: string
+  taskType: TaskType
+  actualQuantity: number
+  advancedByUserId: string
+}
+
+export type AdvanceClaimedResult =
+  | { success: true }
+  | { success: false; error: string }
+
+export async function advanceClaimed(params: AdvanceClaimedParams): Promise<AdvanceClaimedResult> {
+  const supabase = await createClient()
+  const qty = params.actualQuantity
+
+  // 1. Validate claim: active, not expired
+  const { data: claim, error: fetchError } = await supabase
+    .from('packaging_claims')
+    .select('id, status, expires_at, claimed_quantity, sku, task_type')
+    .eq('id', params.claimId)
+    .single()
+
+  if (fetchError || !claim) {
+    return { success: false, error: 'Claim not found' }
+  }
+
+  if (claim.status !== 'ACTIVE') {
+    return { success: false, error: `Claim is already ${String(claim.status).toLowerCase()}` }
+  }
+
+  if (new Date(claim.expires_at) < new Date()) {
+    return { success: false, error: 'Claim has expired — please re-claim the task' }
+  }
+
+  if (qty < 1 || qty > claim.claimed_quantity) {
+    return {
+      success: false,
+      error: `Quantity must be between 1 and ${claim.claimed_quantity}`,
+    }
+  }
+
+  // 2. Resolve sku_id
+  let skuId: string
+  try {
+    skuId = await getSkuId(params.sku)
+  } catch {
+    return { success: false, error: `Unknown SKU: ${params.sku}` }
+  }
+
+  // 3. Atomic inventory move
+  if (params.taskType === 'FILL') {
+    // staged -> filled: read current, guard, then update
+    const { data: invData, error: invError } = await supabase
+      .from('inventory')
+      .select('staged, filled')
+      .eq('sku_id', skuId)
+      .single()
+
+    if (invError || !invData) {
+      return { success: false, error: 'Could not read inventory' }
+    }
+
+    if (invData.staged < qty) {
+      return { success: false, error: 'Insufficient staged inventory — another worker may have advanced' }
+    }
+
+    const { error: updateError } = await supabase
+      .from('inventory')
+      .update({
+        staged: invData.staged - qty,
+        filled: invData.filled + qty,
+      })
+      .eq('sku_id', skuId)
+      .gte('staged', qty) // atomic guard
+
+    if (updateError) {
+      return { success: false, error: `Inventory update failed: ${updateError.message}` }
+    }
+
+    // Write inventory logs (informational, non-blocking)
+    await Promise.allSettled([
+      supabase.from('inventory_log').insert({
+        sku_id: skuId,
+        field: 'staged',
+        old_value: invData.staged,
+        new_value: invData.staged - qty,
+        reason: 'board_fill_complete',
+        task_id: params.claimId,
+      }),
+      supabase.from('inventory_log').insert({
+        sku_id: skuId,
+        field: 'filled',
+        old_value: invData.filled,
+        new_value: invData.filled + qty,
+        reason: 'board_fill_complete',
+        task_id: params.claimId,
+      }),
+    ])
+  } else {
+    // CASE: filled -> cased (atomic)
+    const { data: invData, error: invError } = await supabase
+      .from('inventory')
+      .select('filled, cased')
+      .eq('sku_id', skuId)
+      .single()
+
+    if (invError || !invData) {
+      return { success: false, error: 'Could not read inventory' }
+    }
+
+    if (invData.filled < qty) {
+      return { success: false, error: 'Insufficient filled inventory — another worker may have advanced' }
+    }
+
+    const { error: updateError } = await supabase
+      .from('inventory')
+      .update({
+        filled: invData.filled - qty,
+        cased: invData.cased + qty,
+      })
+      .eq('sku_id', skuId)
+      .gte('filled', qty) // atomic guard
+
+    if (updateError) {
+      return { success: false, error: `Inventory update failed: ${updateError.message}` }
+    }
+
+    // Write inventory logs (informational)
+    await Promise.allSettled([
+      supabase.from('inventory_log').insert({
+        sku_id: skuId,
+        field: 'filled',
+        old_value: invData.filled,
+        new_value: invData.filled - qty,
+        reason: 'board_case_complete',
+        task_id: params.claimId,
+      }),
+      supabase.from('inventory_log').insert({
+        sku_id: skuId,
+        field: 'cased',
+        old_value: invData.cased,
+        new_value: invData.cased + qty,
+        reason: 'board_case_complete',
+        task_id: params.claimId,
+      }),
+    ])
+  }
+
+  // 4. Complete the claim
+  const result = await completeClaim({ claimId: params.claimId, actualQuantity: qty })
+  return result
+}
