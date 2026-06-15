@@ -25,6 +25,7 @@ import {
   CircleArrowRight,
 } from 'lucide-react'
 import { FloatingMenu } from '@/components/ui/floating-menu'
+import { OrderAlertBar } from '@/components/packaging/order-alert-bar'
 import {
   getDashboardData,
   advanceTask,
@@ -254,6 +255,12 @@ export default function PackagingPage() {
 
   return (
     <div className="space-y-6">
+      {/* Order Alert Bar */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-lg font-semibold">Packaging</h1>
+        <OrderAlertBar />
+      </div>
+
       {/* Inventory Panel - Desktop Only */}
       <Card className="hidden md:block">
         <CardContent className="p-4">
