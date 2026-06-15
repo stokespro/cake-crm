@@ -10,7 +10,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
-import { useOrderAlerts, type AlertEvent, type ItemDiff, type OrderItemSnapshot } from '@/hooks/use-order-alerts'
+import { useOrderAlerts, armAudio, type AlertEvent, type ItemDiff, type OrderItemSnapshot } from '@/hooks/use-order-alerts'
 
 // ---------------------------------------------------------------------------
 // LocalStorage keys
@@ -197,7 +197,13 @@ export function OrderAlertBar() {
       if (stored !== null) {
         const on = stored === 'true'
         setSoundEnabled(on)
-        if (on) setAudioArmed(true)
+        if (on) {
+          setAudioArmed(true)
+          // Pre-load audio buffers immediately so returning users don't wait
+          // on first alert. play() still requires a prior gesture in Safari,
+          // but load() here warms the network fetch.
+          armAudio()
+        }
       }
     } catch {}
   }, [])
@@ -206,7 +212,12 @@ export function OrderAlertBar() {
     setSoundEnabled((prev) => {
       const next = !prev
       try { localStorage.setItem(SOUND_PREF_KEY, String(next)) } catch {}
-      if (!audioArmed) setAudioArmed(true)
+      // First click: arm the Audio objects (satisfies browser autoplay gesture
+      // requirement — must happen inside a user-initiated event handler).
+      if (!audioArmed) {
+        setAudioArmed(true)
+        armAudio()
+      }
       return next
     })
   }, [audioArmed])

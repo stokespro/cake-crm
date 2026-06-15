@@ -43,60 +43,49 @@ interface UseOrderAlertsOptions {
 }
 
 // ---------------------------------------------------------------------------
-// Web Audio cat meow synthesizer
-// Single meow = new order, double meow = edited order.
-// Uses AM modulation + pitch envelope to mimic a cat's "miaou" formant shape.
+// Audio: real cat meow files via HTML5 Audio
+//
+// /public/meow.mp3      — short single meow → new order
+// /public/meow-edit.mp3 — longer meow       → edited order
+//
+// Pre-loaded Audio objects are created once and reused so repeated alerts
+// are instant. We call load() during the "arm" gesture (user's first
+// interaction with the sound toggle) to satisfy browser autoplay policy.
+// play() promise rejections are swallowed so a blocked browser never throws.
 // ---------------------------------------------------------------------------
 
-function playSynthMeow(ctx: AudioContext, startTime: number) {
-  const duration = 0.55
+// Module-level singletons — created lazily on first arm() call.
+let audioNewOrder: HTMLAudioElement | null = null
+let audioEdited: HTMLAudioElement | null = null
 
-  // Carrier: voiced harmonic at ~700 Hz falling to ~400 Hz (vowel body)
-  const carrier = ctx.createOscillator()
-  carrier.type = 'sawtooth'
-  carrier.frequency.setValueAtTime(700, startTime)
-  carrier.frequency.exponentialRampToValueAtTime(400, startTime + duration)
-
-  // Formant band-pass to give it a vocal "meow" timbre
-  const formant = ctx.createBiquadFilter()
-  formant.type = 'bandpass'
-  formant.frequency.setValueAtTime(1200, startTime)
-  formant.frequency.exponentialRampToValueAtTime(700, startTime + duration)
-  formant.Q.value = 3
-
-  // Amplitude envelope: quick attack, sustain, tail off
-  const gain = ctx.createGain()
-  gain.gain.setValueAtTime(0, startTime)
-  gain.gain.linearRampToValueAtTime(0.28, startTime + 0.04)
-  gain.gain.setValueAtTime(0.28, startTime + 0.35)
-  gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration)
-
-  carrier.connect(formant)
-  formant.connect(gain)
-  gain.connect(ctx.destination)
-
-  carrier.start(startTime)
-  carrier.stop(startTime + duration)
+/**
+ * Call once when the user clicks the sound toggle for the first time.
+ * Creates and pre-loads both Audio objects (satisfies autoplay gesture
+ * requirement in Safari / Chrome).
+ */
+export function armAudio() {
+  if (typeof window === 'undefined') return
+  if (!audioNewOrder) {
+    audioNewOrder = new Audio('/meow.mp3')
+    audioNewOrder.preload = 'auto'
+    audioNewOrder.load()
+  }
+  if (!audioEdited) {
+    audioEdited = new Audio('/meow-edit.mp3')
+    audioEdited.preload = 'auto'
+    audioEdited.load()
+  }
 }
 
 function playMeow(type: AlertEvent['type'], soundEnabled: boolean) {
   if (!soundEnabled) return
-  try {
-    const AudioCtx = window.AudioContext ||
-      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
-    const ctx = new AudioCtx()
-
-    if (type === 'new_order') {
-      // Single meow
-      playSynthMeow(ctx, ctx.currentTime)
-    } else {
-      // Double meow — second one 0.7 s after first
-      playSynthMeow(ctx, ctx.currentTime)
-      playSynthMeow(ctx, ctx.currentTime + 0.7)
-    }
-  } catch {
-    // AudioContext unavailable or blocked — silently skip
-  }
+  const audio = type === 'new_order' ? audioNewOrder : audioEdited
+  if (!audio) return
+  // Rewind in case the previous play hasn't finished
+  audio.currentTime = 0
+  audio.play().catch(() => {
+    // Browser blocked autoplay — silently ignore
+  })
 }
 
 // ---------------------------------------------------------------------------
