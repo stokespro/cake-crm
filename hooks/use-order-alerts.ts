@@ -43,47 +43,39 @@ interface UseOrderAlertsOptions {
 }
 
 // ---------------------------------------------------------------------------
-// Audio: real cat meow files via HTML5 Audio
+// Audio: cat meow via HTML5 Audio
 //
-// /public/meow.mp3      — short single meow → new order
-// /public/meow-edit.mp3 — longer meow       → edited order
+// /public/meow.mp3 — used for both new orders and edited orders.
 //
-// Pre-loaded Audio objects are created once and reused so repeated alerts
-// are instant. We call load() during the "arm" gesture (user's first
-// interaction with the sound toggle) to satisfy browser autoplay policy.
-// play() promise rejections are swallowed so a blocked browser never throws.
+// Single Audio singleton created lazily on first arm() call and reused so
+// repeated alerts replay instantly. We call load() inside the user-gesture
+// handler (sound toggle click) to satisfy browser autoplay policy.
+// play() promise rejections are caught silently.
 // ---------------------------------------------------------------------------
 
-// Module-level singletons — created lazily on first arm() call.
-let audioNewOrder: HTMLAudioElement | null = null
-let audioEdited: HTMLAudioElement | null = null
+// Module-level singleton — created lazily on first arm() call.
+let audioMeow: HTMLAudioElement | null = null
 
 /**
  * Call once when the user clicks the sound toggle for the first time.
- * Creates and pre-loads both Audio objects (satisfies autoplay gesture
- * requirement in Safari / Chrome).
+ * Creates and pre-loads the Audio object inside a user gesture, satisfying
+ * Safari / Chrome autoplay requirements.
  */
 export function armAudio() {
   if (typeof window === 'undefined') return
-  if (!audioNewOrder) {
-    audioNewOrder = new Audio('/meow.mp3')
-    audioNewOrder.preload = 'auto'
-    audioNewOrder.load()
-  }
-  if (!audioEdited) {
-    audioEdited = new Audio('/meow-edit.mp3')
-    audioEdited.preload = 'auto'
-    audioEdited.load()
+  if (!audioMeow) {
+    audioMeow = new Audio('/meow.mp3')
+    audioMeow.preload = 'auto'
+    audioMeow.load()
   }
 }
 
-function playMeow(type: AlertEvent['type'], soundEnabled: boolean) {
+function playMeow(soundEnabled: boolean) {
   if (!soundEnabled) return
-  const audio = type === 'new_order' ? audioNewOrder : audioEdited
-  if (!audio) return
+  if (!audioMeow) return
   // Rewind in case the previous play hasn't finished
-  audio.currentTime = 0
-  audio.play().catch(() => {
+  audioMeow.currentTime = 0
+  audioMeow.play().catch(() => {
     // Browser blocked autoplay — silently ignore
   })
 }
@@ -135,8 +127,8 @@ export function useOrderAlerts({ onAlert, soundEnabled }: UseOrderAlertsOptions)
   useEffect(() => { soundEnabledRef.current = soundEnabled }, [soundEnabled])
 
   // Stable meow player — reads latest soundEnabled from ref
-  const meow = useCallback((type: AlertEvent['type']) => {
-    playMeow(type, soundEnabledRef.current)
+  const meow = useCallback(() => {
+    playMeow(soundEnabledRef.current)
   }, [])
 
   useEffect(() => {
@@ -189,7 +181,7 @@ export function useOrderAlerts({ onAlert, soundEnabled }: UseOrderAlertsOptions)
             items,
           }
 
-          meow('new_order')
+          meow()
           onAlertRef.current(event)
 
           const label = row.order_number ? ` #${row.order_number}` : ''
@@ -304,7 +296,7 @@ export function useOrderAlerts({ onAlert, soundEnabled }: UseOrderAlertsOptions)
           diff,
         }
 
-        meow('order_edited')
+        meow()
         onAlertRef.current(event)
 
         const label = order?.order_number ? ` #${order.order_number}` : ''
