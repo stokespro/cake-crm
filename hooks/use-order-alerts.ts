@@ -45,7 +45,7 @@ interface UseOrderAlertsOptions {
 // ---------------------------------------------------------------------------
 // Audio: cat meow via HTML5 Audio
 //
-// /public/meow.mp3 — used for both new orders and edited orders.
+// /public/meow-new.mp3 — used for both new orders and edited orders.
 //
 // Single Audio singleton created lazily on first arm() call and reused so
 // repeated alerts replay instantly. We call load() inside the user-gesture
@@ -64,7 +64,7 @@ let audioMeow: HTMLAudioElement | null = null
 export function armAudio() {
   if (typeof window === 'undefined') return
   if (!audioMeow) {
-    audioMeow = new Audio('/meow.mp3')
+    audioMeow = new Audio('/meow-new.mp3')
     audioMeow.preload = 'auto'
     audioMeow.load()
   }
