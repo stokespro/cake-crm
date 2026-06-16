@@ -39,6 +39,7 @@ import {
   ChevronDown,
   Sprout,
   LayoutGrid,
+  Wallet,
 } from 'lucide-react'
 import {
   Collapsible,
@@ -123,6 +124,19 @@ const allNavigation: NavigationItem[] = [
     subItems: [
       { name: 'Reports', href: '/dashboard/commissions' },
       { name: 'Rates', href: '/dashboard/commissions/rates' },
+    ]
+  },
+
+  // Finance - admin and management only
+  {
+    name: 'Finance',
+    icon: Wallet,
+    roles: ['admin', 'management'],
+    subItems: [
+      { name: 'Overview', href: '/dashboard/finance' },
+      { name: 'Bills', href: '/dashboard/finance/bills' },
+      { name: 'Templates', href: '/dashboard/finance/templates' },
+      { name: 'Vendors', href: '/dashboard/finance/vendors' },
     ]
   },
 

@@ -26,6 +26,7 @@ export function canViewSection(role: UserRole, section: string): boolean {
     tasks: ['admin', 'management', 'sales', 'agent'],
     inventory: ['admin', 'management', 'vault', 'packaging', 'standard', 'sales', 'agent'],
     users: ['admin'],
+    finance: ['admin', 'management'],
   };
   return permissions[section]?.includes(role) ?? false;
 }
