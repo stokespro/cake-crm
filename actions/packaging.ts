@@ -23,6 +23,7 @@ export async function getInventoryLevels(): Promise<{
         staged
       )
     `)
+    .eq('status', 'active')
     .order('code')
 
   if (error) {

@@ -135,12 +135,15 @@ export default function InventoryPage() {
         packagesResult,
         ordersResult,
       ] = await Promise.all([
-        supabase.from('skus').select('id, code, name, strain_id, product_type_id, grams_per_unit, units_per_case').order('code'),
+        supabase.from('skus').select('id, code, name, strain_id, product_type_id, grams_per_unit, units_per_case').eq('status', 'active').order('code'),
         supabase.from('strains').select('id, name'),
         supabase.from('product_types').select('id, name'),
         supabase.from('inventory').select('sku_id, cased, filled, staged'),
         supabase.from('packages').select('strain_id, type_id, current_weight, is_active').eq('is_active', true),
-        supabase.from('orders').select('id, status, order_items(sku_id, quantity)').in('status', ['pending', 'confirmed', 'packed']),
+        // Only pending/confirmed orders represent uncommitted cases — packed orders have
+        // already had their units physically deducted from inventory.cased, so counting
+        // them again would double-count and under-report available stock.
+        supabase.from('orders').select('id, status, order_items(sku_id, quantity)').in('status', ['pending', 'confirmed']),
       ])
 
       if (skusResult.error) throw skusResult.error

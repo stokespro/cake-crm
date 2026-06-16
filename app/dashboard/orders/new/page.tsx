@@ -113,10 +113,12 @@ export default function NewOrderPage() {
 
   const fetchSKUs = async () => {
     try {
+      // Fetch all active SKUs (status='active'); in_stock=false ones are shown
+      // greyed out so the user can see them but not select them
       const { data, error } = await supabase
         .from('skus')
         .select('*')
-        .eq('in_stock', true)
+        .eq('status', 'active')
         .order('code')
 
       if (error) throw error
@@ -284,6 +286,17 @@ export default function NewOrderPage() {
     }
     if (!user) {
       setError('Not authenticated')
+      return
+    }
+
+    // Server-side guard: reject any line item whose SKU is out of stock
+    const outOfStockItems = orderItems.filter(item => {
+      const sku = skus.find(s => s.id === item.sku_id)
+      return sku && !sku.in_stock
+    })
+    if (outOfStockItems.length > 0) {
+      const names = outOfStockItems.map(i => i.sku_code).join(', ')
+      setError(`Cannot submit order — the following SKUs are out of stock: ${names}`)
       return
     }
 
@@ -498,8 +511,14 @@ export default function NewOrderPage() {
                           </SelectTrigger>
                           <SelectContent>
                             {skus.map((sku) => (
-                              <SelectItem key={sku.id} value={sku.id}>
+                              <SelectItem
+                                key={sku.id}
+                                value={sku.id}
+                                disabled={!sku.in_stock}
+                                className={!sku.in_stock ? 'text-muted-foreground opacity-50' : ''}
+                              >
                                 {sku.code} - {sku.name} ({sku.units_per_case || 32}/case)
+                                {!sku.in_stock && ' — Out of Stock'}
                               </SelectItem>
                             ))}
                           </SelectContent>

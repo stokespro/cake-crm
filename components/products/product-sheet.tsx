@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Switch } from '@/components/ui/switch'
 import {
   Sheet,
   SheetContent,
@@ -44,7 +43,7 @@ export function ProductSheet({ open, onClose, product, onSuccess }: ProductSheet
   const [productTypeId, setProductTypeId] = useState('')
   const [unitsPerCase, setUnitsPerCase] = useState<number | ''>('')
   const [gramsPerUnit, setGramsPerUnit] = useState<number | ''>('')
-  const [inStock, setInStock] = useState(true)
+  const [status, setStatus] = useState<'active' | 'staged' | 'discontinued'>('active')
   const [productTypes, setProductTypes] = useState<ProductType[]>([])
   const [code, setCode] = useState('')
   const [strainId, setStrainId] = useState('')
@@ -106,7 +105,7 @@ export function ProductSheet({ open, onClose, product, onSuccess }: ProductSheet
         setProductTypeId(product.product_type_id || '')
         setUnitsPerCase(product.units_per_case || '')
         setGramsPerUnit(product.grams_per_unit ?? '')
-        setInStock(product.in_stock ?? true)
+        setStatus(product.status ?? 'active')
         setCode(product.code || '')
         setStrainId(product.strain_id || '')
       } else {
@@ -116,7 +115,7 @@ export function ProductSheet({ open, onClose, product, onSuccess }: ProductSheet
         setProductTypeId('')
         setUnitsPerCase('')
         setGramsPerUnit('')
-        setInStock(true)
+        setStatus('active')
         setCode('')
         setStrainId('')
       }
@@ -128,7 +127,7 @@ export function ProductSheet({ open, onClose, product, onSuccess }: ProductSheet
       setProductTypeId('')
       setUnitsPerCase('')
       setGramsPerUnit('')
-      setInStock(true)
+      setStatus('active')
       setCode('')
       setStrainId('')
       setError(null)
@@ -242,13 +241,14 @@ export function ProductSheet({ open, onClose, product, onSuccess }: ProductSheet
 
     try {
       // Write directly to skus table (products is a view)
+      // in_stock is NOT written here — it is derived automatically from inventory levels
       const skuData = {
         name: itemName.trim(),
         description: description.trim() || null,
         product_type_id: productTypeId,
         units_per_case: unitsPerCase as number,
         grams_per_unit: gramsPerUnit as number,
-        in_stock: inStock,
+        status,
         updated_at: new Date().toISOString(),
       }
 
@@ -276,7 +276,7 @@ export function ProductSheet({ open, onClose, product, onSuccess }: ProductSheet
             product_type_id: productTypeId,
             units_per_case: unitsPerCase as number,
             grams_per_unit: gramsPerUnit as number,
-            in_stock: inStock,
+            status,
             description: description.trim() || null,
           })
 
@@ -440,19 +440,25 @@ export function ProductSheet({ open, onClose, product, onSuccess }: ProductSheet
               </p>
             </div>
 
-            <div className="flex items-center justify-between py-2">
-              <div className="space-y-0.5">
-                <Label htmlFor="inStock" className="text-base">In Stock</Label>
-                <p className="text-sm text-muted-foreground">
-                  Product is available for orders
-                </p>
-              </div>
-              <Switch
-                id="inStock"
-                checked={inStock}
-                onCheckedChange={setInStock}
+            <div className="space-y-2">
+              <Label htmlFor="status">Lifecycle Status</Label>
+              <Select
+                value={status}
+                onValueChange={(value) => setStatus(value as 'active' | 'staged' | 'discontinued')}
                 disabled={loading}
-              />
+              >
+                <SelectTrigger id="status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="staged">Staged</SelectItem>
+                  <SelectItem value="discontinued">Discontinued</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Stock availability is automatically derived from inventory levels.
+              </p>
             </div>
           </div>
 

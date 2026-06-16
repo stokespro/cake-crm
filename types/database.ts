@@ -2127,10 +2127,11 @@ export type Database = {
           description: string | null
           grams_per_unit: number
           id: string
-          in_stock: boolean | null
+          in_stock: boolean
           name: string
           price_per_unit: number | null
           product_type_id: string
+          status: string
           strain_id: string
           thc_percentage: number | null
           units_per_case: number
@@ -2143,10 +2144,11 @@ export type Database = {
           description?: string | null
           grams_per_unit: number
           id?: string
-          in_stock?: boolean | null
+          in_stock?: boolean
           name: string
           price_per_unit?: number | null
           product_type_id: string
+          status?: string
           strain_id: string
           thc_percentage?: number | null
           units_per_case?: number
@@ -2159,10 +2161,11 @@ export type Database = {
           description?: string | null
           grams_per_unit?: number
           id?: string
-          in_stock?: boolean | null
+          in_stock?: boolean
           name?: string
           price_per_unit?: number | null
           product_type_id?: string
+          status?: string
           strain_id?: string
           thc_percentage?: number | null
           units_per_case?: number
@@ -2637,6 +2640,7 @@ export type Database = {
           price_per_unit: number | null
           product_type_id: string | null
           product_type_name: string | null
+          status: string | null
           strain_id: string | null
           strain_name: string | null
           strain_raw_name: string | null
@@ -2767,6 +2771,10 @@ export type Database = {
           unit_price: number
           units_per_case: number
         }[]
+      }
+      refresh_sku_in_stock_by_id: {
+        Args: { p_sku_id: string }
+        Returns: undefined
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
@@ -3029,6 +3037,7 @@ export interface SKU {
   thc_percentage?: number
   cbd_percentage?: number
   in_stock: boolean
+  status?: 'active' | 'staged' | 'discontinued'
   created_at: string
   updated_at: string
   pricing?: SKUPricing[]
@@ -3042,6 +3051,7 @@ export interface Product {
   code: string
   description?: string
   in_stock: boolean
+  status?: 'active' | 'staged' | 'discontinued'
   product_type_id?: string
   product_type_name?: string  // Joined from product_types
   units_per_case?: number

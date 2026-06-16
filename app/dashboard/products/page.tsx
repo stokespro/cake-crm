@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Plus, Search, Package, Leaf, CheckCircle, XCircle, MoreHorizontal, Edit } from 'lucide-react'
+import { Plus, Search, Package, Leaf, MoreHorizontal, Edit, XCircle } from 'lucide-react'
 import type { Product } from '@/types/database'
 import {
   Table,
@@ -38,7 +38,7 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterType, setFilterType] = useState('all')
-  const [filterStock, setFilterStock] = useState('all')
+  const [filterStatus, setFilterStatus] = useState('active')
   const [sheetOpen, setSheetOpen] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<Product | undefined>(undefined)
   const [error, setError] = useState<string | null>(null)
@@ -54,7 +54,7 @@ export default function ProductsPage() {
 
   useEffect(() => {
     filterProducts()
-  }, [products, searchTerm, filterType, filterStock])
+  }, [products, searchTerm, filterType, filterStatus])
 
   const fetchProducts = async () => {
     try {
@@ -95,30 +95,11 @@ export default function ProductsPage() {
       filtered = filtered.filter(product => product.product_type_name === filterType)
     }
 
-    if (filterStock === 'in-stock') {
-      filtered = filtered.filter(product => product.in_stock)
-    } else if (filterStock === 'out-of-stock') {
-      filtered = filtered.filter(product => !product.in_stock)
+    if (filterStatus !== 'all') {
+      filtered = filtered.filter(product => (product.status ?? 'active') === filterStatus)
     }
 
     setFilteredProducts(filtered)
-  }
-
-  const toggleStock = async (productId: string, currentStock: boolean) => {
-    if (userRole !== 'management' && userRole !== 'admin') return
-
-    try {
-      // Update skus table directly (products is a view)
-      const { error } = await supabase
-        .from('skus')
-        .update({ in_stock: !currentStock })
-        .eq('id', productId)
-
-      if (error) throw error
-      fetchProducts()
-    } catch (error) {
-      console.error('Error updating product stock:', error)
-    }
   }
 
   const canManageProducts = userRole === 'management' || userRole === 'admin'
@@ -200,14 +181,15 @@ export default function ProductsPage() {
                 ))}
               </SelectContent>
             </Select>
-            <Select value={filterStock} onValueChange={setFilterStock}>
+            <Select value={filterStatus} onValueChange={setFilterStatus}>
               <SelectTrigger>
-                <SelectValue placeholder="Stock Status" />
+                <SelectValue placeholder="Lifecycle Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Products</SelectItem>
-                <SelectItem value="in-stock">In Stock</SelectItem>
-                <SelectItem value="out-of-stock">Out of Stock</SelectItem>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="staged">Staged</SelectItem>
+                <SelectItem value="discontinued">Discontinued</SelectItem>
               </SelectContent>
             </Select>
             <div className="flex items-center text-sm text-muted-foreground">
@@ -240,11 +222,11 @@ export default function ProductsPage() {
             <div className="py-12 text-center">
               <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-muted-foreground mb-4">
-                {searchTerm || filterType !== 'all' || filterStock !== 'all'
+                {searchTerm || filterType !== 'all' || filterStatus !== 'all'
                   ? 'No products found matching your filters'
                   : 'No products added yet'}
               </p>
-              {canManageProducts && !searchTerm && filterType === 'all' && filterStock === 'all' && (
+              {canManageProducts && !searchTerm && filterType === 'all' && filterStatus === 'all' && (
                 <Button onClick={openCreateSheet}>
                   <Plus className="mr-2 h-4 w-4" />
                   Add First Product
@@ -294,48 +276,46 @@ export default function ProductsPage() {
                         <span className="font-medium">{product.units_per_case || '-'}</span>
                       </TableCell>
                       <TableCell>
-                        {product.in_stock ? (
-                          <Badge variant="default" className="bg-green-600">In Stock</Badge>
-                        ) : (
-                          <Badge variant="secondary">Out of Stock</Badge>
-                        )}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {/* Lifecycle status badge */}
+                          {(product.status ?? 'active') === 'active' && (
+                            <Badge variant="default" className="bg-green-600 text-xs">Active</Badge>
+                          )}
+                          {product.status === 'staged' && (
+                            <Badge variant="default" className="bg-blue-600 text-xs">Staged</Badge>
+                          )}
+                          {product.status === 'discontinued' && (
+                            <Badge variant="secondary" className="text-xs">Discontinued</Badge>
+                          )}
+                          {/* Read-only stock badge */}
+                          {product.in_stock ? (
+                            <Badge variant="outline" className="text-xs text-green-700 border-green-300">In Stock</Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-xs text-muted-foreground">Out of Stock</Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0"
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                              <span className="sr-only">Open menu</span>
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            {canManageProducts && (
+                        {canManageProducts && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0"
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                                <span className="sr-only">Open menu</span>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
                               <DropdownMenuItem onClick={() => openEditSheet(product)}>
                                 <Edit className="mr-2 h-4 w-4" />
                                 Edit Product
                               </DropdownMenuItem>
-                            )}
-                            {canManageProducts && (
-                              <DropdownMenuItem onClick={() => toggleStock(product.id, product.in_stock)}>
-                                {product.in_stock ? (
-                                  <>
-                                    <XCircle className="mr-2 h-4 w-4" />
-                                    Mark Out of Stock
-                                  </>
-                                ) : (
-                                  <>
-                                    <CheckCircle className="mr-2 h-4 w-4" />
-                                    Mark In Stock
-                                  </>
-                                )}
-                              </DropdownMenuItem>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}

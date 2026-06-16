@@ -147,6 +147,7 @@ export default function CommissionRatesPage() {
         supabase
           .from('skus')
           .select('id, code, name, product_type_id')
+          .eq('status', 'active')
           .order('code'),
       ])
 
