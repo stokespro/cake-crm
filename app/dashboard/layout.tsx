@@ -83,7 +83,7 @@ const allNavigation: NavigationItem[] = [
 
   // Packaging section - standard, packaging, vault, management, admin
   { name: 'Packaging', href: '/dashboard/packaging', icon: Package, roles: ['standard', 'packaging', 'vault', 'management', 'admin'] },
-  { name: 'Packaging (New)', href: '/dashboard/packaging/board', icon: LayoutGrid, roles: ['standard', 'packaging', 'vault', 'management', 'admin'] },
+  { name: 'Packaging (New)', href: '/dashboard/packaging/board', icon: LayoutGrid, roles: ['packaging', 'vault', 'management', 'admin'] },
 
   // Inventory dashboard - vault, packaging, sales, agent, management, admin
   { name: 'Inventory', href: '/dashboard/inventory', icon: BarChart3, roles: ['vault', 'packaging', 'sales', 'agent', 'management', 'admin'] },

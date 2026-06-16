@@ -165,7 +165,7 @@ export async function getPackagingUsers(): Promise<PackagingUser[]> {
   const { data, error } = await supabase
     .from('users')
     .select('id, name, role')
-    .in('role', ['admin', 'management', 'packaging', 'vault', 'standard'])
+    .in('role', ['vault', 'packaging', 'management', 'admin'])
     .order('name', { ascending: true })
 
   if (error) throw new Error(`Failed to fetch packaging users: ${error.message}`)
