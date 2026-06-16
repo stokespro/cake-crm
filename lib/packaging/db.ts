@@ -21,9 +21,11 @@ async function loadSkuMappings(): Promise<void> {
   if (skuCodeToId !== null) return;
 
   const supabase = await createClient();
+  // Only load active SKUs — staged/discontinued must not appear in packaging boards
   const { data, error } = await supabase
     .from('skus')
-    .select('id, code');
+    .select('id, code')
+    .eq('status', 'active');
 
   if (error) throw new Error(`Failed to load SKUs: ${error.message}`);
 
