@@ -1,7 +1,12 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
+import { requireRole } from '@/lib/auth/session'
+import { createServiceClient } from '@/lib/supabase/server'
 import type { InventoryLevel, PackagingTask, OrderWithItems } from '@/types/packaging'
+
+// Roles that can access packaging actions — generous set so the shared TV
+// (packaging, vault, standard) and management/admin are never locked out.
+const PACKAGING_ROLES = ['admin', 'management', 'vault', 'packaging', 'standard'] as const
 
 // Get inventory levels for all SKUs
 export async function getInventoryLevels(): Promise<{
@@ -9,7 +14,10 @@ export async function getInventoryLevels(): Promise<{
   inventory?: InventoryLevel[]
   error?: string
 }> {
-  const supabase = await createClient()
+  const auth = await requireRole([...PACKAGING_ROLES])
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
+  const supabase = await createServiceClient()
 
   const { data, error } = await supabase
     .from('skus')
@@ -48,7 +56,10 @@ export async function getPackagingTasks(): Promise<{
   tasks?: PackagingTask[]
   error?: string
 }> {
-  const supabase = await createClient()
+  const auth = await requireRole([...PACKAGING_ROLES])
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
+  const supabase = await createServiceClient()
 
   const { data, error } = await supabase
     .from('packaging_task_state')
@@ -68,7 +79,10 @@ export async function getConfirmedOrders(): Promise<{
   orders?: OrderWithItems[]
   error?: string
 }> {
-  const supabase = await createClient()
+  const auth = await requireRole([...PACKAGING_ROLES])
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
+  const supabase = await createServiceClient()
 
   const { data, error } = await supabase
     .from('orders')
@@ -112,7 +126,10 @@ export async function advanceTask(
   quantity: number,
   fromColumn: 'TO_FILL' | 'TO_CASE'
 ): Promise<{ success: boolean; error?: string }> {
-  const supabase = await createClient()
+  const auth = await requireRole([...PACKAGING_ROLES])
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
+  const supabase = await createServiceClient()
 
   // Get current inventory for this SKU
   const { data: skuData, error: skuError } = await supabase
@@ -211,7 +228,10 @@ export async function revertTask(
   quantity: number,
   fromColumn: 'TO_CASE' | 'DONE'
 ): Promise<{ success: boolean; error?: string }> {
-  const supabase = await createClient()
+  const auth = await requireRole([...PACKAGING_ROLES])
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
+  const supabase = await createServiceClient()
 
   // Get SKU ID
   const { data: skuData, error: skuError } = await supabase
@@ -300,7 +320,10 @@ export async function addStagedInventory(
   sku: string,
   quantity: number
 ): Promise<{ success: boolean; error?: string }> {
-  const supabase = await createClient()
+  const auth = await requireRole([...PACKAGING_ROLES])
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
+  const supabase = await createServiceClient()
 
   // Get SKU ID
   const { data: skuData, error: skuError } = await supabase
@@ -340,7 +363,10 @@ export async function updateInventory(
   sku: string,
   updates: { cased?: number; filled?: number; staged?: number }
 ): Promise<{ success: boolean; error?: string }> {
-  const supabase = await createClient()
+  const auth = await requireRole([...PACKAGING_ROLES])
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
+  const supabase = await createServiceClient()
 
   // Get SKU ID
   const { data: skuData, error: skuError } = await supabase
@@ -391,7 +417,10 @@ export async function getDemandSummary(): Promise<{
   demand?: Record<string, { total: number; urgent: number; tomorrow: number }>
   error?: string
 }> {
-  const supabase = await createClient()
+  const auth = await requireRole([...PACKAGING_ROLES])
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
+  const supabase = await createServiceClient()
 
   const today = new Date()
   const tomorrow = new Date(today)

@@ -3,7 +3,7 @@
  * Used exclusively by the Packaging Board v2.
  */
 
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import type { ActiveClaimRecord, DoneItem } from './board-types'
 import type { TaskType } from './types'
 
@@ -15,7 +15,7 @@ import type { TaskType } from './types'
  * Read all active, non-expired claims.
  */
 export async function readActiveClaims(): Promise<ActiveClaimRecord[]> {
-  const supabase = await createClient()
+  const supabase = await createServiceClient()
   const { data, error } = await supabase
     .from('packaging_claims')
     .select(
@@ -48,7 +48,7 @@ export async function readDoneItemsToday(): Promise<DoneItem[]> {
   const now = new Date()
   const localMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate())
 
-  const supabase = await createClient()
+  const supabase = await createServiceClient()
   const { data, error } = await supabase
     .from('packaging_claims')
     .select('id, sku, task_type, claimed_quantity, claimed_by_name, completed_at')
@@ -91,7 +91,7 @@ export interface InsertClaimParams {
 export async function insertClaim(
   params: InsertClaimParams
 ): Promise<{ success: true; claimId: string } | { success: false; error: string }> {
-  const supabase = await createClient()
+  const supabase = await createServiceClient()
 
   // Step 1: lazily expire stale claims for this task key
   await supabase
@@ -151,7 +151,7 @@ export type ReleaseResult =
   | { success: false; error: string }
 
 export async function releaseClaim(params: ReleaseClaimParams): Promise<ReleaseResult> {
-  const supabase = await createClient()
+  const supabase = await createServiceClient()
 
   const { data: claim, error: fetchError } = await supabase
     .from('packaging_claims')
@@ -198,7 +198,7 @@ export type CompleteResult =
   | { success: false; error: string }
 
 export async function completeClaim(params: CompleteClaimParams): Promise<CompleteResult> {
-  const supabase = await createClient()
+  const supabase = await createServiceClient()
 
   const { error } = await supabase
     .from('packaging_claims')

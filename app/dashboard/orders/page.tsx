@@ -2,8 +2,17 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
 import { useAuth, canApproveOrder, canEditOrder, canDeleteOrder } from '@/lib/auth-context'
+import {
+  getOrders,
+  getOrderSkus,
+  getOrderCommissions,
+  getOrder,
+  updateOrderStatus,
+  saveOrder,
+  deleteOrder,
+} from '@/actions/orders'
+import type { OrderSkuRecord, CommissionRecord } from '@/actions/orders'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -53,13 +62,8 @@ import { parseLocalDate } from '@/lib/utils'
 import { StatusBadgeDropdown } from '@/components/orders/status-badge-dropdown'
 import type { Order, OrderStatus } from '@/types/database'
 
-interface SKU {
-  id: string
-  code: string
-  name: string
-  price_per_unit: number | null
-  units_per_case: number
-}
+// Use server-action types for data fetched via actions
+type SKU = OrderSkuRecord
 
 interface EditOrderItem {
   id?: string // undefined for new items
@@ -81,17 +85,6 @@ interface EditFormData {
   requested_delivery_date: string
   actual_delivery_date: string
   order_items: EditOrderItem[]
-}
-
-interface UpdateData {
-  status?: OrderStatus
-  order_notes?: string
-  order_date?: string
-  requested_delivery_date?: string | null
-  total_price?: number
-  last_edited_by?: string
-  last_edited_at?: string
-  delivered_at?: string | null
 }
 
 type SortField = 'order_number' | 'customer' | 'status' | 'order_date' | 'delivery_date' | 'total'
@@ -121,8 +114,7 @@ export default function OrdersPage() {
   const [sheetOpen, setSheetOpen] = useState(false)
   const [sheetEditMode, setSheetEditMode] = useState(false)
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set())
-  const [commissions, setCommissions] = useState<any[]>([])
-  const supabase = createClient()
+  const [commissions, setCommissions] = useState<CommissionRecord[]>([])
   const { user } = useAuth()
 
   // Get user role from auth context
@@ -144,85 +136,33 @@ export default function OrdersPage() {
   }, [orders, searchTerm, filterStatus, filterDeliveryFrom, filterDeliveryTo, sortField, sortDirection, userSortOverride])
 
   const fetchSKUs = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('skus')
-        .select('id, code, name, price_per_unit, units_per_case')
-        .order('code')
-
-      if (error) throw error
-      setSkus(data || [])
-    } catch (error) {
-      console.error('Error fetching SKUs:', error)
+    const result = await getOrderSkus()
+    if (result.error) {
+      console.error('Error fetching SKUs:', result.error)
+      return
     }
+    setSkus(result.data!)
   }
 
   const fetchOrders = async () => {
-    try {
-      let query = supabase
-        .from('orders')
-        .select(`
-          *,
-          customer:customers(business_name, license_name, omma_license, city, assigned_sales_id),
-          order_items(
-            id,
-            sku_id,
-            quantity,
-            unit_price,
-            line_total,
-            sku:skus(code, name)
-          )
-        `)
-
-      // Filter orders for sales/agent users to only their assigned customers
-      if (['sales', 'agent'].includes(userRole) && user?.id) {
-        // First, get the customer IDs assigned to this sales user
-        const { data: assignedCustomers } = await supabase
-          .from('customers')
-          .select('id')
-          .eq('assigned_sales_id', user.id)
-
-        const customerIds = (assignedCustomers || []).map(c => c.id)
-
-        // Filter orders to only those customers
-        if (customerIds.length > 0) {
-          query = query.in('customer_id', customerIds)
-        } else {
-          // No assigned customers = no orders to show
-          query = query.eq('customer_id', '00000000-0000-0000-0000-000000000000') // Impossible UUID
-        }
-      }
-
-      const { data, error } = await query.order('requested_delivery_date', { ascending: true })
-
-      if (error) throw error
-
-      // Map the data to include customer info in expected format
-      const mappedOrders = (data || []).map(order => ({
-        ...order,
-        // Support both new and legacy field names in UI
-        dispensary: order.customer,
-      }))
-
-      setOrders(mappedOrders)
-    } catch (error) {
-      console.error('Error fetching orders:', error)
-    } finally {
+    const result = await getOrders()
+    if (result.error) {
+      console.error('Error fetching orders:', result.error)
       setLoading(false)
+      return
     }
+    // getOrders already adds the dispensary alias
+    setOrders(result.data as unknown as Order[])
+    setLoading(false)
   }
 
   const fetchCommissions = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('commissions')
-        .select('order_id, commission_amount, status')
-
-      if (error) throw error
-      setCommissions(data || [])
-    } catch (error) {
-      console.error('Error fetching commissions:', error)
+    const result = await getOrderCommissions()
+    if (result.error) {
+      console.error('Error fetching commissions:', result.error)
+      return
     }
+    setCommissions(result.data!)
   }
 
   const filterAndSortOrders = () => {
@@ -381,65 +321,30 @@ export default function OrdersPage() {
   const quickUpdateStatus = async (orderId: string, newStatus: string) => {
     if (!canApproveOrders || !user) return
 
-    try {
-      const updateData: Record<string, any> = {
-        status: newStatus,
-        updated_at: new Date().toISOString(),
-        last_edited_by: user.id,
-        last_edited_at: new Date().toISOString(),
-      }
-
-      if (newStatus === 'confirmed') {
-        updateData.approved_by = user.id
-        updateData.approved_at = new Date().toISOString()
-      }
-
-      if (newStatus === 'delivered') {
-        updateData.delivered_at = new Date().toISOString()
-      }
-
-      if (newStatus !== 'delivered') {
-        updateData.delivered_at = null
-      }
-
-      const { error } = await supabase
-        .from('orders')
-        .update(updateData)
-        .eq('id', orderId)
-
-      if (error) throw error
-
-      toast.success(`Order status updated to ${newStatus}`)
-      fetchOrders()
-
-      if (selectedOrder?.id === orderId) {
-        setSelectedOrder({ ...selectedOrder, status: newStatus })
-      }
-    } catch (error) {
-      console.error('Error updating order status:', error)
+    const result = await updateOrderStatus(orderId, newStatus)
+    if (result.error) {
+      console.error('Error updating order status:', result.error)
       toast.error('Failed to update order status')
+      return
+    }
+
+    toast.success(`Order status updated to ${newStatus}`)
+    fetchOrders()
+
+    if (selectedOrder?.id === orderId) {
+      setSelectedOrder({ ...selectedOrder, status: newStatus as OrderStatus })
     }
   }
 
   const confirmOrder = async (orderId: string) => {
     if (!canApproveOrders || !user) return
 
-    try {
-      const { error } = await supabase
-        .from('orders')
-        .update({
-          status: 'confirmed',
-          approved_by: user.id,
-          approved_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', orderId)
-
-      if (error) throw error
-      fetchOrders()
-    } catch (error) {
-      console.error('Error confirming order:', error)
+    const result = await updateOrderStatus(orderId, 'confirmed')
+    if (result.error) {
+      console.error('Error confirming order:', result.error)
+      return
     }
+    fetchOrders()
   }
 
   const startEditing = (order: Order) => {
@@ -492,80 +397,24 @@ export default function OrdersPage() {
     if (!selectedOrder || !user) return
     setSaving(true)
     try {
-      const newTotal = getEditTotal()
-
-      // Update order details
-      const updateData: UpdateData = {
+      const result = await saveOrder(selectedOrder.id, {
         status: editForm.status,
         order_notes: editForm.order_notes,
         requested_delivery_date: editForm.requested_delivery_date || null,
-        total_price: newTotal,
-        last_edited_by: user.id,
-        last_edited_at: new Date().toISOString()
-      }
+        actual_delivery_date: editForm.actual_delivery_date,
+        total_price: getEditTotal(),
+        existing_delivered_at: selectedOrder.delivered_at,
+        items: (editForm.order_items ?? []).map(item => ({
+          id: item.id,
+          sku_id: item.sku_id,
+          cases: item.cases,
+          unit_price: item.unit_price,
+          line_total: item.line_total,
+          _deleted: item._deleted,
+        })),
+      })
 
-      // Handle delivered_at: use manual value if set, otherwise auto-set when status changes to delivered
-      if (editForm.actual_delivery_date) {
-        // User manually set a delivery date - use it (convert to full timestamp)
-        updateData.delivered_at = new Date(editForm.actual_delivery_date).toISOString()
-      } else if (editForm.status === 'delivered' && !selectedOrder.delivered_at) {
-        // Status changed to delivered and no existing delivered_at - auto-set to now
-        updateData.delivered_at = new Date().toISOString()
-      } else if (editForm.status !== 'delivered') {
-        // Status is not delivered - clear delivered_at
-        updateData.delivered_at = null
-      }
-      // Otherwise (status is delivered and there was already a delivered_at), keep existing value
-
-      const { error: orderError } = await supabase
-        .from('orders')
-        .update(updateData)
-        .eq('id', selectedOrder.id)
-
-      if (orderError) throw orderError
-
-      // Handle order items changes
-      const items = editForm.order_items || []
-
-      // Delete removed items
-      const deletedItems = items.filter(item => item._deleted && item.id)
-      for (const item of deletedItems) {
-        const { error } = await supabase
-          .from('order_items')
-          .delete()
-          .eq('id', item.id)
-        if (error) throw error
-      }
-
-      // Update existing items
-      const existingItems = items.filter(item => item.id && !item._deleted)
-      for (const item of existingItems) {
-        const { error } = await supabase
-          .from('order_items')
-          .update({
-            sku_id: item.sku_id,
-            quantity: item.cases,
-            unit_price: item.unit_price || null,
-            line_total: item.line_total,
-          })
-          .eq('id', item.id!)
-        if (error) throw error
-      }
-
-      // Insert new items
-      const newItems = items.filter(item => !item.id && !item._deleted)
-      if (newItems.length > 0) {
-        const { error } = await supabase
-          .from('order_items')
-          .insert(newItems.map(item => ({
-            order_id: selectedOrder.id,
-            sku_id: item.sku_id,
-            quantity: item.cases,
-            unit_price: item.unit_price || null,
-            line_total: item.line_total,
-          })))
-        if (error) throw error
-      }
+      if (result.error) throw new Error(result.error)
 
       toast.success('Order saved successfully')
       setSheetEditMode(false)
@@ -573,29 +422,10 @@ export default function OrdersPage() {
       setEditForm({} as EditFormData)
       await fetchOrders()
 
-      // Update selectedOrder with new data
-      const { data: updatedOrder } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          customer:customers(business_name, license_name, omma_license, city, assigned_sales_id),
-          order_items(
-            id,
-            sku_id,
-            quantity,
-            unit_price,
-            line_total,
-            sku:skus(code, name)
-          )
-        `)
-        .eq('id', selectedOrder.id)
-        .single()
-
-      if (updatedOrder) {
-        setSelectedOrder({
-          ...updatedOrder,
-          dispensary: updatedOrder.customer,
-        })
+      // Refresh the selected order in the sheet
+      const refreshed = await getOrder(selectedOrder.id)
+      if (!refreshed.error && refreshed.data) {
+        setSelectedOrder(refreshed.data as unknown as Order)
       }
     } catch (error) {
       console.error('Error saving order:', error)
@@ -693,13 +523,8 @@ export default function OrdersPage() {
     if (!deleteOrderId) return
     setDeleting(true)
     try {
-      // Delete order - CASCADE will handle order_items, packaging_task_sources, inventory_log
-      const { error } = await supabase
-        .from('orders')
-        .delete()
-        .eq('id', deleteOrderId)
-
-      if (error) throw error
+      const result = await deleteOrder(deleteOrderId)
+      if (result.error) throw new Error(result.error)
 
       toast.success('Order deleted successfully')
       setDeleteOrderId(null)

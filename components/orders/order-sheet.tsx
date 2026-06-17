@@ -1,8 +1,15 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
+import {
+  getOrderCustomers,
+  getActiveSkus,
+  getOrderCustomerPricing,
+  createOrderFromSheet,
+  updateOrderFromSheet,
+} from '@/actions/orders'
+import type { CustomerBasicRecord, OrderSkuRecord, CustomerPricingRecord } from '@/actions/orders'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -39,13 +46,11 @@ import { Switch } from '@/components/ui/switch'
 import { toast } from 'sonner'
 import { Loader2, Plus, Trash2, Check, ChevronsUpDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { Customer, Order } from '@/types/database'
+import type { Order } from '@/types/database'
 
-interface CustomerPricingData {
-  sku_id: string | null
-  product_type_id: string | null
-  price_per_unit: number
-}
+// Use types from the server actions layer
+type CustomerPricingData = CustomerPricingRecord
+type SkuOption = OrderSkuRecord
 
 interface OrderItem {
   sku_id: string
@@ -58,15 +63,6 @@ interface OrderItem {
   line_total: number         // total price (quantity * unit_price)
 }
 
-interface SkuOption {
-  id: string
-  name: string
-  code: string
-  product_type_id?: string
-  units_per_case: number
-  price_per_unit?: number | null
-}
-
 interface OrderSheetProps {
   open: boolean
   onClose: () => void
@@ -76,7 +72,7 @@ interface OrderSheetProps {
 }
 
 export function OrderSheet({ open, onClose, customerId, onSuccess, order }: OrderSheetProps) {
-  const [customers, setCustomers] = useState<Customer[]>([])
+  const [customers, setCustomers] = useState<CustomerBasicRecord[]>([])
   const [skus, setSkus] = useState<SkuOption[]>([])
   const [customerPricing, setCustomerPricing] = useState<CustomerPricingData[]>([])
   const [selectedCustomerId, setSelectedCustomerId] = useState(customerId || order?.customer_id || '')
@@ -89,7 +85,6 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
   const [customerOpen, setCustomerOpen] = useState(false)
   const [showAllCustomers, setShowAllCustomers] = useState(false)
   const { user } = useAuth()
-  const supabase = createClient()
 
   // Fetch customer pricing when customer changes
   const fetchCustomerPricing = useCallback(async (custId: string) => {
@@ -98,19 +93,14 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
       return
     }
 
-    try {
-      const { data, error } = await supabase
-        .from('customer_pricing')
-        .select('sku_id, product_type_id, price_per_unit')
-        .eq('customer_id', custId)
-
-      if (error) throw error
-      setCustomerPricing(data || [])
-    } catch (error) {
-      console.error('Error fetching customer pricing:', error)
+    const result = await getOrderCustomerPricing(custId)
+    if (result.error) {
+      console.error('Error fetching customer pricing:', result.error)
       setCustomerPricing([])
+      return
     }
-  }, [supabase])
+    setCustomerPricing(result.data!)
+  }, [])
 
   // Get price for a SKU based on customer pricing rules
   // Priority: item price > category price > null (manual)
@@ -228,45 +218,21 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
   }, [open, customerId])
 
   const fetchCustomers = async () => {
-    try {
-      const allCustomers: any[] = []
-      let from = 0
-      const batchSize = 1000
-
-      while (true) {
-        const { data, error } = await supabase
-          .from('customers')
-          .select('*')
-          .order('business_name')
-          .range(from, from + batchSize - 1)
-
-        if (error) throw error
-        if (!data || data.length === 0) break
-
-        allCustomers.push(...data)
-        if (data.length < batchSize) break
-        from += batchSize
-      }
-
-      setCustomers(allCustomers)
-    } catch (error) {
-      console.error('Error fetching customers:', error)
+    const result = await getOrderCustomers()
+    if (result.error) {
+      console.error('Error fetching customers:', result.error)
+      return
     }
+    setCustomers(result.data!)
   }
 
   const fetchSkus = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('skus')
-        .select('id, name, code, product_type_id, units_per_case, price_per_unit')
-        .eq('in_stock', true)
-        .order('code')
-
-      if (error) throw error
-      setSkus(data || [])
-    } catch (error) {
-      console.error('Error fetching skus:', error)
+    const result = await getActiveSkus(true)
+    if (result.error) {
+      console.error('Error fetching skus:', result.error)
+      return
     }
+    setSkus(result.data!)
   }
 
   const addOrderItem = () => {
@@ -396,98 +362,41 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
     try {
       const isEditMode = !!order
 
+      const items = orderItems.map(item => {
+        const unitPrice = item.unit_price ?? 0
+        const lineTotal = item.quantity * unitPrice  // quantity = total units for pricing
+        return {
+          sku_id: item.sku_id,
+          cases: item.cases,        // store cases, not units
+          unit_price: unitPrice,
+          line_total: Number.isFinite(lineTotal) ? lineTotal : 0,
+        }
+      })
+
+      let result: { error?: string }
+
       if (isEditMode) {
-        // Update the existing order
-        const { error: orderError } = await supabase
-          .from('orders')
-          .update({
-            customer_id: selectedCustomerId,
-            order_notes: orderNotes || null,
-            requested_delivery_date: requestedDeliveryDate,
-            delivered_at: deliveredAt || null,
-            total_price: orderTotal,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', order.id)
-
-        if (orderError) {
-          throw new Error(`Failed to update order: ${orderError.message}`)
-        }
-
-        // Delete existing order items
-        const { error: deleteError } = await supabase
-          .from('order_items')
-          .delete()
-          .eq('order_id', order.id)
-
-        if (deleteError) {
-          throw new Error(`Failed to delete existing order items: ${deleteError.message}`)
-        }
-
-        // Insert updated order items - save cases (not units), calculate line_total from units
-        const itemsToInsert = orderItems.map(item => {
-          const unitPrice = item.unit_price ?? 0
-          const lineTotal = item.quantity * unitPrice  // quantity = total units for pricing
-          return {
-            order_id: order.id,
-            sku_id: item.sku_id,
-            quantity: item.cases,  // Store cases, not units
-            unit_price: unitPrice,
-            line_total: Number.isFinite(lineTotal) ? lineTotal : 0
-          }
+        result = await updateOrderFromSheet(order.id, {
+          customer_id: selectedCustomerId,
+          order_notes: orderNotes || null,
+          requested_delivery_date: requestedDeliveryDate,
+          delivered_at: deliveredAt || null,
+          total_price: orderTotal,
+          items,
         })
-
-        const { error: itemsError } = await supabase
-          .from('order_items')
-          .insert(itemsToInsert)
-
-        if (itemsError) {
-          throw new Error(`Failed to create updated order items: ${itemsError.message}`)
-        }
       } else {
-        // Create new order
-        const { data: newOrder, error: orderError } = await supabase
-          .from('orders')
-          .insert({
-            customer_id: selectedCustomerId,
-            agent_id: user.id,
-            order_notes: orderNotes || null,
-            requested_delivery_date: requestedDeliveryDate,
-            status: 'pending',
-            total_price: orderTotal,
-            order_date: new Date().toISOString().split('T')[0]
-          })
-          .select()
-          .single()
-
-        if (orderError) {
-          throw new Error(`Failed to create order: ${orderError.message}`)
-        }
-
-        if (!newOrder) {
-          throw new Error('Order was not created successfully')
-        }
-
-        // Create order items - save cases (not units), calculate line_total from units
-        const itemsToInsert = orderItems.map(item => {
-          const unitPrice = item.unit_price ?? 0
-          const lineTotal = item.quantity * unitPrice  // quantity = total units for pricing
-          return {
-            order_id: newOrder.id,
-            sku_id: item.sku_id,
-            quantity: item.cases,  // Store cases, not units
-            unit_price: unitPrice,
-            line_total: Number.isFinite(lineTotal) ? lineTotal : 0
-          }
+        result = await createOrderFromSheet({
+          customer_id: selectedCustomerId,
+          order_notes: orderNotes || null,
+          requested_delivery_date: requestedDeliveryDate,
+          total_price: orderTotal,
+          items,
         })
+      }
 
-        const { error: itemsError } = await supabase
-          .from('order_items')
-          .insert(itemsToInsert)
-
-        if (itemsError) {
-          throw new Error(`Failed to create order items: ${itemsError.message}`)
-        }
+      if (result.error) {
+        const action = isEditMode ? 'updating' : 'creating'
+        throw new Error(result.error || `An unexpected error occurred while ${action} the order`)
       }
 
       // Call success callback and close sheet

@@ -1,6 +1,7 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
+import { requireRole } from '@/lib/auth/session'
+import { createServiceClient } from '@/lib/supabase/server'
 import { readInventory, readOrders, getSkuId } from '@/lib/packaging/db'
 import { generateTaskQueue } from '@/lib/packaging/allocation-engine'
 import { readActiveClaims, readDoneItemsToday, insertClaim, releaseClaim, completeClaim } from '@/lib/packaging/claims'
@@ -14,12 +15,21 @@ import type {
   PackagingUser,
 } from '@/lib/packaging/board-types'
 
+// Roles that can access packaging board actions — generous set so the shared TV
+// (packaging, vault, standard) and management/admin are never locked out.
+const PACKAGING_ROLES = ['admin', 'management', 'vault', 'packaging', 'standard'] as const
+
 // ============================================
 // GET BOARD DATA
 // ============================================
 
 export async function getBoardData(): Promise<BoardData> {
   const lastUpdated = new Date().toISOString()
+
+  const auth = await requireRole([...PACKAGING_ROLES])
+  if (!auth.authorized) {
+    return { toFillCards: [], toCaseCards: [], doneItems: [], lastUpdated, error: auth.reason }
+  }
 
   try {
     // 1. Parallel fetch: inventory, orders, active claims
@@ -161,7 +171,10 @@ export async function getBoardData(): Promise<BoardData> {
 // ============================================
 
 export async function getPackagingUsers(): Promise<PackagingUser[]> {
-  const supabase = await createClient()
+  const auth = await requireRole([...PACKAGING_ROLES])
+  if (!auth.authorized) throw new Error(auth.reason)
+
+  const supabase = await createServiceClient()
   const { data, error } = await supabase
     .from('users')
     .select('id, name, role')
@@ -193,6 +206,9 @@ export type ClaimTaskResult =
   | { success: false; error: string }
 
 export async function claimTask(params: ClaimTaskParams): Promise<ClaimTaskResult> {
+  const auth = await requireRole([...PACKAGING_ROLES])
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
   return insertClaim({
     taskKey: params.taskKey,
     sku: params.sku,
@@ -222,7 +238,10 @@ export type ReleaseTaskResult =
   | { success: false; error: string }
 
 export async function releaseTask(params: ReleaseTaskParams): Promise<ReleaseTaskResult> {
-  const supabase = await createClient()
+  const auth = await requireRole([...PACKAGING_ROLES])
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
+  const supabase = await createServiceClient()
 
   // Fetch the claim
   const { data: claim, error: fetchError } = await supabase
@@ -283,7 +302,10 @@ export type AdvanceClaimedResult =
   | { success: false; error: string }
 
 export async function advanceClaimed(params: AdvanceClaimedParams): Promise<AdvanceClaimedResult> {
-  const supabase = await createClient()
+  const auth = await requireRole([...PACKAGING_ROLES])
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
+  const supabase = await createServiceClient()
   const qty = params.actualQuantity
 
   // 1. Validate claim: active, not expired

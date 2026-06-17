@@ -20,12 +20,18 @@ import {
   getSkuId,
 } from '@/lib/packaging/db'
 import { generateTaskQueue, generateSKUStatus } from '@/lib/packaging/allocation-engine'
-import { createClient } from '@/lib/supabase/server'
+import { requireRole } from '@/lib/auth/session'
+import { createServiceClient } from '@/lib/supabase/server'
 // DISABLED: Materials imports - re-enable when materials module is complete
 // import {
 //   checkMaterialAvailability,
 //   deductMaterialsForCasing,
 // } from '@/actions/materials'
+
+// Roles that can access packaging actions — generous set so the shared TV
+// (packaging, vault, standard) and management/admin are never locked out.
+const PACKAGING_ROLES = ['admin', 'management', 'vault', 'packaging', 'standard'] as const
+
 import type {
   DashboardData,
   Task,
@@ -40,6 +46,19 @@ import type {
 // ============================================
 
 export async function getDashboardData(): Promise<DashboardData> {
+  const auth = await requireRole([...PACKAGING_ROLES])
+  if (!auth.authorized) {
+    return {
+      inventory: [],
+      tasks: [],
+      containers: [],
+      taskNotes: {},
+      completedTasks: [],
+      lastUpdated: new Date().toISOString(),
+      error: auth.reason,
+    }
+  }
+
   try {
     // First, process any order status changes
     const statusChanges = await processOrderStatusChanges()
@@ -229,7 +248,7 @@ export async function getDashboardData(): Promise<DashboardData> {
 
     // Enrich with product type info for dynamic grouping on packaging page
     try {
-      const supabase = await createClient()
+      const supabase = await createServiceClient()
       const { data: skuRows } = await supabase
         .from('skus')
         .select('code, product_type_id, product_types(name)')
@@ -291,6 +310,9 @@ export async function advanceTask(
   quantity: number,
   fromColumn: 'TO_FILL' | 'TO_CASE'
 ): Promise<{ success: boolean; error?: string }> {
+  const auth = await requireRole([...PACKAGING_ROLES])
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
   try {
     const currentInventory = await readSKUInventory(sku)
 
@@ -383,6 +405,9 @@ export async function revertTask(
   quantity: number,
   fromColumn: 'TO_CASE' | 'DONE'
 ): Promise<{ success: boolean; error?: string }> {
+  const auth = await requireRole([...PACKAGING_ROLES])
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
   try {
     const currentInventory = await readSKUInventory(sku)
 
@@ -449,6 +474,9 @@ export async function updateTaskNote(
   taskId: string,
   note: string
 ): Promise<{ success: boolean; error?: string }> {
+  const auth = await requireRole([...PACKAGING_ROLES])
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
   try {
     await saveTaskNote(taskId, note)
     return { success: true }
@@ -466,6 +494,9 @@ export async function addContainer(
   sku: SKU,
   size: ContainerSize
 ): Promise<{ success: boolean; error?: string }> {
+  const auth = await requireRole([...PACKAGING_ROLES])
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
   try {
     await dbAddContainer(sku, size)
     return { success: true }
@@ -478,6 +509,9 @@ export async function addContainer(
 export async function removeContainer(
   containerId: string
 ): Promise<{ success: boolean; error?: string }> {
+  const auth = await requireRole([...PACKAGING_ROLES])
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
   try {
     await dbRemoveContainer(containerId)
     return { success: true }
@@ -495,6 +529,9 @@ export async function updateInventory(
   sku: SKU,
   updates: { cased?: number; filled?: number; staged?: number }
 ): Promise<{ success: boolean; error?: string }> {
+  const auth = await requireRole([...PACKAGING_ROLES])
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
   try {
     await updateInventoryLevels(sku, updates, 'manual_adjustment')
     return { success: true }

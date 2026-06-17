@@ -3,8 +3,14 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
+import {
+  getOrderCustomers,
+  getActiveSkus,
+  getOrderCustomerPricing,
+  createOrder,
+} from '@/actions/orders'
+import type { CustomerBasicRecord, OrderSkuRecord, CustomerPricingRecord } from '@/actions/orders'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -32,13 +38,10 @@ import {
 } from '@/components/ui/popover'
 import { ArrowLeft, Loader2, Plus, Trash2, DollarSign, Check, ChevronsUpDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { Customer, SKU } from '@/types/database'
-
-interface CustomerPricingData {
-  sku_id: string | null
-  product_type_id: string | null
-  price_per_unit: number
-}
+// Use types from the server actions layer
+type Customer = CustomerBasicRecord
+type SKU = OrderSkuRecord
+type CustomerPricingData = CustomerPricingRecord
 
 interface OrderItem {
   sku_id: string
@@ -65,7 +68,6 @@ export default function NewOrderPage() {
   const [error, setError] = useState<string | null>(null)
   const [customerOpen, setCustomerOpen] = useState(false)
   const router = useRouter()
-  const supabase = createClient()
   const { user } = useAuth()
 
   useEffect(() => {
@@ -85,47 +87,22 @@ export default function NewOrderPage() {
   }, [orderItems])
 
   const fetchCustomers = async () => {
-    try {
-      const allCustomers: typeof customers = []
-      let from = 0
-      const batchSize = 1000
-
-      while (true) {
-        const { data, error } = await supabase
-          .from('customers')
-          .select('*')
-          .order('business_name')
-          .range(from, from + batchSize - 1)
-
-        if (error) throw error
-        if (!data || data.length === 0) break
-
-        allCustomers.push(...data)
-        if (data.length < batchSize) break
-        from += batchSize
-      }
-
-      setCustomers(allCustomers)
-    } catch (error) {
-      console.error('Error fetching customers:', error)
+    const result = await getOrderCustomers()
+    if (result.error) {
+      console.error('Error fetching customers:', result.error)
+      return
     }
+    setCustomers(result.data!)
   }
 
   const fetchSKUs = async () => {
-    try {
-      // Fetch all active SKUs (status='active'); in_stock=false ones are shown
-      // greyed out so the user can see them but not select them
-      const { data, error } = await supabase
-        .from('skus')
-        .select('*')
-        .eq('status', 'active')
-        .order('code')
-
-      if (error) throw error
-      setSkus(data || [])
-    } catch (error) {
-      console.error('Error fetching SKUs:', error)
+    // Fetch all active SKUs (in_stock=false ones shown greyed out so user can see them)
+    const result = await getActiveSkus(false)
+    if (result.error) {
+      console.error('Error fetching SKUs:', result.error)
+      return
     }
+    setSkus(result.data!)
   }
 
   const fetchCustomerPricing = useCallback(async (custId: string) => {
@@ -134,19 +111,14 @@ export default function NewOrderPage() {
       return
     }
 
-    try {
-      const { data, error } = await supabase
-        .from('customer_pricing')
-        .select('sku_id, product_type_id, price_per_unit')
-        .eq('customer_id', custId)
-
-      if (error) throw error
-      setCustomerPricing(data || [])
-    } catch (error) {
-      console.error('Error fetching customer pricing:', error)
+    const result = await getOrderCustomerPricing(custId)
+    if (result.error) {
+      console.error('Error fetching customer pricing:', result.error)
       setCustomerPricing([])
+      return
     }
-  }, [supabase])
+    setCustomerPricing(result.data!)
+  }, [])
 
   // Get price for a SKU based on customer pricing rules
   // Priority: item price > category price > base price ($0)
@@ -289,7 +261,7 @@ export default function NewOrderPage() {
       return
     }
 
-    // Server-side guard: reject any line item whose SKU is out of stock
+    // Client-side guard: reject any line item whose SKU is out of stock
     const outOfStockItems = orderItems.filter(item => {
       const sku = skus.find(s => s.id === item.sku_id)
       return sku && !sku.in_stock
@@ -304,42 +276,21 @@ export default function NewOrderPage() {
     setError(null)
 
     try {
-      // Create order
-      const { data: order, error: orderError } = await supabase
-        .from('orders')
-        .insert({
-          agent_id: user.id,
-          customer_id: customerId,
-          order_notes: orderNotes || null,
-          order_date: orderDate,
-          requested_delivery_date: requestedDeliveryDate,
-          status: 'pending',
-          total_price: totalPrice
-        })
-        .select()
-        .single()
-
-      if (orderError) throw orderError
-
-      // Create order items - store CASES in quantity, not units
-      // Calculate line_total at save time to avoid NaN issues
-      const itemsToInsert = orderItems.map(item => {
-        const unitPrice = item.unit_price || 0
-        const lineTotal = item.quantity * unitPrice  // Use full quantity (units) for pricing
-        return {
-          order_id: order.id,
+      const result = await createOrder({
+        customer_id: customerId,
+        order_notes: orderNotes || null,
+        order_date: orderDate,
+        requested_delivery_date: requestedDeliveryDate,
+        total_price: totalPrice,
+        items: orderItems.map(item => ({
           sku_id: item.sku_id,
-          quantity: item.cases,  // Store cases, not units
-          unit_price: unitPrice,
-          line_total: Number.isFinite(lineTotal) ? lineTotal : 0
-        }
+          cases: item.cases,
+          unit_price: item.unit_price || 0,
+          line_total: Number.isFinite(item.line_total) ? item.line_total : 0,
+        })),
       })
 
-      const { error: itemsError } = await supabase
-        .from('order_items')
-        .insert(itemsToInsert)
-
-      if (itemsError) throw itemsError
+      if (result.error) throw new Error(result.error)
 
       router.push('/dashboard/orders')
     } catch (error) {

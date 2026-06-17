@@ -4,7 +4,7 @@
  * Adapted for cake-crm using server-side Supabase client
  */
 
-import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/server';
 import {
   SKU,
   InventoryMap, InventoryLevels,
@@ -20,7 +20,7 @@ let skuIdToCode: Map<string, string> | null = null;
 async function loadSkuMappings(): Promise<void> {
   if (skuCodeToId !== null) return;
 
-  const supabase = await createClient();
+  const supabase = await createServiceClient();
   // Only load active SKUs — staged/discontinued must not appear in packaging boards
   const { data, error } = await supabase
     .from('skus')
@@ -62,7 +62,7 @@ async function getSkuCode(id: string): Promise<SKU> {
 export async function readInventory(): Promise<InventoryMap> {
   await loadSkuMappings();
 
-  const supabase = await createClient();
+  const supabase = await createServiceClient();
   const { data, error } = await supabase
     .from('inventory')
     .select('sku_id, cased, filled, staged');
@@ -95,7 +95,7 @@ export async function readInventory(): Promise<InventoryMap> {
 export async function readSKUInventory(sku: SKU): Promise<InventoryLevels> {
   const skuId = await getSkuId(sku);
 
-  const supabase = await createClient();
+  const supabase = await createServiceClient();
   const { data, error } = await supabase
     .from('inventory')
     .select('cased, filled, staged')
@@ -125,7 +125,7 @@ export async function updateInventoryCell(
   const skuId = await getSkuId(sku);
   const fieldName = field.toLowerCase() as 'cased' | 'staged' | 'filled';
 
-  const supabase = await createClient();
+  const supabase = await createServiceClient();
   const { error } = await supabase
     .from('inventory')
     .update({ [fieldName]: value })
@@ -145,7 +145,7 @@ async function updateInventoryWithLog(
   orderId?: string,
   containerId?: string
 ): Promise<void> {
-  const supabase = await createClient();
+  const supabase = await createServiceClient();
 
   // Update inventory
   const { error: updateError } = await supabase
@@ -227,7 +227,7 @@ export async function completeSealAndCase(
 export async function readOrders(): Promise<Order[]> {
   await loadSkuMappings();
 
-  const supabase = await createClient();
+  const supabase = await createServiceClient();
   const { data: ordersData, error: ordersError } = await supabase
     .from('orders')
     .select(`
@@ -298,7 +298,7 @@ export async function readOrders(): Promise<Order[]> {
 export async function readStagingContainers(): Promise<Container[]> {
   await loadSkuMappings();
 
-  const supabase = await createClient();
+  const supabase = await createServiceClient();
   const { data, error } = await supabase
     .from('containers')
     .select('id, sku_id, size, status, created_at')
@@ -334,7 +334,7 @@ export async function addContainer(
 ): Promise<Container> {
   const skuId = await getSkuId(sku);
 
-  const supabase = await createClient();
+  const supabase = await createServiceClient();
   const { data: container, error: insertError } = await supabase
     .from('containers')
     .insert({
@@ -372,7 +372,7 @@ export async function addContainer(
 }
 
 export async function removeContainer(containerId: string): Promise<void> {
-  const supabase = await createClient();
+  const supabase = await createServiceClient();
 
   const { data: container, error: fetchError } = await supabase
     .from('containers')
@@ -414,7 +414,7 @@ export async function removeContainer(containerId: string): Promise<void> {
 async function deductFromCased(orderId: string): Promise<void> {
   await loadSkuMappings();
 
-  const supabase = await createClient();
+  const supabase = await createServiceClient();
   const { data: items, error } = await supabase
     .from('order_items')
     .select('sku_id, quantity')
@@ -447,7 +447,7 @@ async function deductFromCased(orderId: string): Promise<void> {
 async function restoreToCased(orderId: string): Promise<void> {
   await loadSkuMappings();
 
-  const supabase = await createClient();
+  const supabase = await createServiceClient();
   const { data: items, error } = await supabase
     .from('order_items')
     .select('sku_id, quantity')
@@ -486,7 +486,7 @@ export async function processOrderStatusChanges(): Promise<{
   let deliveredProcessed = 0;
   let reversedPacked = 0;
 
-  const supabase = await createClient();
+  const supabase = await createServiceClient();
   const { data: orders, error } = await supabase
     .from('orders')
     .select(`
@@ -550,7 +550,7 @@ export async function processOrderStatusChanges(): Promise<{
 // ============================================
 
 export async function readTaskNotes(): Promise<Record<string, string>> {
-  const supabase = await createClient();
+  const supabase = await createServiceClient();
   const { data, error } = await supabase
     .from('task_notes')
     .select('task_key, note');
@@ -569,7 +569,7 @@ export async function readTaskNotes(): Promise<Record<string, string>> {
 }
 
 export async function saveTaskNote(taskId: string, note: string): Promise<void> {
-  const supabase = await createClient();
+  const supabase = await createServiceClient();
 
   if (note.trim() === '') {
     const { error } = await supabase
@@ -654,7 +654,7 @@ export async function readTaskStates(): Promise<Record<string, TaskState>> {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const supabase = await createClient();
+  const supabase = await createServiceClient();
   const { data, error } = await supabase
     .from('packaging_task_state')
     .select('task_key, sku, task_type, current_column, quantity, completed_at');
@@ -697,7 +697,7 @@ export async function saveTaskState(
 ): Promise<void> {
   const completedAt = column === 'DONE' ? new Date().toISOString() : null;
 
-  const supabase = await createClient();
+  const supabase = await createServiceClient();
   const { error } = await supabase
     .from('packaging_task_state')
     .upsert(
@@ -719,7 +719,7 @@ export async function saveTaskState(
 }
 
 export async function deleteTaskState(taskKey: string): Promise<void> {
-  const supabase = await createClient();
+  const supabase = await createServiceClient();
   const { error } = await supabase
     .from('packaging_task_state')
     .delete()
@@ -736,7 +736,7 @@ export async function cleanupOldTaskStates(): Promise<number> {
   const todayLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const todayUTC = todayLocal.toISOString();
 
-  const supabase = await createClient();
+  const supabase = await createServiceClient();
 
   const { data, error } = await supabase
     .from('packaging_task_state')
