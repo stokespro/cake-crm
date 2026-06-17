@@ -32,7 +32,8 @@ import {
   Save,
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
-import { getMonthSummary, recordCashSnapshot } from '@/actions/finance'
+import { getMonthSummary } from '@/actions/finance'
+import { upsertCashSnapshot } from './_actions/snapshot'
 import type { MonthSummary } from '@/actions/finance'
 import type { CashFlowResult, CashFlowEvent } from '@/lib/finance/cash-flow'
 
@@ -198,7 +199,7 @@ export default function FinanceOverviewPage() {
     setSavingSnapshot(true)
     try {
       const today = new Date().toISOString().substring(0, 10)
-      const result = await recordCashSnapshot({
+      const result = await upsertCashSnapshot({
         snapshot_date: today,
         cash_on_hand: amount,
         recorded_by: user?.id,
@@ -208,7 +209,10 @@ export default function FinanceOverviewPage() {
         return
       }
       toast.success('Cash snapshot saved')
-      fetchSummary()
+      // Refetch the full summary so the cash-flow projection rebuilds with
+      // the new snapshot value.  fetchSummary also resets snapshotAmount to
+      // the persisted value, confirming the save took effect.
+      await fetchSummary()
     } catch (err) {
       console.error('Error saving snapshot:', err)
       toast.error('Failed to save snapshot')
