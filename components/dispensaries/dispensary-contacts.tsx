@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { Contact, ContactRole } from '@/types/database'
-import { createClient } from '@/lib/supabase/client'
 import { getContactsByDispensary, deleteContact, setPrimaryContact } from '@/actions/contacts'
+import { getAvailableInventory, type InventoryAvailabilityRecord } from '@/actions/customers'
 import { ContactSheet } from './contact-sheet'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -77,111 +77,15 @@ const ROLE_LABELS: Record<ContactRole, string> = {
   other: 'Other',
 }
 
-interface AvailableItem {
-  strainName: string
-  productTypeName: string
-  available: number
-}
+// InventoryAvailabilityRecord is imported from actions/customers
 
-async function fetchAvailableInventory(): Promise<AvailableItem[]> {
-  const supabase = createClient()
-
-  const [
-    skusResult,
-    strainsResult,
-    productTypesResult,
-    inventoryResult,
-    packagesResult,
-    ordersResult,
-  ] = await Promise.all([
-    supabase.from('skus').select('id, code, name, strain_id, product_type_id, grams_per_unit, units_per_case').order('code'),
-    supabase.from('strains').select('id, name'),
-    supabase.from('product_types').select('id, name'),
-    supabase.from('inventory').select('sku_id, cased, filled, staged'),
-    supabase.from('packages').select('strain_id, type_id, current_weight, is_active').eq('is_active', true),
-    supabase.from('orders').select('id, status, order_items(sku_id, quantity)').in('status', ['pending', 'confirmed', 'packed']),
-  ])
-
-  if (skusResult.error || strainsResult.error || productTypesResult.error ||
-      inventoryResult.error || packagesResult.error || ordersResult.error) {
-    throw new Error('Failed to fetch inventory data')
-  }
-
-  const skus = skusResult.data || []
-  const strains = strainsResult.data || []
-  const productTypes = productTypesResult.data || []
-  const inventory = inventoryResult.data || []
-  const vaultPackages = packagesResult.data || []
-  const orders = ordersResult.data || []
-
-  // Calculate pending orders by SKU
-  const pendingOrderItems = new Map<string, number>()
-  for (const order of orders) {
-    for (const item of (order.order_items as { sku_id: string; quantity: number }[]) || []) {
-      const current = pendingOrderItems.get(item.sku_id) || 0
-      pendingOrderItems.set(item.sku_id, current + item.quantity)
-    }
-  }
-
-  // Calculate vault grams by strain and product type
-  const vaultByStrainAndType = new Map<string, number>()
-  for (const pkg of vaultPackages) {
-    const key = `${pkg.strain_id}-${pkg.type_id}`
-    const current = vaultByStrainAndType.get(key) || 0
-    vaultByStrainAndType.set(key, current + pkg.current_weight)
-  }
-
-  const strainMap = new Map(strains.map(s => [s.id, s.name]))
-  const typeMap = new Map(productTypes.map(t => [t.id, t.name]))
-  const inventoryMap = new Map(inventory.map(i => [i.sku_id, i]))
-
-  // Group by strain + type to avoid duplicates in the message
-  const availabilityByStrainType = new Map<string, AvailableItem>()
-
-  for (const sku of skus) {
-    const strainName = strainMap.get(sku.strain_id) || 'Unknown'
-    const productTypeName = typeMap.get(sku.product_type_id) || 'Unknown'
-    const inv = inventoryMap.get(sku.id)
-
-    const vaultKey = `${sku.strain_id}-${sku.product_type_id}`
-    const vaultGrams = vaultByStrainAndType.get(vaultKey) || 0
-
-    const gramsPerCase = ((sku as { grams_per_unit?: number }).grams_per_unit || 0) * ((sku as { units_per_case?: number }).units_per_case || 0)
-    const vaultCases = gramsPerCase > 0 ? Math.floor(vaultGrams / gramsPerCase) : 0
-
-    const staged = inv?.staged || 0
-    const filled = inv?.filled || 0
-    const cased = inv?.cased || 0
-    const pendingOrders = pendingOrderItems.get(sku.id) || 0
-
-    const available = vaultCases + staged + filled + cased - pendingOrders
-
-    if (available > 0) {
-      const key = `${strainName}-${productTypeName}`
-      const existing = availabilityByStrainType.get(key)
-      if (existing) {
-        existing.available += available
-      } else {
-        availabilityByStrainType.set(key, {
-          strainName,
-          productTypeName,
-          available,
-        })
-      }
-    }
-  }
-
-  return Array.from(availabilityByStrainType.values())
-    .sort((a, b) => a.strainName.localeCompare(b.strainName))
-}
-
-function buildAvailabilityMessage(items: AvailableItem[], contactName: string, userName: string): string {
+function buildAvailabilityMessage(items: InventoryAvailabilityRecord[], contactName: string, userName: string): string {
   if (items.length === 0) {
     return `Hey ${contactName}.. we're currently restocking - check back soon!\n\n• ${userName}`
   }
 
   // Group items by product type
-  const groupedByType = new Map<string, AvailableItem[]>()
+  const groupedByType = new Map<string, InventoryAvailabilityRecord[]>()
   for (const item of items) {
     const existing = groupedByType.get(item.productTypeName) || []
     existing.push(item)
@@ -234,6 +138,7 @@ export function DispensaryContacts({ dispensaryId, defaultOpen = true }: Dispens
 
   useEffect(() => {
     loadContacts()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispensaryId])
 
   const handleAddContact = () => {
@@ -286,10 +191,14 @@ export function DispensaryContacts({ dispensaryId, defaultOpen = true }: Dispens
     }
 
     try {
-      const items = await fetchAvailableInventory()
+      const result = await getAvailableInventory()
+      if (result.error || !result.data) {
+        toast.error('Failed to load inventory data')
+        return
+      }
       const contactFirstName = contact.name.split(' ')[0]
       const userName = user?.name || 'CAKE'
-      const message = buildAvailabilityMessage(items, contactFirstName, userName)
+      const message = buildAvailabilityMessage(result.data, contactFirstName, userName)
 
       if (isMobileDevice()) {
         // Open SMS app on mobile
@@ -300,7 +209,7 @@ export function DispensaryContacts({ dispensaryId, defaultOpen = true }: Dispens
         await navigator.clipboard.writeText(message)
         toast.success(`Message copied! Text to: ${contact.phone}`)
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to load inventory data')
     }
   }

@@ -21,7 +21,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { toast } from 'sonner'
-import { createClient } from '@/lib/supabase/client'
 import {
   GrowRoom,
   CycleTemplate,
@@ -31,6 +30,12 @@ import {
   PipelineStage,
 } from '@/types/cultivation'
 import { format, addDays } from 'date-fns'
+import {
+  getActiveMasterTemplates,
+  getLastCycleNumber,
+  startCycle,
+  advanceStage,
+} from '@/actions/cultivation'
 
 // ─── Start Cycle Dialog ───
 
@@ -91,29 +96,13 @@ export function StartCycleDialog({
     setNotes('')
 
     async function init() {
-      const supabase = createClient()
-
       // Fetch master templates
-      const { data: tplData } = await supabase
-        .from('cycle_templates')
-        .select('*')
-        .eq('template_type', 'master')
-        .eq('is_active', true)
-        .order('name')
-
-      if (tplData) setTemplates(tplData as CycleTemplate[])
+      const tplResult = await getActiveMasterTemplates()
+      if (tplResult.data) setTemplates(tplResult.data)
 
       // Auto-increment cycle_number
-      const { data: lastCycle } = await supabase
-        .from('room_cycles')
-        .select('cycle_number')
-        .eq('room_id', room!.id)
-        .not('cycle_number', 'is', null)
-        .order('cycle_number', { ascending: false })
-        .limit(1)
-        .single()
-
-      const nextNum = lastCycle?.cycle_number ? lastCycle.cycle_number + 1 : 1
+      const cycleNumResult = await getLastCycleNumber(room!.id)
+      const nextNum = cycleNumResult.data ? cycleNumResult.data + 1 : 1
       setCycleNumber(String(nextNum))
     }
 
@@ -138,105 +127,32 @@ export function StartCycleDialog({
     }
 
     setSaving(true)
-    const supabase = createClient()
-
     try {
-      const selectedTemplate = templates.find((t) => t.id === templateId)
-      if (!selectedTemplate) throw new Error('Template not found')
-
       const cycleNum = parseInt(cycleNumber, 10) || null
 
-      // 1. Create room_cycles with milestone dates
-      const { data: newCycle, error: cycleErr } = await supabase
-        .from('room_cycles')
-        .insert({
-          room_id: room.id,
-          template_id: templateId,
-          current_stage: 'dome',
-          cycle_number: cycleNum,
-          start_date: domeStart,
-          expected_end_date: trimStart,
-          dome_start: domeStart,
-          veg_start: vegStart,
-          flower_start: flowerStart,
-          harvest_date: harvestDate,
-          dry_start: dryStart,
-          trim_start: trimStart,
-          status: 'active',
-          notes: notes.trim() || null,
-          created_by: userId,
-        })
-        .select('id')
-        .single()
+      const result = await startCycle({
+        roomId: room.id,
+        templateId,
+        cycleNumber: cycleNum,
+        domeStart,
+        vegStart,
+        flowerStart,
+        harvestDate,
+        dryStart,
+        trimStart,
+        notes: notes.trim() || null,
+        userId,
+      })
 
-      if (cycleErr || !newCycle) throw cycleErr || new Error('Failed to create cycle')
-
-      // 2. Update grow_rooms
-      await supabase
-        .from('grow_rooms')
-        .update({
-          current_phase: 'dome',
-          phase_start_date: domeStart,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', room.id)
-
-      // 3. Generate ALL tasks from master template using milestone-anchored dates
-      const { data: templateTasks } = await supabase
-        .from('template_tasks')
-        .select('*')
-        .eq('template_id', templateId)
-        .order('day_number')
-        .order('sort_order')
-
-      const milestones: Record<string, string> = {
-        dome: domeStart,
-        veg: vegStart,
-        flower: flowerStart,
-        harvest: harvestDate,
-        dry: dryStart,
-        trim: trimStart,
+      if ('error' in result && result.error) {
+        toast.error(result.error)
+      } else if ('taskCount' in result) {
+        toast.success(
+          `Cycle #${result.cycleNum || '?'} started for ${room.room_name}. ${result.taskCount} tasks generated.`
+        )
+        onOpenChange(false)
+        onCompleted()
       }
-
-      let taskCount = 0
-      if (templateTasks && templateTasks.length > 0) {
-        const tasksToInsert = templateTasks
-          .filter((tt) => tt.stage && milestones[tt.stage])
-          .map((tt) => {
-            const milestoneDate = milestones[tt.stage!]
-            const milestoneDateObj = new Date(milestoneDate + 'T00:00:00')
-            const dueDate = new Date(milestoneDateObj)
-            if (tt.day_number > 0) {
-              dueDate.setDate(dueDate.getDate() + (tt.day_number - 1)) // Day 1 = milestone date itself
-            } else {
-              dueDate.setDate(dueDate.getDate() + tt.day_number) // Negative = days before milestone
-            }
-            return {
-              room_cycle_id: newCycle.id,
-              room_id: room.id,
-              template_task_id: tt.id,
-              title: tt.name,
-              description: tt.description,
-              task_type: 'scheduled' as const,
-              phase: tt.stage,
-              day_number: tt.day_number,
-              due_date: dueDate.toISOString().split('T')[0],
-              priority: tt.priority,
-              estimated_minutes: tt.estimated_minutes,
-              status: 'pending' as const,
-              created_by: userId,
-            }
-          })
-
-        await supabase.from('cultivation_tasks').insert(tasksToInsert)
-        taskCount = tasksToInsert.length
-      }
-
-      toast.success(
-        `Cycle #${cycleNum || '?'} started for ${room.room_name}. ${taskCount} tasks generated.`
-      )
-      onOpenChange(false)
-      onCompleted()
     } catch (err) {
       console.error('Start cycle failed:', err)
       toast.error('Failed to start cycle. Please try again.')
@@ -432,34 +348,21 @@ export function AdvanceStageDialog({
     if (!room || !selectedCycle || !nextStage) return
 
     setSaving(true)
-    const supabase = createClient()
-
     try {
-      const today = format(new Date(), 'yyyy-MM-dd')
+      const result = await advanceStage({
+        roomId: room.id,
+        cycleId: selectedCycle.id,
+        nextStage,
+      })
 
-      // Update room_cycles.current_stage
-      await supabase
-        .from('room_cycles')
-        .update({
-          current_stage: nextStage,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', selectedCycle.id)
-
-      // Update grow_rooms.current_phase and phase_start_date
-      await supabase
-        .from('grow_rooms')
-        .update({
-          current_phase: nextStage,
-          phase_start_date: today,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', room.id)
-
-      const stageLabel = PHASE_CONFIG[nextStage]?.label || nextStage
-      toast.success(`${room.room_name} advanced to ${stageLabel}`)
-      onOpenChange(false)
-      onCompleted()
+      if (result.error) {
+        toast.error(result.error)
+      } else {
+        const stageLabel = PHASE_CONFIG[nextStage]?.label || nextStage
+        toast.success(`${room.room_name} advanced to ${stageLabel}`)
+        onOpenChange(false)
+        onCompleted()
+      }
     } catch (err) {
       console.error('Advance stage failed:', err)
       toast.error('Failed to advance stage.')

@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
 import { useAuth, canManageUsers } from '@/lib/auth-context'
+import { getUsers, deleteUser } from '@/actions/users'
+import type { UserRecord } from '@/actions/users'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -29,28 +30,12 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 
-interface SlackMapping {
-  id: string
-  slack_user_id: string
-  cake_user_id: string
-}
-
-interface UserRecord {
-  id: string
-  name: string
-  pin: string
-  role: string
-  created_at: string
-  slack_user_id?: string
-}
-
 export default function UsersPage() {
   const [users, setUsers] = useState<UserRecord[]>([])
   const [filteredUsers, setFilteredUsers] = useState<UserRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [deleteLoading, setDeleteLoading] = useState<string | null>(null)
-  const supabase = createClient()
   const { user: currentUser, isLoading: authLoading } = useAuth()
 
   const userRole = currentUser?.role || 'standard'
@@ -65,29 +50,12 @@ export default function UsersPage() {
 
   const fetchUsers = async () => {
     try {
-      const [usersResult, mappingsResult] = await Promise.all([
-        supabase
-          .from('users')
-          .select('id, name, pin, role, created_at')
-          .order('name'),
-        supabase
-          .from('slack_user_mappings')
-          .select('id, slack_user_id, cake_user_id')
-      ])
-
-      if (usersResult.error) throw usersResult.error
-
-      const mappings: SlackMapping[] = mappingsResult.data || []
-      const mappingsByUserId = new Map(
-        mappings.map(m => [m.cake_user_id, m.slack_user_id])
-      )
-
-      const usersWithSlack = (usersResult.data || []).map(user => ({
-        ...user,
-        slack_user_id: mappingsByUserId.get(user.id)
-      }))
-
-      setUsers(usersWithSlack)
+      const result = await getUsers()
+      if (result.error) {
+        console.error('Error fetching users:', result.error)
+        return
+      }
+      setUsers(result.data ?? [])
     } catch (error) {
       console.error('Error fetching users:', error)
     } finally {
@@ -112,12 +80,11 @@ export default function UsersPage() {
   const handleDeleteUser = async (userId: string) => {
     setDeleteLoading(userId)
     try {
-      const { error } = await supabase
-        .from('users')
-        .delete()
-        .eq('id', userId)
-
-      if (error) throw error
+      const result = await deleteUser(userId)
+      if (result.error) {
+        alert(result.error)
+        return
+      }
       await fetchUsers()
     } catch (error) {
       console.error('Error deleting user:', error)

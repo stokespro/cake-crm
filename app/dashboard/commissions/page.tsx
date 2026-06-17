@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -74,7 +73,20 @@ import {
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { cn, parseLocalDate } from '@/lib/utils'
-import type { Commission, CommissionStatus, Profile } from '@/types/database'
+import type { CommissionStatus } from '@/types/database'
+import {
+  getCommissions,
+  getSalespeople,
+  getOrderDetailForAdmin,
+  approveCommission,
+  markCommissionPaid,
+  saveCommissionNote,
+  bulkMarkCommissionsPaid,
+  type CommissionRow,
+  type SalespersonOption,
+  type OrderDetail,
+  type CommissionBreakdownItem,
+} from '@/actions/commissions'
 
 interface FilterState {
   dateFrom: string
@@ -93,11 +105,10 @@ const initialFilters: FilterState = {
 export default function CommissionsPage() {
   const router = useRouter()
   const { user, isLoading: authLoading } = useAuth()
-  const supabase = createClient()
 
-  const [commissions, setCommissions] = useState<Commission[]>([])
-  const [filteredCommissions, setFilteredCommissions] = useState<Commission[]>([])
-  const [salespeople, setSalespeople] = useState<Profile[]>([])
+  const [commissions, setCommissions] = useState<CommissionRow[]>([])
+  const [filteredCommissions, setFilteredCommissions] = useState<CommissionRow[]>([])
+  const [salespeople, setSalespeople] = useState<SalespersonOption[]>([])
   const [loading, setLoading] = useState(true)
   const [filters, setFilters] = useState<FilterState>(initialFilters)
 
@@ -106,16 +117,16 @@ export default function CommissionsPage() {
 
   // Sheet state for actions
   const [actionSheetOpen, setActionSheetOpen] = useState(false)
-  const [actionCommission, setActionCommission] = useState<Commission | null>(null)
+  const [actionCommission, setActionCommission] = useState<CommissionRow | null>(null)
   const [actionType, setActionType] = useState<'approve' | 'pay' | 'note'>('approve')
   const [paidDate, setPaidDate] = useState<Date | undefined>(new Date())
   const [noteText, setNoteText] = useState('')
   const [saving, setSaving] = useState(false)
 
   // Order detail sheet state
-  const [selectedCommission, setSelectedCommission] = useState<any>(null)
+  const [selectedCommission, setSelectedCommission] = useState<CommissionRow | null>(null)
   const [orderDetailOpen, setOrderDetailOpen] = useState(false)
-  const [orderDetail, setOrderDetail] = useState<any>(null)
+  const [orderDetail, setOrderDetail] = useState<{ order: OrderDetail; breakdown: CommissionBreakdownItem[] } | null>(null)
   const [orderDetailLoading, setOrderDetailLoading] = useState(false)
 
   // Bulk action dialog
@@ -144,28 +155,16 @@ export default function CommissionsPage() {
 
   const fetchData = async () => {
     try {
-      const [commissionsRes, salesRes] = await Promise.all([
-        supabase
-          .from('commissions')
-          .select(`
-            *,
-            salesperson:profiles!commissions_salesperson_id_fkey(id, full_name),
-            order:orders(id, order_number, customer:customers(business_name)),
-            paid_by_user:profiles!commissions_paid_by_fkey(id, full_name)
-          `)
-          .order('order_date', { ascending: false }),
-        supabase
-          .from('profiles')
-          .select('id, full_name, role')
-          .in('role', ['sales', 'agent'])
-          .order('full_name'),
+      const [commissionsResult, salespeopleResult] = await Promise.all([
+        getCommissions(),
+        getSalespeople(),
       ])
 
-      if (commissionsRes.error) throw commissionsRes.error
-      if (salesRes.error) throw salesRes.error
+      if (commissionsResult.error) throw new Error(commissionsResult.error)
+      if (salespeopleResult.error) throw new Error(salespeopleResult.error)
 
-      setCommissions(commissionsRes.data || [])
-      setSalespeople(salesRes.data || [])
+      setCommissions(commissionsResult.data ?? [])
+      setSalespeople(salespeopleResult.data ?? [])
     } catch (error) {
       console.error('Error fetching data:', error)
       toast.error('Failed to load data')
@@ -174,27 +173,16 @@ export default function CommissionsPage() {
     }
   }
 
-  const fetchOrderDetail = async (commission: any) => {
+  const fetchOrderDetail = async (commission: CommissionRow) => {
     setSelectedCommission(commission)
     setOrderDetailOpen(true)
     setOrderDetailLoading(true)
     try {
-      const { data: order } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          customer:customers(business_name, license_name, city),
-          order_items(id, sku_id, quantity, unit_price, line_total, sku:skus(code, name))
-        `)
-        .eq('id', commission.order_id)
-        .single()
-
-      const { data: breakdown } = await supabase.rpc('get_order_commission_breakdown', {
-        p_order_id: commission.order_id,
-        p_salesperson_id: commission.salesperson_id,
-      })
-
-      setOrderDetail({ order, breakdown })
+      const result = await getOrderDetailForAdmin(commission.order_id, commission.salesperson_id)
+      if (result.error) throw new Error(result.error)
+      if (result.order) {
+        setOrderDetail({ order: result.order, breakdown: result.breakdown ?? [] })
+      }
     } catch (error) {
       console.error('Error fetching order detail:', error)
     } finally {
@@ -273,7 +261,7 @@ export default function CommissionsPage() {
   }
 
   // Action handlers
-  const openActionSheet = (commission: Commission, type: 'approve' | 'pay' | 'note') => {
+  const openActionSheet = (commission: CommissionRow, type: 'approve' | 'pay' | 'note') => {
     setActionCommission(commission)
     setActionType(type)
     setNoteText(commission.notes || '')
@@ -285,16 +273,8 @@ export default function CommissionsPage() {
     if (!actionCommission) return
     setSaving(true)
     try {
-      const { error } = await supabase
-        .from('commissions')
-        .update({
-          status: 'approved',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', actionCommission.id)
-
-      if (error) throw error
-
+      const result = await approveCommission(actionCommission.id)
+      if (result.error) throw new Error(result.error)
       toast.success('Commission approved')
       setActionSheetOpen(false)
       fetchData()
@@ -307,21 +287,11 @@ export default function CommissionsPage() {
   }
 
   const handleMarkPaid = async () => {
-    if (!actionCommission || !paidDate || !user) return
+    if (!actionCommission || !paidDate) return
     setSaving(true)
     try {
-      const { error } = await supabase
-        .from('commissions')
-        .update({
-          status: 'paid',
-          paid_at: format(paidDate, 'yyyy-MM-dd'),
-          paid_by: user.id,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', actionCommission.id)
-
-      if (error) throw error
-
+      const result = await markCommissionPaid(actionCommission.id, format(paidDate, 'yyyy-MM-dd'))
+      if (result.error) throw new Error(result.error)
       toast.success('Commission marked as paid')
       setActionSheetOpen(false)
       fetchData()
@@ -337,16 +307,8 @@ export default function CommissionsPage() {
     if (!actionCommission) return
     setSaving(true)
     try {
-      const { error } = await supabase
-        .from('commissions')
-        .update({
-          notes: noteText,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', actionCommission.id)
-
-      if (error) throw error
-
+      const result = await saveCommissionNote(actionCommission.id, noteText)
+      if (result.error) throw new Error(result.error)
       toast.success('Note saved')
       setActionSheetOpen(false)
       fetchData()
@@ -360,21 +322,14 @@ export default function CommissionsPage() {
 
   // Bulk pay handler
   const handleBulkPay = async () => {
-    if (selectedIds.size === 0 || !bulkPaidDate || !user) return
+    if (selectedIds.size === 0 || !bulkPaidDate) return
     setBulkSaving(true)
     try {
-      const { error } = await supabase
-        .from('commissions')
-        .update({
-          status: 'paid',
-          paid_at: format(bulkPaidDate, 'yyyy-MM-dd'),
-          paid_by: user.id,
-          updated_at: new Date().toISOString(),
-        })
-        .in('id', Array.from(selectedIds))
-
-      if (error) throw error
-
+      const result = await bulkMarkCommissionsPaid(
+        Array.from(selectedIds),
+        format(bulkPaidDate, 'yyyy-MM-dd')
+      )
+      if (result.error) throw new Error(result.error)
       toast.success(`${selectedIds.size} commissions marked as paid`)
       setBulkPayDialogOpen(false)
       setSelectedIds(new Set())
@@ -685,7 +640,7 @@ export default function CommissionsPage() {
                       <TableCell className="text-right font-medium">
                         ${commission.commission_amount.toFixed(2)}
                       </TableCell>
-                      <TableCell>{getStatusBadge(commission.status)}</TableCell>
+                      <TableCell>{getStatusBadge(commission.status as CommissionStatus)}</TableCell>
                       <TableCell>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -795,7 +750,7 @@ export default function CommissionsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {orderDetail.breakdown?.map((item: any) => (
+                    {orderDetail.breakdown?.map((item) => (
                       <TableRow key={item.order_item_id}>
                         <TableCell className="font-medium text-xs">{item.sku_name || item.sku_code}</TableCell>
                         <TableCell className="text-right">{item.quantity}</TableCell>
@@ -823,7 +778,7 @@ export default function CommissionsPage() {
 
               {/* Line Items - Mobile Cards */}
               <div className="sm:hidden space-y-3">
-                {orderDetail.breakdown?.map((item: any) => (
+                {orderDetail.breakdown?.map((item) => (
                   <Card key={item.order_item_id}>
                     <CardContent className="p-3 space-y-1">
                       <p className="font-medium text-sm">{item.sku_name || item.sku_code}</p>
@@ -837,7 +792,7 @@ export default function CommissionsPage() {
                     </CardContent>
                   </Card>
                 ))}
-                <div className="flex justify-between pt-2 border-t font-semibold text-sm">
+                <div className="flex justify-between pt-2 border-t font-semibold text-sm px-1">
                   <span>Total: ${selectedCommission?.order_total?.toFixed(2) || '0.00'}</span>
                   <span>Commission: ${selectedCommission?.commission_amount?.toFixed(2) || '0.00'}</span>
                 </div>

@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { toast } from 'sonner'
-import { createClient } from '@/lib/supabase/client'
+import { createTask, updateTask } from '@/actions/cultivation'
 import type { CultivationTask, GrowRoom, TaskPriority } from '@/types/cultivation'
 
 interface UserOption {
@@ -99,52 +99,38 @@ export function CreateTaskSheet({
     }
 
     setSaving(true)
-    const supabase = createClient()
+
+    const sharedPayload = {
+      title: title.trim(),
+      description: description.trim() || null,
+      room_id: roomId === 'none' ? null : roomId,
+      due_date: dueDate,
+      priority,
+      assigned_to: assignedTo === 'unassigned' ? null : assignedTo,
+      estimated_minutes: estimatedMinutes ? parseInt(estimatedMinutes) : null,
+      frequency: frequency && frequency !== 'none' ? frequency : null,
+      day_of_week: dayOfWeek ? parseInt(dayOfWeek) : null,
+    }
 
     if (isEditing) {
-      const { error } = await supabase
-        .from('cultivation_tasks')
-        .update({
-          title: title.trim(),
-          description: description.trim() || null,
-          room_id: roomId === 'none' ? null : roomId,
-          due_date: dueDate,
-          priority,
-          assigned_to: assignedTo === 'unassigned' ? null : assignedTo,
-          estimated_minutes: estimatedMinutes ? parseInt(estimatedMinutes) : null,
-          task_type: frequency && frequency !== 'none' ? 'recurring' : (task.task_type === 'scheduled' ? 'scheduled' : 'adhoc'),
-          frequency: frequency && frequency !== 'none' ? frequency : null,
-          day_of_week: dayOfWeek ? parseInt(dayOfWeek) : null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', task.id)
-
-      if (error) {
-        toast.error('Failed to update task')
-        console.error(error)
+      const result = await updateTask(task.id, {
+        ...sharedPayload,
+        task_type: frequency && frequency !== 'none' ? 'recurring' : (task.task_type === 'scheduled' ? 'scheduled' : 'adhoc'),
+      })
+      if (result.error) {
+        toast.error(result.error)
         setSaving(false)
         return
       }
       toast.success('Task updated')
     } else {
-      const { error } = await supabase.from('cultivation_tasks').insert({
-        title: title.trim(),
-        description: description.trim() || null,
-        room_id: roomId === 'none' ? null : roomId,
-        due_date: dueDate,
-        priority,
-        assigned_to: assignedTo === 'unassigned' ? null : assignedTo,
-        estimated_minutes: estimatedMinutes ? parseInt(estimatedMinutes) : null,
+      const result = await createTask({
+        ...sharedPayload,
         task_type: frequency && frequency !== 'none' ? 'recurring' : 'adhoc',
-        frequency: frequency && frequency !== 'none' ? frequency : null,
-        day_of_week: dayOfWeek ? parseInt(dayOfWeek) : null,
-        status: 'pending',
         created_by: userId,
       })
-
-      if (error) {
-        toast.error('Failed to create task')
-        console.error(error)
+      if (result.error) {
+        toast.error(result.error)
         setSaving(false)
         return
       }

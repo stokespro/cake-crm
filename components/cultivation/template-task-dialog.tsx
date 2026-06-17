@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { toast } from 'sonner'
-import { createClient } from '@/lib/supabase/client'
+import { createTemplateTask, updateTemplateTask } from '@/actions/cultivation'
 import { TemplateTask, TaskPriority, STAGE_ORDER, PHASE_CONFIG, PipelineStage } from '@/types/cultivation'
 
 const PRIORITY_OPTIONS: { value: TaskPriority; label: string }[] = [
@@ -115,9 +115,8 @@ export function TemplateTaskDialog({
     }
 
     setSaving(true)
-    const supabase = createClient()
 
-    const data = {
+    const payload = {
       name: name.trim(),
       description: description.trim() || null,
       day_number: day,
@@ -127,28 +126,17 @@ export function TemplateTaskDialog({
     }
 
     if (isEditing) {
-      const { error } = await supabase
-        .from('template_tasks')
-        .update(data)
-        .eq('id', task.id)
-
-      if (error) {
-        toast.error('Failed to update task')
-        console.error(error)
+      const result = await updateTemplateTask(task.id, payload)
+      if (result.error) {
+        toast.error(result.error)
         setSaving(false)
         return
       }
       toast.success('Task updated')
     } else {
-      const { error } = await supabase.from('template_tasks').insert({
-        ...data,
-        template_id: templateId,
-        sort_order: maxSortOrder + 1,
-      })
-
-      if (error) {
-        toast.error('Failed to create task')
-        console.error(error)
+      const result = await createTemplateTask(templateId, payload, maxSortOrder + 1)
+      if (result.error) {
+        toast.error(result.error)
         setSaving(false)
         return
       }

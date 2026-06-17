@@ -49,7 +49,6 @@ import { format, parseISO, isPast, isToday } from 'date-fns'
 import { parseLocalDate } from '@/lib/utils'
 import Link from 'next/link'
 import { useAuth, canManageCultivation, canCompleteCultivation } from '@/lib/auth-context'
-import { createClient } from '@/lib/supabase/client'
 import type {
   CultivationTask,
   CultivationTaskStatus,
@@ -61,7 +60,14 @@ import { STAGE_ORDER, PHASE_CONFIG } from '@/types/cultivation'
 import { TaskDetailSheet } from '@/components/cultivation/task-detail-sheet'
 import { TaskCompletionSheet } from '@/components/cultivation/task-completion-sheet'
 import { CreateTaskSheet } from '@/components/cultivation/create-task-sheet'
-import { generateRecurringTasks } from '@/lib/cultivation/generate-recurring-tasks'
+import {
+  getCultivationTasks,
+  getGrowRooms,
+  getCultivationUsers,
+  startTask,
+  deleteTask as deleteTaskAction,
+  generateRecurringTasksAction,
+} from '@/actions/cultivation'
 
 // --- Constants ---
 
@@ -130,27 +136,13 @@ export default function CultivationTasksPage() {
   const canComplete = user ? canCompleteCultivation(user.role) : false
 
   async function fetchData() {
-    const supabase = createClient()
-
     // Generate any pending recurring task instances
-    await generateRecurringTasks()
+    await generateRecurringTasksAction()
 
     const [tasksRes, roomsRes, usersRes] = await Promise.all([
-      supabase
-        .from('cultivation_tasks')
-        .select(
-          '*, room:grow_rooms(id, room_name, room_number), assigned_user:users!cultivation_tasks_assigned_to_fkey(id, name), completed_by_user:users!cultivation_tasks_completed_by_fkey(id, name)'
-        )
-        // Exclude recurring definition rows — only show actionable tasks
-        // Definition rows have frequency set AND no recurring_parent_id
-        .or('frequency.is.null,recurring_parent_id.not.is.null')
-        .order('due_date'),
-      supabase.from('grow_rooms').select('*').order('room_number'),
-      supabase
-        .from('users')
-        .select('id, name, role')
-        .in('role', ['admin', 'management', 'vault', 'packaging', 'standard'])
-        .order('name'),
+      getCultivationTasks(),
+      getGrowRooms(),
+      getCultivationUsers(),
     ])
 
     if (tasksRes.data) setTasks(tasksRes.data as CultivationTask[])
@@ -278,15 +270,9 @@ export default function CultivationTasksPage() {
   // --- Actions ---
 
   async function handleStartTask(task: CultivationTask) {
-    const supabase = createClient()
-    const { error } = await supabase
-      .from('cultivation_tasks')
-      .update({ status: 'in_progress', updated_at: new Date().toISOString() })
-      .eq('id', task.id)
-
-    if (error) {
-      toast.error('Failed to start task')
-      console.error(error)
+    const result = await startTask(task.id)
+    if (result.error) {
+      toast.error(result.error)
       return
     }
     toast.success('Task started')
@@ -296,12 +282,9 @@ export default function CultivationTasksPage() {
 
   async function handleDeleteTask() {
     if (!deleteTask) return
-    const supabase = createClient()
-    const { error } = await supabase.from('cultivation_tasks').delete().eq('id', deleteTask.id)
-
-    if (error) {
-      toast.error('Failed to delete task')
-      console.error(error)
+    const result = await deleteTaskAction(deleteTask.id)
+    if (result.error) {
+      toast.error(result.error)
       return
     }
     toast.success('Task deleted')

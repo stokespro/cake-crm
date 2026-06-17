@@ -46,12 +46,20 @@ import { format, isToday, isPast, startOfWeek, endOfWeek } from 'date-fns'
 import { parseLocalDate } from '@/lib/utils'
 import { toast } from 'sonner'
 import { useAuth, canManageCultivation, canCompleteCultivation } from '@/lib/auth-context'
-import { createClient } from '@/lib/supabase/client'
 import { GrowRoom, RoomCycle, PHASE_CONFIG, GrowPhase, CultivationTask, TaskPriority, PipelineStage } from '@/types/cultivation'
 import { TaskCompletionSheet } from '@/components/cultivation/task-completion-sheet'
 import { StartCycleDialog, AdvanceStageDialog } from '@/components/cultivation/flip-room-dialog'
 import { RoomHistorySheet } from '@/components/cultivation/room-history-sheet'
-import { generateRecurringTasks } from '@/lib/cultivation/generate-recurring-tasks'
+import {
+  getGrowRooms,
+  getActiveCycles,
+  getCultivationTaskSummary,
+  getMyTodayTasks,
+  createGrowRoom,
+  updateGrowRoom,
+  deleteGrowRoom,
+  generateRecurringTasksAction,
+} from '@/actions/cultivation'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -151,7 +159,6 @@ function RoomAdminDialog({ open, onOpenChange, room, onSaved }: RoomAdminDialogP
     }
 
     setSaving(true)
-    const supabase = createClient()
     const payload = {
       room_number: num,
       room_name: roomName.trim(),
@@ -160,25 +167,18 @@ function RoomAdminDialog({ open, onOpenChange, room, onSaved }: RoomAdminDialogP
     }
 
     if (isEditing) {
-      const { error } = await supabase
-        .from('grow_rooms')
-        .update({ ...payload, updated_at: new Date().toISOString() })
-        .eq('id', room.id)
-      if (error) {
-        toast.error('Failed to update room')
-        console.error(error)
+      const result = await updateGrowRoom(room.id, payload)
+      if (result.error) {
+        toast.error(result.error)
       } else {
         toast.success('Room updated')
         onOpenChange(false)
         onSaved()
       }
     } else {
-      const { error } = await supabase
-        .from('grow_rooms')
-        .insert({ ...payload, current_phase: 'empty' })
-      if (error) {
-        toast.error('Failed to add room')
-        console.error(error)
+      const result = await createGrowRoom(payload)
+      if (result.error) {
+        toast.error(result.error)
       } else {
         toast.success('Room added')
         onOpenChange(false)
@@ -297,15 +297,14 @@ export default function CultivationPage() {
   // ─── Data fetching ──────────────────────────────────────────────────────────
 
   const fetchRooms = useCallback(async () => {
-    const supabase = createClient()
     const [roomsRes, cyclesRes] = await Promise.all([
-      supabase.from('grow_rooms').select('*').order('room_number'),
-      supabase.from('room_cycles').select('*').eq('status', 'active'),
+      getGrowRooms(),
+      getActiveCycles(),
     ])
-    if (roomsRes.data) setRooms(roomsRes.data as GrowRoom[])
+    if (roomsRes.data) setRooms(roomsRes.data)
     if (cyclesRes.data) {
       const map: Record<string, RoomCycle[]> = {}
-      for (const cycle of cyclesRes.data as RoomCycle[]) {
+      for (const cycle of cyclesRes.data) {
         if (!map[cycle.room_id]) map[cycle.room_id] = []
         map[cycle.room_id].push(cycle)
       }
@@ -314,38 +313,22 @@ export default function CultivationPage() {
   }, [])
 
   async function fetchData() {
-    const supabase = createClient()
-
     // Generate any pending recurring task instances
-    await generateRecurringTasks()
+    await generateRecurringTasksAction()
 
+    const todayStr = format(new Date(), 'yyyy-MM-dd')
     const [roomsRes, cyclesRes, tasksRes, myTasksRes] = await Promise.all([
-      supabase.from('grow_rooms').select('*').order('room_number'),
-      supabase.from('room_cycles').select('*').eq('status', 'active'),
-      supabase
-        .from('cultivation_tasks')
-        .select('id, status, due_date, completed_at, room_id')
-        .or('frequency.is.null,recurring_parent_id.not.is.null'),
-      user
-        ? supabase
-            .from('cultivation_tasks')
-            .select(
-              '*, room:grow_rooms(id, room_name, room_number), assigned_user:users!cultivation_tasks_assigned_to_fkey(id, name)'
-            )
-            .eq('assigned_to', user.id)
-            .in('status', ['pending', 'in_progress'])
-            .or('frequency.is.null,recurring_parent_id.not.is.null')
-            .lte('due_date', format(new Date(), 'yyyy-MM-dd'))
-            .order('due_date')
-            .limit(10)
-        : Promise.resolve({ data: [] }),
+      getGrowRooms(),
+      getActiveCycles(),
+      getCultivationTaskSummary(),
+      user ? getMyTodayTasks(user.id, todayStr) : Promise.resolve({ data: [] }),
     ])
 
-    if (roomsRes.data) setRooms(roomsRes.data as GrowRoom[])
+    if (roomsRes.data) setRooms(roomsRes.data)
 
     if (cyclesRes.data) {
       const map: Record<string, RoomCycle[]> = {}
-      for (const cycle of cyclesRes.data as RoomCycle[]) {
+      for (const cycle of cyclesRes.data) {
         if (!map[cycle.room_id]) map[cycle.room_id] = []
         map[cycle.room_id].push(cycle)
       }
@@ -440,11 +423,9 @@ export default function CultivationPage() {
       setDeleteRoomTarget(null)
       return
     }
-    const supabase = createClient()
-    const { error } = await supabase.from('grow_rooms').delete().eq('id', deleteRoomTarget.id)
-    if (error) {
-      toast.error('Failed to remove room')
-      console.error(error)
+    const result = await deleteGrowRoom(deleteRoomTarget.id)
+    if (result.error) {
+      toast.error(result.error)
     } else {
       toast.success('Room removed')
       fetchRooms()

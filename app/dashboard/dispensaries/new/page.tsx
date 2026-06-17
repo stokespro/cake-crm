@@ -3,13 +3,13 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { ArrowLeft, Loader2 } from 'lucide-react'
+import { createCustomer } from '@/actions/customers'
 
 export default function NewDispensaryPage() {
   const [businessName, setBusinessName] = useState('')
@@ -22,49 +22,44 @@ export default function NewDispensaryPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
-  const supabase = createClient()
   const { user } = useAuth()
 
-  // Roles that can add dispensaries: sales, management, admin
+  // Roles that can add dispensaries: sales, agent, management, admin
   const userRole = user?.role || 'standard'
-  const canAddDispensary = ['sales', 'management', 'admin'].includes(userRole)
+  const canAddDispensary = ['sales', 'agent', 'management', 'admin'].includes(userRole)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError(null)
 
-    try {
-      // Auto-assign to sales user if they're the one creating
-      const assignedSalesId = userRole === 'sales' ? user?.id : null
+    // Auto-assign to sales user if they're the one creating
+    const assignedSalesId = userRole === 'sales' ? user?.id : null
 
-      const { error } = await supabase
-        .from('customers')
-        .insert({
-          business_name: businessName,
-          license_name: licenseName || null,
-          address: address || null,
-          phone_number: phoneNumber || null,
-          email: email || null,
-          omma_license: ommaLicense || null,
-          ob_license: obLicense || null,
-          assigned_sales_id: assignedSalesId
-        })
+    const result = await createCustomer({
+      business_name: businessName,
+      license_name: licenseName || undefined,
+      address: address || undefined,
+      phone_number: phoneNumber || undefined,
+      email: email || undefined,
+      omma_license: ommaLicense || undefined,
+      ob_license: obLicense || undefined,
+      assigned_sales_id: assignedSalesId,
+    })
 
-      if (error) throw error
-
-      router.push('/dashboard/dispensaries')
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'An error occurred')
-    } finally {
+    if (result.error) {
+      setError(result.error)
       setLoading(false)
+      return
     }
+
+    router.push('/dashboard/dispensaries')
   }
 
   if (!canAddDispensary) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-muted-foreground">You don't have permission to add dispensaries.</div>
+        <div className="text-muted-foreground">You do not have permission to add dispensaries.</div>
       </div>
     )
   }

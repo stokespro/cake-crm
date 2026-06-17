@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -33,6 +32,12 @@ import {
 import { Plus, Trash2, DollarSign, Tag, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { CustomerPricing, ProductType } from '@/types/database'
+import {
+  getCustomerPricing,
+  getPricingOptions,
+  upsertCustomerPricing,
+  deleteCustomerPricing,
+} from '@/actions/customers'
 
 interface SKUOption {
   id: string
@@ -62,60 +67,40 @@ export function CustomerPricingSection({ customerId, canManage }: CustomerPricin
   const [selectedTypeId, setSelectedTypeId] = useState('')
   const [price, setPrice] = useState('')
 
-  const supabase = createClient()
-
   const fetchPricing = useCallback(async () => {
-    try {
-      const { data, error } = await supabase
-        .from('customer_pricing')
-        .select(`
-          *,
-          sku:skus(id, name, code),
-          product_type:product_types(id, name)
-        `)
-        .eq('customer_id', customerId)
-
-      if (error) throw error
-
-      const items = (data || []).filter(p => p.sku_id !== null)
-      const categories = (data || []).filter(p => p.product_type_id !== null)
-
-      setItemPricing(items)
-      setCategoryPricing(categories)
-    } catch (error) {
-      console.error('Error fetching pricing:', error)
+    const result = await getCustomerPricing(customerId)
+    if (result.data) {
+      const all = result.data as unknown as CustomerPricing[]
+      setItemPricing(all.filter(p => p.sku_id !== null))
+      setCategoryPricing(all.filter(p => p.product_type_id !== null))
+    } else {
+      console.error('Error fetching pricing:', result.error)
       toast.error('Failed to load pricing')
     }
-  }, [supabase, customerId])
+  }, [customerId])
 
   const fetchOptions = useCallback(async () => {
-    try {
-      const [skuRes, typeRes] = await Promise.all([
-        supabase
-          .from('products')
-          .select('id, item_name, code, product_type_id, product_type_name')
-          .order('item_name'),
-        supabase
-          .from('product_types')
-          .select('*')
-          .order('name')
-      ])
-
-      if (skuRes.error) throw skuRes.error
-      if (typeRes.error) throw typeRes.error
-
-      setSkus((skuRes.data || []).map(s => ({
+    const result = await getPricingOptions()
+    if (result.products && result.productTypes) {
+      const rawProducts = result.products as unknown as Array<{
+        id: string
+        item_name: string
+        code: string
+        product_type_id: string
+        product_type_name?: string
+      }>
+      setSkus(rawProducts.map(s => ({
         id: s.id,
         name: s.item_name,
         code: s.code,
         product_type_id: s.product_type_id,
-        product_type_name: s.product_type_name
+        product_type_name: s.product_type_name,
       })))
-      setProductTypes(typeRes.data || [])
-    } catch (error) {
-      console.error('Error fetching options:', error)
+      setProductTypes(result.productTypes as unknown as ProductType[])
+    } else {
+      console.error('Error fetching options:', result.error)
     }
-  }, [supabase])
+  }, [])
 
   useEffect(() => {
     const load = async () => {
@@ -150,48 +135,37 @@ export function CustomerPricingSection({ customerId, canManage }: CustomerPricin
     }
 
     setSaving(true)
-    try {
-      const pricingData = {
-        customer_id: customerId,
-        sku_id: dialogMode === 'item' ? selectedSkuId : null,
-        product_type_id: dialogMode === 'category' ? selectedTypeId : null,
-        price_per_unit: parseFloat(price),
-      }
 
-      const { error } = await supabase
-        .from('customer_pricing')
-        .upsert(pricingData, {
-          onConflict: dialogMode === 'item' ? 'customer_id,sku_id' : 'customer_id,product_type_id'
-        })
+    const result = await upsertCustomerPricing({
+      customer_id: customerId,
+      sku_id: dialogMode === 'item' ? selectedSkuId : null,
+      product_type_id: dialogMode === 'category' ? selectedTypeId : null,
+      price_per_unit: parseFloat(price),
+      mode: dialogMode,
+    })
 
-      if (error) throw error
+    setSaving(false)
 
-      toast.success('Pricing saved')
-      setDialogOpen(false)
-      fetchPricing()
-    } catch (error) {
-      console.error('Error saving pricing:', error)
+    if (result.error) {
+      console.error('Error saving pricing:', result.error)
       toast.error('Failed to save pricing')
-    } finally {
-      setSaving(false)
+      return
     }
+
+    toast.success('Pricing saved')
+    setDialogOpen(false)
+    fetchPricing()
   }
 
   const handleDelete = async (pricingId: string) => {
-    try {
-      const { error } = await supabase
-        .from('customer_pricing')
-        .delete()
-        .eq('id', pricingId)
-
-      if (error) throw error
-
-      toast.success('Pricing removed')
-      fetchPricing()
-    } catch (error) {
-      console.error('Error deleting pricing:', error)
+    const result = await deleteCustomerPricing(pricingId)
+    if (result.error) {
+      console.error('Error deleting pricing:', result.error)
       toast.error('Failed to remove pricing')
+      return
     }
+    toast.success('Pricing removed')
+    fetchPricing()
   }
 
   // Filter out SKUs that already have pricing

@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -41,7 +40,14 @@ import {
 } from 'lucide-react'
 import { format, startOfMonth, endOfMonth, subMonths, startOfQuarter, startOfYear } from 'date-fns'
 import { parseLocalDate } from '@/lib/utils'
-import type { Commission, CommissionStatus } from '@/types/database'
+import type { CommissionStatus } from '@/types/database'
+import {
+  getMyCommissions,
+  getMyOrderDetail,
+  type CommissionRow,
+  type OrderDetail,
+  type CommissionBreakdownItem,
+} from '@/actions/commissions'
 
 type PeriodType = 'this-month' | 'last-month' | 'this-quarter' | 'this-year' | 'all-time' | 'custom'
 
@@ -62,17 +68,16 @@ const initialFilters: FilterState = {
 export default function MyCommissionsPage() {
   const router = useRouter()
   const { user, isLoading: authLoading } = useAuth()
-  const supabase = createClient()
 
-  const [commissions, setCommissions] = useState<Commission[]>([])
-  const [filteredCommissions, setFilteredCommissions] = useState<Commission[]>([])
+  const [commissions, setCommissions] = useState<CommissionRow[]>([])
+  const [filteredCommissions, setFilteredCommissions] = useState<CommissionRow[]>([])
   const [loading, setLoading] = useState(true)
   const [filters, setFilters] = useState<FilterState>(initialFilters)
 
   // Order detail sheet state
-  const [selectedCommission, setSelectedCommission] = useState<any>(null)
+  const [selectedCommission, setSelectedCommission] = useState<CommissionRow | null>(null)
   const [orderDetailOpen, setOrderDetailOpen] = useState(false)
-  const [orderDetail, setOrderDetail] = useState<any>(null)
+  const [orderDetail, setOrderDetail] = useState<{ order: OrderDetail; breakdown: CommissionBreakdownItem[] } | null>(null)
   const [orderDetailLoading, setOrderDetailLoading] = useState(false)
 
   const userRole = user?.role || 'standard'
@@ -95,22 +100,10 @@ export default function MyCommissionsPage() {
   }, [commissions, filters])
 
   const fetchData = async () => {
-    if (!user) return
-
     try {
-      const { data, error } = await supabase
-        .from('commissions')
-        .select(`
-          *,
-          salesperson:profiles!commissions_salesperson_id_fkey(id, full_name),
-          order:orders(id, order_number, customer:customers(business_name))
-        `)
-        .eq('salesperson_id', user.id)
-        .order('order_date', { ascending: false })
-
-      if (error) throw error
-
-      setCommissions(data || [])
+      const result = await getMyCommissions()
+      if (result.error) throw new Error(result.error)
+      setCommissions(result.data ?? [])
     } catch (error) {
       console.error('Error fetching commissions:', error)
     } finally {
@@ -118,28 +111,16 @@ export default function MyCommissionsPage() {
     }
   }
 
-  const fetchOrderDetail = async (commission: any) => {
-    if (!user) return
+  const fetchOrderDetail = async (commission: CommissionRow) => {
     setSelectedCommission(commission)
     setOrderDetailOpen(true)
     setOrderDetailLoading(true)
     try {
-      const { data: order } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          customer:customers(business_name, license_name, city),
-          order_items(id, sku_id, quantity, unit_price, line_total, sku:skus(code, name))
-        `)
-        .eq('id', commission.order_id)
-        .single()
-
-      const { data: breakdown } = await supabase.rpc('get_order_commission_breakdown', {
-        p_order_id: commission.order_id,
-        p_salesperson_id: user.id,
-      })
-
-      setOrderDetail({ order, breakdown })
+      const result = await getMyOrderDetail(commission.order_id, commission.id)
+      if (result.error) throw new Error(result.error)
+      if (result.order) {
+        setOrderDetail({ order: result.order, breakdown: result.breakdown ?? [] })
+      }
     } catch (error) {
       console.error('Error fetching order detail:', error)
     } finally {
@@ -418,7 +399,7 @@ export default function MyCommissionsPage() {
                       >
                         #{commission.order?.order_number || '—'}
                       </button>
-                      {getStatusBadge(commission.status)}
+                      {getStatusBadge(commission.status as CommissionStatus)}
                     </div>
                     <div className="text-sm text-muted-foreground">
                       {commission.order?.customer?.business_name || '—'}
@@ -487,7 +468,7 @@ export default function MyCommissionsPage() {
                         <TableCell className="text-right font-medium">
                           ${commission.commission_amount.toFixed(2)}
                         </TableCell>
-                        <TableCell>{getStatusBadge(commission.status)}</TableCell>
+                        <TableCell>{getStatusBadge(commission.status as CommissionStatus)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -580,7 +561,7 @@ export default function MyCommissionsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {orderDetail.breakdown?.map((item: any) => (
+                    {orderDetail.breakdown?.map((item) => (
                       <TableRow key={item.order_item_id}>
                         <TableCell className="font-medium text-xs">{item.sku_name || item.sku_code}</TableCell>
                         <TableCell className="text-right">{item.quantity}</TableCell>
@@ -608,7 +589,7 @@ export default function MyCommissionsPage() {
 
               {/* Line Items - Mobile Cards */}
               <div className="sm:hidden space-y-3">
-                {orderDetail.breakdown?.map((item: any) => (
+                {orderDetail.breakdown?.map((item) => (
                   <Card key={item.order_item_id}>
                     <CardContent className="p-3 space-y-1">
                       <p className="font-medium text-sm">{item.sku_name || item.sku_code}</p>

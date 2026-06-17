@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { DispensaryProfile } from '@/types/database'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -17,6 +16,7 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { updateCustomer } from '@/actions/customers'
 
 interface EditDispensarySheetProps {
   open: boolean
@@ -54,7 +54,6 @@ export function EditDispensarySheet({
   })
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<Partial<FormData>>({})
-  const supabase = createClient()
 
   // Reset form when dispensary changes
   const resetForm = () => {
@@ -113,49 +112,36 @@ export function EditDispensarySheet({
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!dispensary || !validateForm()) {
       return
     }
 
     setLoading(true)
 
-    try {
-      const updateData = {
-        business_name: formData.business_name.trim(),
-        license_name: formData.license_name.trim() || null,
-        address: formData.address.trim() || null,
-        phone_number: formData.phone_number.trim() || null,
-        email: formData.email.trim() || null,
-        omma_license: formData.omma_license.trim() || null,
-        ob_license: formData.ob_license.trim() || null,
-        is_active: formData.is_active,
-        updated_at: new Date().toISOString()
-      }
+    const result = await updateCustomer(dispensary.id, {
+      business_name: formData.business_name,
+      license_name: formData.license_name,
+      address: formData.address,
+      phone_number: formData.phone_number,
+      email: formData.email,
+      omma_license: formData.omma_license,
+      ob_license: formData.ob_license,
+      is_active: formData.is_active,
+    })
 
-      const { error } = await supabase
-        .from('customers')
-        .update(updateData)
-        .eq('id', dispensary.id)
+    setLoading(false)
 
-      if (error) {
-        throw error
-      }
-
-      toast.success('Dispensary updated successfully')
-      onSuccess?.()
-      onClose()
-      resetForm()
-    } catch (error) {
-      console.error('Error updating dispensary:', error)
-      toast.error(
-        error instanceof Error 
-          ? error.message 
-          : 'Failed to update dispensary. Please try again.'
-      )
-    } finally {
-      setLoading(false)
+    if (result.error) {
+      console.error('Error updating dispensary:', result.error)
+      toast.error(result.error)
+      return
     }
+
+    toast.success('Dispensary updated successfully')
+    onSuccess?.()
+    onClose()
+    resetForm()
   }
 
   return (

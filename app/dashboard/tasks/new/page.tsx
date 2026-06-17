@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
-import { useAuth } from '@/lib/auth-context'
+import { getCustomersForPicker } from '@/actions/communications'
+import { createTask } from '@/actions/tasks'
+import type { CustomerOption } from '@/actions/communications'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -32,10 +33,9 @@ import {
 } from '@/components/ui/popover'
 import { ArrowLeft, Loader2, Check, ChevronsUpDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { Customer } from '@/types/database'
 
 export default function NewTaskPage() {
-  const [customers, setCustomers] = useState<Customer[]>([])
+  const [customers, setCustomers] = useState<CustomerOption[]>([])
   const [customerId, setCustomerId] = useState('')
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -45,8 +45,6 @@ export default function NewTaskPage() {
   const [error, setError] = useState<string | null>(null)
   const [customerOpen, setCustomerOpen] = useState(false)
   const router = useRouter()
-  const supabase = createClient()
-  const { user } = useAuth()
 
   useEffect(() => {
     fetchCustomers()
@@ -57,30 +55,12 @@ export default function NewTaskPage() {
   }, [])
 
   const fetchCustomers = async () => {
-    try {
-      const allCustomers: any[] = []
-      let from = 0
-      const batchSize = 1000
-
-      while (true) {
-        const { data, error } = await supabase
-          .from('customers')
-          .select('*')
-          .order('business_name')
-          .range(from, from + batchSize - 1)
-
-        if (error) throw error
-        if (!data || data.length === 0) break
-
-        allCustomers.push(...data)
-        if (data.length < batchSize) break
-        from += batchSize
-      }
-
-      setCustomers(allCustomers)
-    } catch (error) {
-      console.error('Error fetching customers:', error)
+    const result = await getCustomersForPicker()
+    if (result.error) {
+      console.error('Error fetching customers:', result.error)
+      return
     }
+    setCustomers(result.data ?? [])
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -89,28 +69,22 @@ export default function NewTaskPage() {
     setError(null)
 
     try {
-      if (!user) {
-        setError('Not authenticated')
+      const result = await createTask({
+        customer_id: customerId || null,
+        title,
+        description: description || null,
+        due_date: dueDate,
+        priority: parseInt(priority),
+      })
+
+      if (result.error) {
+        setError(result.error)
         return
       }
 
-      const { error } = await supabase
-        .from('sales_tasks')
-        .insert({
-          agent_id: user.id,
-          customer_id: customerId || null,
-          title,
-          description: description || null,
-          due_date: dueDate,
-          priority: parseInt(priority),
-          status: 'pending'
-        })
-
-      if (error) throw error
-
       router.push('/dashboard/tasks')
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'An error occurred')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred')
     } finally {
       setLoading(false)
     }

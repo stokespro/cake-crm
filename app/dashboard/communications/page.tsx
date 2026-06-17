@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
+import { getCommunications, updateCommunication } from '@/actions/communications'
+import type { CommunicationWithCustomer } from '@/actions/communications'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -19,7 +20,7 @@ import {
 } from '@/components/ui/select'
 import { Plus, Search, Phone, Mail, User, MessageSquare, Calendar, Edit2, Save, X, History } from 'lucide-react'
 import { format } from 'date-fns'
-import type { Communication, ContactMethod } from '@/types/database'
+import type { ContactMethod } from '@/types/database'
 
 interface EditFormData {
   notes: string
@@ -29,15 +30,9 @@ interface EditFormData {
   interaction_date: string
 }
 
-interface UpdateData extends Partial<EditFormData> {
-  last_edited_by?: string
-  last_edited_at?: string
-  is_edited?: boolean
-}
-
 export default function CommunicationsPage() {
-  const [communications, setCommunications] = useState<Communication[]>([])
-  const [filteredCommunications, setFilteredCommunications] = useState<Communication[]>([])
+  const [communications, setCommunications] = useState<CommunicationWithCustomer[]>([])
+  const [filteredCommunications, setFilteredCommunications] = useState<CommunicationWithCustomer[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterMethod, setFilterMethod] = useState('all')
@@ -45,7 +40,6 @@ export default function CommunicationsPage() {
   const [editingComm, setEditingComm] = useState<string | null>(null)
   const [editForm, setEditForm] = useState<EditFormData>({} as EditFormData)
   const [saving, setSaving] = useState(false)
-  const supabase = createClient()
   const { user } = useAuth()
 
   // Get user role from auth context
@@ -61,28 +55,13 @@ export default function CommunicationsPage() {
   }, [communications, searchTerm, filterMethod, filterFollowUp])
 
   const fetchCommunications = async () => {
-    if (!user) return
-
     try {
-      let query = supabase
-        .from('communications')
-        .select(`
-          *,
-          customer:customers(business_name, email, phone_number)
-        `)
-        .order('interaction_date', { ascending: false })
-
-      // Agents and sales users can only see their own communications
-      if (['sales', 'agent'].includes(userRole)) {
-        query = query.eq('agent_id', user.id)
+      const result = await getCommunications()
+      if (result.error) {
+        console.error('Error fetching communications:', result.error)
+        return
       }
-
-      const { data, error } = await query
-
-      if (error) throw error
-      setCommunications(data || [])
-    } catch (error) {
-      console.error('Error fetching communications:', error)
+      setCommunications(result.data ?? [])
     } finally {
       setLoading(false)
     }
@@ -94,7 +73,7 @@ export default function CommunicationsPage() {
     // Search filter
     if (searchTerm) {
       const term = searchTerm.toLowerCase()
-      filtered = filtered.filter(comm => 
+      filtered = filtered.filter(comm =>
         comm.client_name?.toLowerCase().includes(term) ||
         comm.notes.toLowerCase().includes(term) ||
         comm.customer?.business_name?.toLowerCase().includes(term) ||
@@ -151,7 +130,7 @@ export default function CommunicationsPage() {
 
   const canEditCommunications = ['management', 'admin'].includes(userRole)
 
-  const startEditing = (comm: Communication) => {
+  const startEditing = (comm: CommunicationWithCustomer) => {
     setEditingComm(comm.id)
     setEditForm({
       notes: comm.notes || '',
@@ -168,30 +147,16 @@ export default function CommunicationsPage() {
   }
 
   const saveCommunication = async (commId: string) => {
-    if (!user) return
-
     setSaving(true)
     try {
-      const updateData: UpdateData = {
-        ...editForm,
-        last_edited_by: user.id,
-        last_edited_at: new Date().toISOString(),
-        is_edited: true
+      const result = await updateCommunication(commId, editForm)
+      if (result.error) {
+        alert('Error saving communication: ' + result.error)
+        return
       }
-
-      const { error } = await supabase
-        .from('communications')
-        .update(updateData)
-        .eq('id', commId)
-
-      if (error) throw error
-      
       setEditingComm(null)
       setEditForm({} as EditFormData)
       fetchCommunications()
-    } catch (error) {
-      console.error('Error saving communication:', error)
-      alert('Error saving communication. Please try again.')
     } finally {
       setSaving(false)
     }
@@ -312,17 +277,17 @@ export default function CommunicationsPage() {
                         )}
                       </div>
                     </div>
-                    
+
                     <p className="text-sm">{comm.notes}</p>
-                    
+
                     {/* Inline Editing */}
                     {editingComm === comm.id ? (
                       <div className="space-y-4 p-4 border rounded-lg bg-muted/50">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="space-y-2">
                             <label className="text-sm font-medium">Contact Method</label>
-                            <Select 
-                              value={editForm.contact_method} 
+                            <Select
+                              value={editForm.contact_method}
                               onValueChange={(value) => updateEditForm('contact_method', value as ContactMethod)}
                             >
                               <SelectTrigger>
@@ -424,7 +389,7 @@ export default function CommunicationsPage() {
                             </div>
                           )}
                         </div>
-                        
+
                         {/* Action Buttons */}
                         {canEditCommunications && (
                           <div className="flex gap-2">

@@ -1,6 +1,7 @@
 'use server';
 
 import { createClient, createServiceClient } from '@/lib/supabase/server';
+import { setSessionCookie, clearSessionCookie } from '@/lib/auth/session';
 
 export interface SessionUser {
   id: string;
@@ -38,6 +39,16 @@ export async function authenticateByPin(pin: string): Promise<{ success: boolean
     console.error('Shadow auth sign-in failed:', authError);
   }
 
+  // Set a secure, HttpOnly, server-readable session cookie containing the
+  // user's id signed with SESSION_SECRET. The role is never baked in — it is
+  // re-read from public.users on every verifySession() call.
+  // Belt-and-suspenders guard: cookie failure must never block a successful login.
+  try {
+    await setSessionCookie(data.id);
+  } catch (err) {
+    console.error('[auth] setSessionCookie threw unexpectedly — login will continue without server cookie:', err);
+  }
+
   return {
     success: true,
     user: {
@@ -46,4 +57,12 @@ export async function authenticateByPin(pin: string): Promise<{ success: boolean
       role: data.role,
     },
   };
+}
+
+/**
+ * Server action: clear the crm-session cookie.
+ * Call this from the client-side logout handler alongside localStorage clearing.
+ */
+export async function logoutAction(): Promise<void> {
+  await clearSessionCookie();
 }

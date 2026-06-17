@@ -9,7 +9,7 @@ import {
   SheetDescription,
 } from '@/components/ui/sheet'
 import { Badge } from '@/components/ui/badge'
-import { createClient } from '@/lib/supabase/client'
+import { getRoomCycleHistory } from '@/actions/cultivation'
 import { GrowRoom, GrowPhase, PHASE_CONFIG, CycleStatus } from '@/types/cultivation'
 import { format } from 'date-fns'
 import { parseLocalDate } from '@/lib/utils'
@@ -65,20 +65,12 @@ export function RoomHistorySheet({
 
     async function fetchHistory() {
       setLoading(true)
-      const supabase = createClient()
+      const result = await getRoomCycleHistory(room!.id)
 
-      const { data, error } = await supabase
-        .from('room_cycles')
-        .select(
-          '*, template:cycle_templates(name), tasks:cultivation_tasks(id, status)'
-        )
-        .eq('room_id', room!.id)
-        .order('start_date', { ascending: false })
-
-      if (error) {
-        console.error('Failed to load cycle history:', error)
-      } else if (data) {
-        setCycles(data as unknown as CycleWithRelations[])
+      if (result.error) {
+        console.error('Failed to load cycle history:', result.error)
+      } else if (result.data) {
+        setCycles(result.data as unknown as CycleWithRelations[])
       }
 
       setLoading(false)

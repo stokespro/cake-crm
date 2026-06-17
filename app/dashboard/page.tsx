@@ -1,8 +1,4 @@
-'use client'
-
-import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { useAuth } from '@/lib/auth-context'
+import { getDashboardSummary } from '@/actions/dashboard'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -20,121 +16,46 @@ import { format } from 'date-fns'
 import { parseLocalDate } from '@/lib/utils'
 import type { Task, Order } from '@/types/database'
 
-export default function DashboardPage() {
-  const [stats, setStats] = useState({
-    totalOrders: 0,
-    pendingTasks: 0,
-    todayCommunications: 0,
-    monthlyRevenue: 0,
-  })
-  const [recentTasks, setRecentTasks] = useState<Task[]>([])
-  const [recentOrders, setRecentOrders] = useState<Order[]>([])
-  const [loading, setLoading] = useState(true)
-  const supabase = createClient()
-  const { user } = useAuth()
-
-  useEffect(() => {
-    if (user) {
-      fetchDashboardData()
-    }
-  }, [user])
-
-  const fetchDashboardData = async () => {
-    if (!user) return
-
-    try {
-      // Fetch stats
-      const today = new Date().toISOString().split('T')[0]
-      const firstDayOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()
-
-      // Count pending tasks
-      const { count: pendingTasksCount } = await supabase
-        .from('sales_tasks')
-        .select('*', { count: 'exact', head: true })
-        .eq('agent_id', user.id)
-        .eq('status', 'pending')
-
-      // Count today's communications
-      const { count: todayCommsCount } = await supabase
-        .from('communications')
-        .select('*', { count: 'exact', head: true })
-        .eq('agent_id', user.id)
-        .gte('interaction_date', today)
-
-      // Count total orders this month
-      const { data: monthlyOrders } = await supabase
-        .from('orders')
-        .select('total_price')
-        .eq('agent_id', user.id)
-        .gte('order_date', firstDayOfMonth)
-
-      const monthlyRevenue = monthlyOrders?.reduce((sum, order) => sum + (order.total_price || 0), 0) || 0
-
-      // Fetch recent tasks
-      const { data: tasks } = await supabase
-        .from('sales_tasks')
-        .select('*, customer:customers(business_name)')
-        .eq('agent_id', user.id)
-        .eq('status', 'pending')
-        .order('due_date', { ascending: true })
-        .limit(5)
-
-      // Fetch recent orders
-      const { data: orders } = await supabase
-        .from('orders')
-        .select('*, customer:customers(business_name)')
-        .eq('agent_id', user.id)
-        .order('order_date', { ascending: false })
-        .limit(5)
-
-      setStats({
-        totalOrders: monthlyOrders?.length || 0,
-        pendingTasks: pendingTasksCount || 0,
-        todayCommunications: todayCommsCount || 0,
-        monthlyRevenue,
-      })
-      setRecentTasks(tasks || [])
-      setRecentOrders(orders || [])
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error)
-    } finally {
-      setLoading(false)
-    }
+function getPriorityBadge(priority: number) {
+  switch (priority) {
+    case 1:
+      return <Badge variant="destructive">High</Badge>
+    case 2:
+      return <Badge variant="default">Medium</Badge>
+    case 3:
+      return <Badge variant="secondary">Low</Badge>
+    default:
+      return null
   }
+}
 
-  const getPriorityBadge = (priority: number) => {
-    switch (priority) {
-      case 1:
-        return <Badge variant="destructive">High</Badge>
-      case 2:
-        return <Badge variant="default">Medium</Badge>
-      case 3:
-        return <Badge variant="secondary">Low</Badge>
-      default:
-        return null
-    }
+function getStatusBadge(status: string) {
+  switch (status) {
+    case 'pending':
+      return <Badge variant="outline">Pending</Badge>
+    case 'submitted':
+      return <Badge variant="default">Submitted</Badge>
+    case 'approved':
+      return <Badge variant="default" className="bg-green-600">Approved</Badge>
+    default:
+      return null
   }
+}
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return <Badge variant="outline">Pending</Badge>
-      case 'submitted':
-        return <Badge variant="default">Submitted</Badge>
-      case 'approved':
-        return <Badge variant="default" className="bg-green-600">Approved</Badge>
-      default:
-        return null
-    }
-  }
+export default async function DashboardPage() {
+  const result = await getDashboardSummary()
 
-  if (loading) {
+  if (result.error) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-muted-foreground">Loading dashboard...</div>
+        <div className="text-muted-foreground">Unable to load dashboard.</div>
       </div>
     )
   }
+
+  // result.error was checked above; data is guaranteed present
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  const { stats, recentTasks, recentOrders } = result.data!
 
   return (
     <div className="space-y-6">
@@ -212,7 +133,7 @@ export default function DashboardPage() {
               {recentTasks.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No pending tasks</p>
               ) : (
-                recentTasks.map((task) => (
+                recentTasks.map((task: Task) => (
                   <div key={task.id} className="flex items-start justify-between space-x-3 p-3 rounded-lg border hover:bg-accent/50 transition-colors">
                     <div className="flex-1 space-y-1">
                       <p className="text-sm font-medium">{task.title}</p>
@@ -254,7 +175,7 @@ export default function DashboardPage() {
               {recentOrders.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No recent orders</p>
               ) : (
-                recentOrders.map((order) => (
+                recentOrders.map((order: Order) => (
                   <div key={order.id} className="flex items-start justify-between space-x-3 p-3 rounded-lg border hover:bg-accent/50 transition-colors">
                     <div className="flex-1 space-y-1">
                       <p className="text-sm font-medium">

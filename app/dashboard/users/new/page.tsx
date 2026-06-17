@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import { createUser } from '@/actions/users'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -32,54 +32,22 @@ export default function NewUserPage() {
   })
 
   const router = useRouter()
-  const supabase = createClient()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
 
     try {
-      // Validate PIN is 4 digits
-      if (!/^\d{4}$/.test(formData.pin)) {
-        throw new Error('PIN must be exactly 4 digits')
-      }
+      const result = await createUser({
+        name: formData.name,
+        pin: formData.pin,
+        role: formData.role,
+        slack_user_id: formData.slack_user_id,
+      })
 
-      // Check if PIN is already in use
-      const { data: existingUser } = await supabase
-        .from('users')
-        .select('id')
-        .eq('pin', formData.pin)
-        .single()
-
-      if (existingUser) {
-        throw new Error('This PIN is already in use. Please generate a new one.')
-      }
-
-      const { data: newUser, error } = await supabase
-        .from('users')
-        .insert({
-          name: formData.name,
-          pin: formData.pin,
-          role: formData.role
-        })
-        .select('id')
-        .single()
-
-      if (error) throw error
-
-      // Create Slack mapping if Slack User ID was provided
-      if (formData.slack_user_id.trim() && newUser) {
-        const { error: slackError } = await supabase
-          .from('slack_user_mappings')
-          .insert({
-            slack_user_id: formData.slack_user_id.trim(),
-            cake_user_id: newUser.id
-          })
-
-        if (slackError) {
-          console.error('Error creating Slack mapping:', slackError)
-          // Don't block user creation if Slack mapping fails
-        }
+      if (result.error) {
+        alert(result.error)
+        return
       }
 
       router.push('/dashboard/users')
@@ -241,7 +209,7 @@ export default function NewUserPage() {
           <CardTitle className="text-base">User Creation Process</CardTitle>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground space-y-2">
-          <p>1. Enter the user's name</p>
+          <p>1. Enter the user&apos;s name</p>
           <p>2. A 4-digit PIN is auto-generated (you can regenerate or edit it)</p>
           <p>3. Select the appropriate role based on their responsibilities</p>
           <p>4. Share the PIN securely with the user for login</p>

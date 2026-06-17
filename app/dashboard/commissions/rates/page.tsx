@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -51,7 +50,19 @@ import { toast } from 'sonner'
 import { Plus, Edit2, Trash2, CalendarIcon, Percent } from 'lucide-react'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
-import type { CommissionRate, Profile, ProductType, SKU } from '@/types/database'
+import {
+  getCommissionRates,
+  getSalespeople,
+  getProductTypes,
+  getSkus,
+  createCommissionRate,
+  updateCommissionRate,
+  deleteCommissionRate,
+  type CommissionRateRow,
+  type SalespersonOption,
+  type ProductTypeOption,
+  type SkuOption,
+} from '@/actions/commissions'
 
 interface RateFormData {
   salesperson_id: string
@@ -76,19 +87,18 @@ const initialFormData: RateFormData = {
 export default function CommissionRatesPage() {
   const router = useRouter()
   const { user, isLoading: authLoading } = useAuth()
-  const supabase = createClient()
 
-  const [rates, setRates] = useState<CommissionRate[]>([])
-  const [salespeople, setSalespeople] = useState<Profile[]>([])
-  const [productTypes, setProductTypes] = useState<ProductType[]>([])
-  const [skus, setSkus] = useState<SKU[]>([])
-  const [filteredSkus, setFilteredSkus] = useState<SKU[]>([])
+  const [rates, setRates] = useState<CommissionRateRow[]>([])
+  const [salespeople, setSalespeople] = useState<SalespersonOption[]>([])
+  const [productTypes, setProductTypes] = useState<ProductTypeOption[]>([])
+  const [skus, setSkus] = useState<SkuOption[]>([])
+  const [filteredSkus, setFilteredSkus] = useState<SkuOption[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
   // Sheet state
   const [sheetOpen, setSheetOpen] = useState(false)
-  const [editingRate, setEditingRate] = useState<CommissionRate | null>(null)
+  const [editingRate, setEditingRate] = useState<CommissionRateRow | null>(null)
   const [formData, setFormData] = useState<RateFormData>(initialFormData)
 
   // Delete dialog state
@@ -125,42 +135,23 @@ export default function CommissionRatesPage() {
 
   const fetchData = async () => {
     try {
-      const [ratesRes, salesRes, typesRes, skusRes] = await Promise.all([
-        supabase
-          .from('commission_rates')
-          .select(`
-            *,
-            salesperson:profiles!commission_rates_salesperson_id_fkey(id, full_name),
-            product_type:product_types(id, name),
-            sku:skus(id, code, name)
-          `)
-          .order('created_at', { ascending: false }),
-        supabase
-          .from('profiles')
-          .select('id, full_name, role')
-          .in('role', ['sales', 'agent'])
-          .order('full_name'),
-        supabase
-          .from('product_types')
-          .select('*')
-          .order('name'),
-        supabase
-          .from('skus')
-          .select('id, code, name, product_type_id')
-          .eq('status', 'active')
-          .order('code'),
+      const [ratesResult, salespeopleResult, typesResult, skusResult] = await Promise.all([
+        getCommissionRates(),
+        getSalespeople(),
+        getProductTypes(),
+        getSkus(),
       ])
 
-      if (ratesRes.error) throw ratesRes.error
-      if (salesRes.error) throw salesRes.error
-      if (typesRes.error) throw typesRes.error
-      if (skusRes.error) throw skusRes.error
+      if (ratesResult.error) throw new Error(ratesResult.error)
+      if (salespeopleResult.error) throw new Error(salespeopleResult.error)
+      if (typesResult.error) throw new Error(typesResult.error)
+      if (skusResult.error) throw new Error(skusResult.error)
 
-      setRates(ratesRes.data || [])
-      setSalespeople(salesRes.data || [])
-      setProductTypes(typesRes.data || [])
-      setSkus(skusRes.data || [])
-      setFilteredSkus(skusRes.data || [])
+      setRates(ratesResult.data ?? [])
+      setSalespeople(salespeopleResult.data ?? [])
+      setProductTypes(typesResult.data ?? [])
+      setSkus(skusResult.data ?? [])
+      setFilteredSkus(skusResult.data ?? [])
     } catch (error) {
       console.error('Error fetching data:', error)
       toast.error('Failed to load data')
@@ -178,7 +169,7 @@ export default function CommissionRatesPage() {
     setSheetOpen(true)
   }
 
-  const openEditSheet = (rate: CommissionRate) => {
+  const openEditSheet = (rate: CommissionRateRow) => {
     setEditingRate(rate)
     setFormData({
       salesperson_id: rate.salesperson_id || '',
@@ -228,19 +219,12 @@ export default function CommissionRatesPage() {
       }
 
       if (editingRate) {
-        const { error } = await supabase
-          .from('commission_rates')
-          .update(rateData)
-          .eq('id', editingRate.id)
-
-        if (error) throw error
+        const result = await updateCommissionRate(editingRate.id, rateData)
+        if (result.error) throw new Error(result.error)
         toast.success('Rate updated successfully')
       } else {
-        const { error } = await supabase
-          .from('commission_rates')
-          .insert(rateData)
-
-        if (error) throw error
+        const result = await createCommissionRate(rateData)
+        if (result.error) throw new Error(result.error)
         toast.success('Rate created successfully')
       }
 
@@ -261,13 +245,8 @@ export default function CommissionRatesPage() {
 
     setDeleting(true)
     try {
-      const { error } = await supabase
-        .from('commission_rates')
-        .delete()
-        .eq('id', deleteRateId)
-
-      if (error) throw error
-
+      const result = await deleteCommissionRate(deleteRateId)
+      if (result.error) throw new Error(result.error)
       toast.success('Rate deleted successfully')
       setDeleteRateId(null)
       fetchData()
@@ -465,7 +444,7 @@ export default function CommissionRatesPage() {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Leave as "All" for a global default rate
+                Leave as &quot;All&quot; for a global default rate
               </p>
             </div>
 

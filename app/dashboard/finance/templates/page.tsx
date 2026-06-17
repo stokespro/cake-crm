@@ -3,9 +3,14 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
-import { createBillTemplate, updateBillTemplate, deactivateBillTemplate } from '@/actions/finance'
+import {
+  createBillTemplate,
+  updateBillTemplate,
+  deactivateBillTemplate,
+  getTemplatesWithVendors,
+  getVendors,
+} from '@/actions/finance'
 import type { BillTemplate, Vendor } from '@/actions/finance'
-import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -98,7 +103,6 @@ function recurrenceLabel(recurrence: string): string {
 export default function BillTemplatesPage() {
   const router = useRouter()
   const { user, isLoading: authLoading } = useAuth()
-  const supabase = createClient()
 
   const [templates, setTemplates] = useState<BillTemplate[]>([])
   const [vendors, setVendors] = useState<Vendor[]>([])
@@ -124,29 +128,22 @@ export default function BillTemplatesPage() {
   const fetchData = useCallback(async () => {
     try {
       const [templatesRes, vendorsRes] = await Promise.all([
-        supabase
-          .from('finance_bill_templates')
-          .select('*, vendor:finance_vendors(id, name)')
-          .order('name', { ascending: true }),
-        supabase
-          .from('finance_vendors')
-          .select('*')
-          .eq('is_active', true)
-          .order('name', { ascending: true }),
+        getTemplatesWithVendors(),
+        getVendors(true),
       ])
 
-      if (templatesRes.error) throw templatesRes.error
-      if (vendorsRes.error) throw vendorsRes.error
+      if (!templatesRes.success || !templatesRes.data) throw new Error(templatesRes.error ?? 'Failed to load templates')
+      if (!vendorsRes.success || !vendorsRes.data) throw new Error(vendorsRes.error ?? 'Failed to load vendors')
 
-      setTemplates((templatesRes.data || []) as BillTemplate[])
-      setVendors(vendorsRes.data || [])
+      setTemplates(templatesRes.data)
+      setVendors(vendorsRes.data)
     } catch (error) {
       console.error('Error fetching data:', error)
       toast.error('Failed to load templates')
     } finally {
       setLoading(false)
     }
-  }, [supabase])
+  }, [])
 
   useEffect(() => {
     if (canManage) {

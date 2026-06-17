@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -77,6 +76,9 @@ import {
   updateBill,
   markBillPaid,
   instantiateBillsFromTemplates,
+  getBillsForMonth,
+  getTemplatesWithVendors,
+  getVendors,
 } from '@/actions/finance'
 import type { Bill, BillStatus, BillTemplate, Vendor } from '@/actions/finance'
 
@@ -196,7 +198,6 @@ type ViewMode = 'table' | 'card'
 export default function BillsPage() {
   const router = useRouter()
   const { user, isLoading: authLoading } = useAuth()
-  const supabase = createClient()
 
   const [month, setMonth] = useState(currentMonthStr())
   const [bills, setBills] = useState<Bill[]>([])
@@ -255,40 +256,25 @@ export default function BillsPage() {
     if (canManage) {
       fetchData()
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canManage, month])
 
   const fetchData = async () => {
     setLoading(true)
     try {
       const [billsRes, vendorsRes, templatesRes] = await Promise.all([
-        supabase
-          .from('finance_bills')
-          .select(`
-            *,
-            template:finance_bill_templates(id, name, amount),
-            vendor:finance_vendors(id, name)
-          `)
-          .eq('period_month', month)
-          .order('due_date', { ascending: true }),
-        supabase
-          .from('finance_vendors')
-          .select('*')
-          .eq('is_active', true)
-          .order('name'),
-        supabase
-          .from('finance_bill_templates')
-          .select('*, vendor:finance_vendors(id, name)')
-          .eq('is_active', true)
-          .order('name'),
+        getBillsForMonth(month),
+        getVendors(true),
+        getTemplatesWithVendors(true),
       ])
 
-      if (billsRes.error) throw billsRes.error
-      if (vendorsRes.error) throw vendorsRes.error
-      if (templatesRes.error) throw templatesRes.error
+      if (!billsRes.success || !billsRes.data) throw new Error(billsRes.error ?? 'Failed to load bills')
+      if (!vendorsRes.success || !vendorsRes.data) throw new Error(vendorsRes.error ?? 'Failed to load vendors')
+      if (!templatesRes.success || !templatesRes.data) throw new Error(templatesRes.error ?? 'Failed to load templates')
 
-      setBills((billsRes.data || []) as Bill[])
-      setVendors((vendorsRes.data || []) as Vendor[])
-      setTemplates((templatesRes.data || []) as BillTemplate[])
+      setBills(billsRes.data)
+      setVendors(vendorsRes.data)
+      setTemplates(templatesRes.data)
     } catch (err) {
       console.error('Error fetching bills data:', err)
       toast.error('Failed to load bills')

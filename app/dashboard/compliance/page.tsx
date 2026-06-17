@@ -1,8 +1,14 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
+import {
+  getComplianceEntries,
+  createComplianceEntry,
+  updateComplianceEntry,
+  deleteComplianceEntry,
+} from '@/actions/compliance'
+import type { ComplianceEntry } from '@/actions/compliance'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -42,7 +48,6 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Plus, Search, Edit2, Trash2, Printer, ExternalLink, X } from 'lucide-react'
 import { format } from 'date-fns'
-import type { ComplianceLogEntry, ComplianceReportType } from '@/types/database'
 
 const REPORT_TYPES = [
   { value: 'plant_movement', label: 'Plant Movement' },
@@ -100,41 +105,36 @@ const emptyForm: FormData = {
 }
 
 export default function CompliancePage() {
-  const [entries, setEntries] = useState<ComplianceLogEntry[]>([])
-  const [filteredEntries, setFilteredEntries] = useState<ComplianceLogEntry[]>([])
+  const [entries, setEntries] = useState<ComplianceEntry[]>([])
+  const [filteredEntries, setFilteredEntries] = useState<ComplianceEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterType, setFilterType] = useState('all')
   const [filterDateFrom, setFilterDateFrom] = useState('')
   const [filterDateTo, setFilterDateTo] = useState('')
   const [sheetOpen, setSheetOpen] = useState(false)
-  const [editingEntry, setEditingEntry] = useState<ComplianceLogEntry | null>(null)
+  const [editingEntry, setEditingEntry] = useState<ComplianceEntry | null>(null)
   const [form, setForm] = useState<FormData>(emptyForm)
   const [saving, setSaving] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deleteEntryId, setDeleteEntryId] = useState<string | null>(null)
 
-  const supabase = createClient()
   const { user } = useAuth()
   const userRole = user?.role || 'standard'
   const canManage = userRole === 'admin' || userRole === 'management'
 
   const fetchEntries = useCallback(async () => {
     try {
-      const { data, error } = await supabase
-        .from('compliance_log')
-        .select('*, logged_by_user:users!compliance_log_logged_by_fkey(id, name), editor:users!compliance_log_last_edited_by_fkey(id, name)')
-        .order('event_date', { ascending: false })
-        .limit(1000)
-
-      if (error) throw error
-      setEntries((data as ComplianceLogEntry[]) || [])
-    } catch (error) {
-      console.error('Error fetching compliance log:', error)
+      const result = await getComplianceEntries()
+      if (result.error) {
+        console.error('Error fetching compliance log:', result.error)
+        return
+      }
+      setEntries(result.data ?? [])
     } finally {
       setLoading(false)
     }
-  }, [supabase])
+  }, [])
 
   useEffect(() => {
     if (!user) return
@@ -191,7 +191,7 @@ export default function CompliancePage() {
     setSheetOpen(true)
   }
 
-  const openEditSheet = (entry: ComplianceLogEntry) => {
+  const openEditSheet = (entry: ComplianceEntry) => {
     setEditingEntry(entry)
     setForm({
       report_type: entry.report_type,
@@ -213,13 +213,13 @@ export default function CompliancePage() {
   }
 
   const handleSubmit = async () => {
-    if (!user || !form.summary.trim() || !form.event_date) return
+    if (!form.summary.trim() || !form.event_date) return
 
     setSaving(true)
     try {
       const metrcIds = parseMetrcIds(form.metrc_ids_text)
       const payload = {
-        event_date: new Date(form.event_date).toISOString(),
+        event_date: form.event_date,
         report_type: form.report_type,
         custom_report_type: form.report_type === 'other' ? form.custom_report_type || null : null,
         summary: form.summary.trim(),
@@ -229,37 +229,22 @@ export default function CompliancePage() {
         metadata: {},
       }
 
+      let result: { error?: string }
       if (editingEntry) {
-        const { error } = await supabase
-          .from('compliance_log')
-          .update({
-            ...payload,
-            last_edited_by: user.id,
-            last_edited_at: new Date().toISOString(),
-            is_edited: true,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', editingEntry.id)
-
-        if (error) throw error
+        result = await updateComplianceEntry(editingEntry.id, payload)
       } else {
-        const { error } = await supabase
-          .from('compliance_log')
-          .insert({
-            ...payload,
-            logged_by: user.id,
-          })
+        result = await createComplianceEntry(payload)
+      }
 
-        if (error) throw error
+      if (result.error) {
+        alert('Error saving compliance entry: ' + result.error)
+        return
       }
 
       setSheetOpen(false)
       setEditingEntry(null)
       setForm(emptyForm)
       fetchEntries()
-    } catch (error) {
-      console.error('Error saving compliance entry:', error)
-      alert('Error saving compliance entry. Please try again.')
     } finally {
       setSaving(false)
     }
@@ -274,24 +259,18 @@ export default function CompliancePage() {
   const handleDelete = async () => {
     if (!deleteEntryId) return
 
-    try {
-      const { error } = await supabase
-        .from('compliance_log')
-        .delete()
-        .eq('id', deleteEntryId)
-
-      if (error) throw error
-      setDeleteDialogOpen(false)
-      setDeleteEntryId(null)
-      fetchEntries()
-    } catch (error) {
-      console.error('Error deleting compliance entry:', error)
-      alert('Error deleting entry. Please try again.')
+    const result = await deleteComplianceEntry(deleteEntryId)
+    if (result.error) {
+      alert('Error deleting entry: ' + result.error)
+      return
     }
+    setDeleteDialogOpen(false)
+    setDeleteEntryId(null)
+    fetchEntries()
   }
 
   // Print handler
-  const handlePrint = (entry: ComplianceLogEntry) => {
+  const handlePrint = (entry: ComplianceEntry) => {
     const printWindow = window.open('', '_blank')
     if (!printWindow) return
 

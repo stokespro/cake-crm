@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { useAuth } from '@/lib/auth-context'
+import { getCustomersForPicker, createCommunication } from '@/actions/communications'
+import type { CustomerOption } from '@/actions/communications'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -37,7 +37,7 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { Loader2, Check, ChevronsUpDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { Customer, ContactMethod } from '@/types/database'
+import type { ContactMethod } from '@/types/database'
 
 interface CommunicationSheetProps {
   open: boolean
@@ -52,8 +52,7 @@ export function CommunicationSheet({
   dispensaryId,
   onSuccess
 }: CommunicationSheetProps) {
-  const { user } = useAuth()
-  const [customers, setCustomers] = useState<Customer[]>([])
+  const [customers, setCustomers] = useState<CustomerOption[]>([])
   const [selectedCustomerId, setSelectedCustomerId] = useState(dispensaryId || '')
   const [clientName, setClientName] = useState('')
   const [notes, setNotes] = useState('')
@@ -66,34 +65,15 @@ export function CommunicationSheet({
   const [error, setError] = useState<string | null>(null)
   const [customerOpen, setCustomerOpen] = useState(false)
   const [showAllCustomers, setShowAllCustomers] = useState(false)
-  const supabase = createClient()
 
   const fetchCustomers = useCallback(async () => {
-    try {
-      const allCustomers: Customer[] = []
-      let from = 0
-      const batchSize = 1000
-
-      while (true) {
-        const { data, error } = await supabase
-          .from('customers')
-          .select('*')
-          .order('business_name')
-          .range(from, from + batchSize - 1)
-
-        if (error) throw error
-        if (!data || data.length === 0) break
-
-        allCustomers.push(...(data as Customer[]))
-        if (data.length < batchSize) break
-        from += batchSize
-      }
-
-      setCustomers(allCustomers)
-    } catch (error) {
-      console.error('Error fetching customers:', error)
+    const result = await getCustomersForPicker()
+    if (result.error) {
+      console.error('Error fetching customers:', result.error)
+      return
     }
-  }, [supabase])
+    setCustomers(result.data ?? [])
+  }, [])
 
   useEffect(() => {
     if (open) {
@@ -140,31 +120,27 @@ export function CommunicationSheet({
     setLoading(true)
 
     try {
-      if (!user) throw new Error('Not authenticated')
+      const result = await createCommunication({
+        customer_id: selectedCustomerId,
+        client_name: clientName.trim() || '',
+        notes: notes.trim(),
+        contact_method: contactMethod,
+        follow_up_required: followUpRequired,
+        interaction_date: interactionDate,
+      })
 
-      const { error } = await supabase
-        .from('communications')
-        .insert({
-          agent_id: user.id,
-          customer_id: selectedCustomerId,
-          client_name: clientName.trim() || null,
-          notes: notes.trim(),
-          contact_method: contactMethod,
-          follow_up_required: followUpRequired,
-          interaction_date: interactionDate,
-        })
+      if (result.error) {
+        setError(result.error)
+        return
+      }
 
-      if (error) throw error
-
-      // Call onSuccess callback if provided
       if (onSuccess) {
         onSuccess()
       }
 
-      // Close the sheet
       onClose()
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'An error occurred while saving the communication')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred while saving the communication')
     } finally {
       setLoading(false)
     }
@@ -331,8 +307,8 @@ export function CommunicationSheet({
                 onChange={(e) => setFollowUpRequired(e.target.checked)}
                 className="h-4 w-4 rounded border-gray-300"
               />
-              <Label 
-                htmlFor="followUp" 
+              <Label
+                htmlFor="followUp"
                 className="text-sm font-normal cursor-pointer"
               >
                 Follow-up required

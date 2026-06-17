@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
-import { useAuth } from '@/lib/auth-context'
+import { getTasks, markTaskComplete } from '@/actions/tasks'
+import type { TaskWithCustomer } from '@/actions/tasks'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -18,57 +18,42 @@ import {
 import { Plus, Search, Calendar, CheckCircle, Clock, AlertCircle } from 'lucide-react'
 import { format } from 'date-fns'
 import { parseLocalDate } from '@/lib/utils'
-import type { Task } from '@/types/database'
 
 export default function TasksPage() {
-  const [tasks, setTasks] = useState<Task[]>([])
-  const [filteredTasks, setFilteredTasks] = useState<Task[]>([])
+  const [tasks, setTasks] = useState<TaskWithCustomer[]>([])
+  const [filteredTasks, setFilteredTasks] = useState<TaskWithCustomer[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterPriority, setFilterPriority] = useState('all')
-  const supabase = createClient()
-  const { user } = useAuth()
 
   useEffect(() => {
     fetchTasks()
-  }, [user])
+  }, [])
 
   useEffect(() => {
-    filterTasks()
+    filterTasksList()
   }, [tasks, searchTerm, filterStatus, filterPriority])
 
   const fetchTasks = async () => {
-    if (!user) {
-      setLoading(false)
-      return
-    }
-
     try {
-      const { data, error } = await supabase
-        .from('sales_tasks')
-        .select(`
-          *,
-          customer:customers(business_name)
-        `)
-        .eq('agent_id', user.id)
-        .order('due_date', { ascending: true })
-
-      if (error) throw error
-      setTasks(data || [])
-    } catch (error) {
-      console.error('Error fetching tasks:', error)
+      const result = await getTasks()
+      if (result.error) {
+        console.error('Error fetching tasks:', result.error)
+        return
+      }
+      setTasks(result.data ?? [])
     } finally {
       setLoading(false)
     }
   }
 
-  const filterTasks = () => {
+  const filterTasksList = () => {
     let filtered = [...tasks]
 
     if (searchTerm) {
       const term = searchTerm.toLowerCase()
-      filtered = filtered.filter(task => 
+      filtered = filtered.filter(task =>
         task.title.toLowerCase().includes(term) ||
         task.description?.toLowerCase().includes(term) ||
         task.customer?.business_name?.toLowerCase().includes(term) ||
@@ -89,21 +74,13 @@ export default function TasksPage() {
     setFilteredTasks(filtered)
   }
 
-  const markComplete = async (taskId: string) => {
-    try {
-      const { error } = await supabase
-        .from('sales_tasks')
-        .update({
-          status: 'complete',
-          completed_at: new Date().toISOString()
-        })
-        .eq('id', taskId)
-
-      if (error) throw error
-      await fetchTasks()
-    } catch (error) {
-      console.error('Error updating task:', error)
+  const handleMarkComplete = async (taskId: string) => {
+    const result = await markTaskComplete(taskId)
+    if (result.error) {
+      console.error('Error updating task:', result.error)
+      return
     }
+    await fetchTasks()
   }
 
   const getPriorityIcon = (priority: number) => {
@@ -241,7 +218,7 @@ export default function TasksPage() {
                         </div>
                       </div>
                     </div>
-                    
+
                     <div className="flex flex-wrap items-center gap-4 text-sm">
                       {task.customer && (
                         <span className="text-muted-foreground">
@@ -266,11 +243,11 @@ export default function TasksPage() {
                       )}
                     </div>
                   </div>
-                  
+
                   {task.status === 'pending' && (
                     <Button
                       size="sm"
-                      onClick={() => markComplete(task.id)}
+                      onClick={() => handleMarkComplete(task.id)}
                       className="whitespace-nowrap"
                     >
                       <CheckCircle className="mr-2 h-4 w-4" />

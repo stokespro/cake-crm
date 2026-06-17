@@ -1,6 +1,7 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
+import { requireFinance } from '@/lib/auth/session'
 import { buildCashFlowBoth } from '@/lib/finance/cash-flow'
 import type {
   BillInput,
@@ -67,9 +68,18 @@ export interface CashSnapshot {
   id: string
   snapshot_date: string
   cash_on_hand: number
+  source: 'manual' | 'bank'
   notes: string | null
   recorded_by: string | null
   created_at: string
+}
+
+export interface BankBalanceSummary {
+  current: number
+  available: number
+  pending: number
+  as_of_date: string
+  account_number: string
 }
 
 export interface MonthSummary {
@@ -81,6 +91,9 @@ export interface MonthSummary {
     realized: CashFlowResult
     withPipeline: CashFlowResult
   } | null
+  // Populated from get_bank_balance() RPC (service_role call).
+  // null when bank sync has not run or RPC errors — UI degrades gracefully.
+  bankBalance: BankBalanceSummary | null
 }
 
 // ============================================================
@@ -93,8 +106,11 @@ export async function createVendor(input: {
   contact_info?: string
   notes?: string
 }): Promise<{ success: boolean; data?: Vendor; error?: string }> {
+  const auth = await requireFinance()
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
   try {
-    const supabase = await createClient()
+    const supabase = await createServiceClient()
 
     const { data, error } = await supabase
       .from('finance_vendors')
@@ -129,8 +145,11 @@ export async function updateVendor(
     is_active?: boolean
   }
 ): Promise<{ success: boolean; data?: Vendor; error?: string }> {
+  const auth = await requireFinance()
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
   try {
-    const supabase = await createClient()
+    const supabase = await createServiceClient()
 
     const updateData: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
@@ -174,8 +193,11 @@ export async function createBillTemplate(input: {
   category?: string
   notes?: string
 }): Promise<{ success: boolean; data?: BillTemplate; error?: string }> {
+  const auth = await requireFinance()
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
   try {
-    const supabase = await createClient()
+    const supabase = await createServiceClient()
 
     const { data, error } = await supabase
       .from('finance_bill_templates')
@@ -218,8 +240,11 @@ export async function updateBillTemplate(
     is_active?: boolean
   }
 ): Promise<{ success: boolean; data?: BillTemplate; error?: string }> {
+  const auth = await requireFinance()
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
   try {
-    const supabase = await createClient()
+    const supabase = await createServiceClient()
 
     const updateData: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
@@ -257,8 +282,11 @@ export async function deactivateBillTemplate(id: string): Promise<{
   success: boolean
   error?: string
 }> {
+  const auth = await requireFinance()
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
   try {
-    const supabase = await createClient()
+    const supabase = await createServiceClient()
 
     const { error } = await supabase
       .from('finance_bill_templates')
@@ -293,8 +321,11 @@ export async function instantiateBillsFromTemplates(month: string): Promise<{
   skipped: number
   error?: string
 }> {
+  const auth = await requireFinance()
+  if (!auth.authorized) return { success: false, created: 0, skipped: 0, error: auth.reason }
+
   try {
-    const supabase = await createClient()
+    const supabase = await createServiceClient()
 
     // Fetch all active templates with their vendor
     const { data: templates, error: templatesError } = await supabase
@@ -396,8 +427,11 @@ export async function createBill(input: {
   notes?: string
   created_by?: string
 }): Promise<{ success: boolean; data?: Bill; error?: string }> {
+  const auth = await requireFinance()
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
   try {
-    const supabase = await createClient()
+    const supabase = await createServiceClient()
 
     const { data, error } = await supabase
       .from('finance_bills')
@@ -443,8 +477,11 @@ export async function updateBill(
     vendor_id?: string | null
   }
 ): Promise<{ success: boolean; data?: Bill; error?: string }> {
+  const auth = await requireFinance()
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
   try {
-    const supabase = await createClient()
+    const supabase = await createServiceClient()
 
     const updateData: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
@@ -488,8 +525,11 @@ export async function markBillPaid(
     payment_ref?: string
   }
 ): Promise<{ success: boolean; data?: Bill; error?: string }> {
+  const auth = await requireFinance()
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
   try {
-    const supabase = await createClient()
+    const supabase = await createServiceClient()
 
     // Fetch current bill to determine status
     const { data: bill, error: fetchError } = await supabase
@@ -542,8 +582,11 @@ export async function recordCashSnapshot(input: {
   notes?: string
   recorded_by?: string
 }): Promise<{ success: boolean; data?: CashSnapshot; error?: string }> {
+  const auth = await requireFinance()
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
   try {
-    const supabase = await createClient()
+    const supabase = await createServiceClient()
 
     const { data, error } = await supabase
       .from('finance_cash_snapshots')
@@ -584,66 +627,92 @@ export async function getMonthSummary(month: string): Promise<{
   data?: MonthSummary
   error?: string
 }> {
+  const auth = await requireFinance()
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
   try {
-    const supabase = await createClient()
+    const supabase = await createServiceClient()
 
     const today = new Date().toISOString().substring(0, 10)
 
-    // Fetch bills for this period month, joined to template and vendor
-    const { data: bills, error: billsError } = await supabase
-      .from('finance_bills')
-      .select(`
-        *,
-        template:finance_bill_templates(id, name, amount),
-        vendor:finance_vendors(id, name)
-      `)
-      .eq('period_month', month)
-      .order('due_date', { ascending: true })
+    // Fetch bills, snapshots, orders, and bank balance in parallel.
+    // Bank balance uses the service-role client (service_role-only RPC).
+    // It is fetched here for display purposes only — the cash-flow engine
+    // anchors on cash_on_hand from the snapshot (already written by cron).
+    // If the bank RPC fails we degrade gracefully (bankBalance = null).
+    const [billsRes, snapshotsRes, ordersRes, bankBalanceRes] = await Promise.all([
+      supabase
+        .from('finance_bills')
+        .select(`
+          *,
+          template:finance_bill_templates(id, name, amount),
+          vendor:finance_vendors(id, name)
+        `)
+        .eq('period_month', month)
+        .order('due_date', { ascending: true }),
 
-    if (billsError) {
-      console.error('Error fetching bills:', billsError)
-      return { success: false, error: billsError.message }
+      supabase
+        .from('finance_cash_snapshots')
+        .select('*')
+        .lte('snapshot_date', today)
+        .order('snapshot_date', { ascending: false })
+        .limit(1),
+
+      supabase
+        .from('orders')
+        .select(`
+          id,
+          order_number,
+          status,
+          total_price,
+          delivered_at,
+          requested_delivery_date,
+          customers(business_name)
+        `)
+        .or(`status.eq.delivered,status.eq.confirmed,status.eq.packed`)
+        .order('requested_delivery_date', { ascending: true }),
+
+      // Non-fatal: catch so a bank RPC error doesn't block the whole page.
+      createServiceClient()
+        .then((svc) => svc.rpc('get_bank_balance'))
+        .catch(() => ({ data: null, error: null })),
+    ])
+
+    if (billsRes.error) {
+      console.error('Error fetching bills:', billsRes.error)
+      return { success: false, error: billsRes.error.message }
+    }
+    if (snapshotsRes.error) {
+      console.error('Error fetching cash snapshots:', snapshotsRes.error)
+      return { success: false, error: snapshotsRes.error.message }
+    }
+    if (ordersRes.error) {
+      console.error('Error fetching orders:', ordersRes.error)
+      return { success: false, error: ordersRes.error.message }
     }
 
-    // Latest cash snapshot on or before today
-    const { data: snapshots, error: snapshotError } = await supabase
-      .from('finance_cash_snapshots')
-      .select('*')
-      .lte('snapshot_date', today)
-      .order('snapshot_date', { ascending: false })
-      .limit(1)
+    const bills = billsRes.data
+    const latestSnapshot = snapshotsRes.data?.[0] ?? null
+    const ordersData = ordersRes.data
 
-    if (snapshotError) {
-      console.error('Error fetching cash snapshots:', snapshotError)
-      return { success: false, error: snapshotError.message }
+    // Resolve bank balance — gracefully null on any error
+    let bankBalance: BankBalanceSummary | null = null
+    if (bankBalanceRes.data && !bankBalanceRes.error) {
+      const row = Array.isArray(bankBalanceRes.data)
+        ? bankBalanceRes.data[0]
+        : bankBalanceRes.data
+      if (row) {
+        bankBalance = {
+          current:        Number(row.current_balance),
+          available:      Number(row.available_balance),
+          pending:        Number(row.pending_balance),
+          as_of_date:     String(row.as_of_date),
+          account_number: String(row.account_number),
+        }
+      }
     }
 
-    const latestSnapshot = snapshots?.[0] ?? null
-
-    // Orders for revenue calculations:
-    //   - Realized: delivered within this month
-    //   - Pipeline: confirmed/packed (any date, for projection)
-    // We query a broader date range to include pipeline orders regardless of month.
-    const { data: ordersData, error: ordersError } = await supabase
-      .from('orders')
-      .select(`
-        id,
-        order_number,
-        status,
-        total_price,
-        delivered_at,
-        requested_delivery_date,
-        customers(business_name)
-      `)
-      .or(`status.eq.delivered,status.eq.confirmed,status.eq.packed`)
-      .order('requested_delivery_date', { ascending: true })
-
-    if (ordersError) {
-      console.error('Error fetching orders:', ordersError)
-      return { success: false, error: ordersError.message }
-    }
-
-    // Compute realized revenue: delivered orders whose delivered_at is within this period month
+    // Compute realized and pipeline revenue
     const nextMonth = incrementMonth(month)
     let realizedRevenue = 0
     let pipelineRevenue = 0
@@ -704,12 +773,130 @@ export async function getMonthSummary(month: string): Promise<{
       success: true,
       data: {
         bills: (bills || []) as Bill[],
-        latestSnapshot,
+        latestSnapshot: latestSnapshot as CashSnapshot | null,
         realizedRevenue,
         pipelineRevenue,
         cashFlow,
+        bankBalance,
       },
     }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    return { success: false, error: errorMessage }
+  }
+}
+
+// ============================================================
+// READ ACTIONS — page data fetches
+// ============================================================
+
+/**
+ * Fetch bills for a given period month with template and vendor joins.
+ * Used by the Bills page to replace its direct browser-client query.
+ */
+export async function getBillsForMonth(month: string): Promise<{
+  success: boolean
+  data?: Bill[]
+  error?: string
+}> {
+  const auth = await requireFinance()
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
+  try {
+    const supabase = await createServiceClient()
+
+    const { data, error } = await supabase
+      .from('finance_bills')
+      .select(`
+        *,
+        template:finance_bill_templates(id, name, amount),
+        vendor:finance_vendors(id, name)
+      `)
+      .eq('period_month', month)
+      .order('due_date', { ascending: true })
+
+    if (error) {
+      console.error('Error fetching bills:', error)
+      return { success: false, error: error.message }
+    }
+
+    return { success: true, data: (data || []) as Bill[] }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    return { success: false, error: errorMessage }
+  }
+}
+
+/**
+ * Fetch all bill templates with vendor joins.
+ * Used by the Templates page and Bills page to replace direct browser-client queries.
+ */
+export async function getTemplatesWithVendors(activeOnly = false): Promise<{
+  success: boolean
+  data?: BillTemplate[]
+  error?: string
+}> {
+  const auth = await requireFinance()
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
+  try {
+    const supabase = await createServiceClient()
+
+    let query = supabase
+      .from('finance_bill_templates')
+      .select('*, vendor:finance_vendors(id, name)')
+      .order('name', { ascending: true })
+
+    if (activeOnly) {
+      query = query.eq('is_active', true)
+    }
+
+    const { data, error } = await query
+
+    if (error) {
+      console.error('Error fetching bill templates:', error)
+      return { success: false, error: error.message }
+    }
+
+    return { success: true, data: (data || []) as BillTemplate[] }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    return { success: false, error: errorMessage }
+  }
+}
+
+/**
+ * Fetch vendors.
+ * Used by the Vendors page and bill/template forms to replace direct browser-client queries.
+ */
+export async function getVendors(activeOnly = false): Promise<{
+  success: boolean
+  data?: Vendor[]
+  error?: string
+}> {
+  const auth = await requireFinance()
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
+  try {
+    const supabase = await createServiceClient()
+
+    let query = supabase
+      .from('finance_vendors')
+      .select('*')
+      .order('name', { ascending: true })
+
+    if (activeOnly) {
+      query = query.eq('is_active', true)
+    }
+
+    const { data, error } = await query
+
+    if (error) {
+      console.error('Error fetching vendors:', error)
+      return { success: false, error: error.message }
+    }
+
+    return { success: true, data: data || [] }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     return { success: false, error: errorMessage }

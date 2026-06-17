@@ -22,7 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { toast } from 'sonner'
-import { createClient } from '@/lib/supabase/client'
+import { createCycleTemplate, updateCycleTemplate } from '@/actions/cultivation'
 import { CycleTemplate, GrowPhase, PHASE_CONFIG, TemplateType } from '@/types/cultivation'
 
 const TEMPLATE_PHASES = (
@@ -101,7 +101,6 @@ export function TemplateSheet({
     }
 
     setSaving(true)
-    const supabase = createClient()
 
     const payload = {
       name: name.trim(),
@@ -113,27 +112,17 @@ export function TemplateSheet({
     }
 
     if (isEditing) {
-      const { error } = await supabase
-        .from('cycle_templates')
-        .update(payload)
-        .eq('id', template.id)
-
-      if (error) {
-        toast.error('Failed to update template')
-        console.error(error)
+      const result = await updateCycleTemplate(template.id, payload)
+      if (result.error) {
+        toast.error(result.error)
         setSaving(false)
         return
       }
       toast.success('Template updated')
     } else {
-      const { error } = await supabase.from('cycle_templates').insert({
-        ...payload,
-        created_by: userId,
-      })
-
-      if (error) {
-        toast.error('Failed to create template')
-        console.error(error)
+      const result = await createCycleTemplate(payload, userId)
+      if (result.error) {
+        toast.error(result.error)
         setSaving(false)
         return
       }

@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 import { useAuth, canManageUsers } from '@/lib/auth-context'
+import { getUser, updateUser } from '@/actions/users'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -27,13 +27,11 @@ export default function EditUserPage() {
     role: 'standard',
     slack_user_id: ''
   })
-  const [originalSlackId, setOriginalSlackId] = useState<string | null>(null)
   const [slackMappingId, setSlackMappingId] = useState<string | null>(null)
 
   const router = useRouter()
   const params = useParams()
   const userId = params.id as string
-  const supabase = createClient()
   const { user: currentUser, isLoading: authLoading } = useAuth()
 
   const userRole = currentUser?.role || 'standard'
@@ -47,32 +45,22 @@ export default function EditUserPage() {
 
   const fetchUser = async () => {
     try {
-      const [userResult, mappingResult] = await Promise.all([
-        supabase
-          .from('users')
-          .select('id, name, pin, role, created_at')
-          .eq('id', userId)
-          .single(),
-        supabase
-          .from('slack_user_mappings')
-          .select('id, slack_user_id')
-          .eq('cake_user_id', userId)
-          .maybeSingle()
-      ])
+      const result = await getUser(userId)
+      if (result.error || !result.data) {
+        console.error('Error fetching user:', result.error)
+        alert('Error loading user details')
+        router.push('/dashboard/users')
+        return
+      }
 
-      if (userResult.error) throw userResult.error
-
-      const user = userResult.data
-      const mapping = mappingResult.data
-
+      const { data: user } = result
       setFormData({
         name: user.name || '',
         pin: user.pin || '',
         role: user.role || 'standard',
-        slack_user_id: mapping?.slack_user_id || ''
+        slack_user_id: user.slack_user_id || ''
       })
-      setOriginalSlackId(mapping?.slack_user_id || null)
-      setSlackMappingId(mapping?.id || null)
+      setSlackMappingId(user.slack_mapping_id)
     } catch (error) {
       console.error('Error fetching user:', error)
       alert('Error loading user details')
@@ -87,65 +75,17 @@ export default function EditUserPage() {
     setSaving(true)
 
     try {
-      // Validate PIN is 4 digits
-      if (!/^\d{4}$/.test(formData.pin)) {
-        throw new Error('PIN must be exactly 4 digits')
-      }
+      const result = await updateUser(userId, {
+        name: formData.name,
+        pin: formData.pin,
+        role: formData.role,
+        slack_user_id: formData.slack_user_id,
+        slack_mapping_id: slackMappingId,
+      })
 
-      // Check if PIN is already in use by another user
-      const { data: existingUser } = await supabase
-        .from('users')
-        .select('id')
-        .eq('pin', formData.pin)
-        .neq('id', userId)
-        .single()
-
-      if (existingUser) {
-        throw new Error('This PIN is already in use by another user.')
-      }
-
-      // Update user
-      const { error } = await supabase
-        .from('users')
-        .update({
-          name: formData.name,
-          pin: formData.pin,
-          role: formData.role
-        })
-        .eq('id', userId)
-
-      if (error) throw error
-
-      // Sync Slack mapping
-      const newSlackId = formData.slack_user_id.trim()
-      const hadMapping = originalSlackId !== null
-
-      if (newSlackId && hadMapping) {
-        // Update existing mapping
-        const { error: slackError } = await supabase
-          .from('slack_user_mappings')
-          .update({ slack_user_id: newSlackId })
-          .eq('cake_user_id', userId)
-
-        if (slackError) console.error('Error updating Slack mapping:', slackError)
-      } else if (newSlackId && !hadMapping) {
-        // Insert new mapping
-        const { error: slackError } = await supabase
-          .from('slack_user_mappings')
-          .insert({
-            slack_user_id: newSlackId,
-            cake_user_id: userId
-          })
-
-        if (slackError) console.error('Error creating Slack mapping:', slackError)
-      } else if (!newSlackId && hadMapping) {
-        // Delete mapping
-        const { error: slackError } = await supabase
-          .from('slack_user_mappings')
-          .delete()
-          .eq('cake_user_id', userId)
-
-        if (slackError) console.error('Error deleting Slack mapping:', slackError)
+      if (result.error) {
+        alert(result.error)
+        return
       }
 
       router.push('/dashboard/users')

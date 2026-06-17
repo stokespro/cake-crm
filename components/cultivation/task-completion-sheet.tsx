@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
-import { createClient } from '@/lib/supabase/client'
+import { completeTask } from '@/actions/cultivation'
 import type { CultivationTask } from '@/types/cultivation'
 
 interface TaskCompletionSheetProps {
@@ -39,22 +39,14 @@ export function TaskCompletionSheet({
     if (!task) return
 
     setSaving(true)
-    const supabase = createClient()
+    const result = await completeTask({
+      taskId: task.id,
+      completedBy: userId,
+      notes: notes.trim() || null,
+    })
 
-    const { error } = await supabase
-      .from('cultivation_tasks')
-      .update({
-        status: 'completed',
-        completed_at: new Date().toISOString(),
-        completed_by: userId,
-        completion_notes: notes.trim() || null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', task.id)
-
-    if (error) {
-      toast.error('Failed to complete task')
-      console.error(error)
+    if (result.error) {
+      toast.error(result.error)
       setSaving(false)
       return
     }

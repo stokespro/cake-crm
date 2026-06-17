@@ -28,7 +28,6 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth, canManageCultivation } from '@/lib/auth-context'
-import { createClient } from '@/lib/supabase/client'
 import {
   CycleTemplate,
   TemplateTask,
@@ -42,6 +41,13 @@ import { TemplateSheet } from '@/components/cultivation/template-sheet'
 import {
   TemplateTaskDialog,
 } from '@/components/cultivation/template-task-dialog'
+import {
+  getCycleTemplates,
+  getTemplateTasks,
+  toggleTemplateActive,
+  deleteCycleTemplate,
+  deleteTemplateTask as deleteTemplateTaskAction,
+} from '@/actions/cultivation'
 
 const PHASE_BADGE_CLASSES: Record<string, string> = {
   empty: 'bg-gray-500 text-white',
@@ -97,37 +103,22 @@ export default function TemplatesPage() {
   const [deletingTaskLoading, setDeletingTaskLoading] = useState(false)
 
   const fetchTemplates = useCallback(async () => {
-    const supabase = createClient()
-    const { data, error } = await supabase
-      .from('cycle_templates')
-      .select('*, template_tasks(id)')
-      .order('template_type', { ascending: false }) // master first
-      .order('name')
-
-    if (error) {
-      toast.error('Failed to load templates')
-      console.error(error)
+    const result = await getCycleTemplates()
+    if (result.error) {
+      toast.error(result.error)
     } else {
-      setTemplates(data as TemplateWithCount[])
+      setTemplates(result.data as TemplateWithCount[])
     }
     setLoading(false)
   }, [])
 
   const fetchTasks = useCallback(async (templateId: string) => {
     setTasksLoading(true)
-    const supabase = createClient()
-    const { data, error } = await supabase
-      .from('template_tasks')
-      .select('*')
-      .eq('template_id', templateId)
-      .order('day_number')
-      .order('sort_order')
-
-    if (error) {
-      toast.error('Failed to load tasks')
-      console.error(error)
+    const result = await getTemplateTasks(templateId)
+    if (result.error) {
+      toast.error(result.error)
     } else {
-      setTasks(data as TemplateTask[])
+      setTasks(result.data ?? [])
     }
     setTasksLoading(false)
   }, [])
@@ -164,22 +155,10 @@ export default function TemplatesPage() {
   async function confirmDeleteTemplate() {
     if (!deletingTemplate) return
     setDeleting(true)
-    const supabase = createClient()
 
-    // Delete tasks first, then the template
-    await supabase
-      .from('template_tasks')
-      .delete()
-      .eq('template_id', deletingTemplate.id)
-
-    const { error } = await supabase
-      .from('cycle_templates')
-      .delete()
-      .eq('id', deletingTemplate.id)
-
-    if (error) {
-      toast.error('Failed to delete template')
-      console.error(error)
+    const result = await deleteCycleTemplate(deletingTemplate.id)
+    if (result.error) {
+      toast.error(result.error)
     } else {
       toast.success('Template deleted')
       if (expandedId === deletingTemplate.id) {
@@ -194,15 +173,9 @@ export default function TemplatesPage() {
   }
 
   async function handleToggleActive(template: TemplateWithCount) {
-    const supabase = createClient()
-    const { error } = await supabase
-      .from('cycle_templates')
-      .update({ is_active: !template.is_active })
-      .eq('id', template.id)
-
-    if (error) {
-      toast.error('Failed to update template')
-      console.error(error)
+    const result = await toggleTemplateActive(template.id, !template.is_active)
+    if (result.error) {
+      toast.error(result.error)
     } else {
       fetchTemplates()
     }
@@ -229,16 +202,10 @@ export default function TemplatesPage() {
   async function confirmDeleteTask() {
     if (!deletingTask) return
     setDeletingTaskLoading(true)
-    const supabase = createClient()
 
-    const { error } = await supabase
-      .from('template_tasks')
-      .delete()
-      .eq('id', deletingTask.id)
-
-    if (error) {
-      toast.error('Failed to delete task')
-      console.error(error)
+    const result = await deleteTemplateTaskAction(deletingTask.id)
+    if (result.error) {
+      toast.error(result.error)
     } else {
       toast.success('Task deleted')
       if (expandedId) fetchTasks(expandedId)

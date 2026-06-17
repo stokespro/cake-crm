@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -54,25 +53,39 @@ import { DispensaryProfile, Order } from '@/types/database'
 import { parseLocalDate } from '@/lib/utils'
 import { StatusBadgeDropdown } from '@/components/orders/status-badge-dropdown'
 import { toast } from 'sonner'
+import {
+  getCustomer,
+  getCustomerCommunications,
+  getCustomerOrders,
+  getSalesUsers,
+  assignSalesRep,
+  setCustomerActiveStatus,
+  updateOrderStatus,
+  deleteOrder,
+  type CustomerDetail,
+  type SalesUserRecord,
+} from '@/actions/customers'
 
-interface DispensaryProfileWithStats extends DispensaryProfile {
-  is_active?: boolean
-  last_communication_date?: string
-  last_order_date?: string
-  total_orders_count?: number
-  total_communications_count?: number
-  total_revenue?: number
+interface DispensaryProfileWithStats {
+  id: string
+  business_name: string
+  license_name?: string | null
+  address?: string | null
+  city?: string | null
+  phone_number?: string | null
+  email?: string | null
+  omma_license?: string | null
+  ob_license?: string | null
+  is_active?: boolean | null
+  last_communication_date?: string | null
+  last_order_date?: string | null
+  total_orders_count?: number | null
+  total_communications_count?: number | null
+  total_revenue?: number | null
   assigned_sales_id?: string | null
   assigned_sales?: { id: string; name: string } | null
-}
-
-interface SalesUser {
-  id: string
-  name: string
-}
-
-interface SupabaseProfile {
-  full_name: string
+  created_at: string
+  updated_at?: string | null
 }
 
 interface Communication {
@@ -102,127 +115,66 @@ export default function DispensaryDetailPage() {
   const [selectedOrder, setSelectedOrder] = useState<OrderWithAgent | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
-  const [salesUsers, setSalesUsers] = useState<SalesUser[]>([])
+  const [salesUsers, setSalesUsers] = useState<SalesUserRecord[]>([])
   const [updatingSales, setUpdatingSales] = useState(false)
-  const supabase = createClient()
   const { user } = useAuth()
 
   const dispensaryId = params.id as string
   const userRole = user?.role || 'agent'
 
   const fetchDispensary = useCallback(async () => {
-    try {
-      const { data, error } = await supabase
-        .from('customers')
-        .select(`
-          *,
-          assigned_sales:users!customers_assigned_sales_id_fkey(id, name)
-        `)
-        .eq('id', dispensaryId)
-        .single()
-
-      if (error) throw error
-      setDispensary(data)
-    } catch (error) {
-      console.error('Error fetching customer:', error)
+    const result = await getCustomer(dispensaryId)
+    if (result.data) {
+      setDispensary(result.data as DispensaryProfileWithStats)
+    } else {
+      console.error('Error fetching customer:', result.error)
     }
-  }, [supabase, dispensaryId])
+  }, [dispensaryId])
 
   const fetchCommunications = useCallback(async () => {
-    try {
-      const { data, error } = await supabase
-        .from('communications')
-        .select(`
-          id,
-          interaction_date,
-          contact_method,
-          notes,
-          follow_up_required,
-          agent_id,
-          agent:users!communications_agent_id_fkey(name)
-        `)
-        .eq('customer_id', dispensaryId)
-        .order('interaction_date', { ascending: false })
-        .limit(10)
-
-      if (error) throw error
-
-      const formattedComms = (data || []).map((comm: Record<string, unknown>) => ({
+    const result = await getCustomerCommunications(dispensaryId)
+    if (result.data) {
+      const formattedComms = result.data.map((comm) => ({
         ...comm,
-        agent_name: (comm.agent as { name: string })?.name || 'Unknown Agent'
+        agent_name: (comm.agent as { name: string })?.name || 'Unknown Agent',
       })) as Communication[]
-
       setCommunications(formattedComms)
-    } catch (error) {
-      console.error('Error fetching communications:', error)
+    } else {
+      console.error('Error fetching communications:', result.error)
     }
-  }, [supabase, dispensaryId])
+  }, [dispensaryId])
 
   const fetchOrders = useCallback(async () => {
-    try {
-      const { data, error } = await supabase
-        .from('orders')
-        .select(`
-          id,
-          order_number,
-          customer_id,
-          agent_id,
-          order_date,
-          status,
-          total_price,
-          order_notes,
-          requested_delivery_date,
-          confirmed_delivery_date,
-          created_at,
-          updated_at,
-          agent:users!orders_agent_id_fkey(name)
-        `)
-        .eq('customer_id', dispensaryId)
-        .order('order_date', { ascending: false })
-        .limit(10)
-
-      if (error) throw error
-
-      const formattedOrders = (data || []).map((order: Record<string, unknown>) => ({
+    const result = await getCustomerOrders(dispensaryId)
+    if (result.data) {
+      const formattedOrders = result.data.map((order) => ({
         ...order,
         order_id: order.order_number,
         dispensary_id: order.customer_id,
         final_delivery_date: order.confirmed_delivery_date,
-        agent_name: (order.agent as { name: string })?.name || 'Unknown Agent'
+        agent_name: (order.agent as { name: string })?.name || 'Unknown Agent',
       })) as OrderWithAgent[]
-
       setOrders(formattedOrders)
-    } catch (error) {
-      console.error('Error fetching orders:', error)
-    } finally {
-      setLoading(false)
+    } else {
+      console.error('Error fetching orders:', result.error)
     }
-  }, [supabase, dispensaryId])
+    setLoading(false)
+  }, [dispensaryId])
 
-  const fetchSalesUsers = useCallback(async () => {
-    try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('id, name')
-        .in('role', ['sales', 'management', 'admin'])
-        .order('name')
-
-      if (error) throw error
-      setSalesUsers(data || [])
-    } catch (error) {
-      console.error('Error fetching sales users:', error)
-    }
-  }, [supabase])
+  const fetchSalesUsersData = useCallback(async () => {
+    const result = await getSalesUsers()
+    if (result.data) setSalesUsers(result.data)
+  }, [])
 
   useEffect(() => {
     const loadData = async () => {
       await fetchDispensary()
       await fetchCommunications()
       await fetchOrders()
-      await fetchSalesUsers()
+      await fetchSalesUsersData()
     }
     loadData()
-  }, [fetchDispensary, fetchCommunications, fetchOrders, fetchSalesUsers])
+  }, [fetchDispensary, fetchCommunications, fetchOrders, fetchSalesUsersData])
 
   useEffect(() => {
     filterOrders()
@@ -263,16 +215,6 @@ export default function DispensaryDetailPage() {
     }).format(amount)
   }
 
-  const getStatusBadgeVariant = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'approved': return 'default'
-      case 'pending': return 'secondary'
-      case 'delivered': return 'default'
-      case 'cancelled': return 'destructive'
-      default: return 'outline'
-    }
-  }
-
   const canManageDispensaries = ['sales', 'agent', 'management', 'admin'].includes(userRole)
 
   // Permission checks
@@ -288,69 +230,37 @@ export default function DispensaryDetailPage() {
     ? isAssignedToDispensary
     : userCanCreateOrder
 
-  const handleSalesAssignment = async (salesId: string | null) => {
+  const handleSalesAssignment = async (salesId: string) => {
     setUpdatingSales(true)
-    try {
-      const { error } = await supabase
-        .from('customers')
-        .update({ assigned_sales_id: salesId === 'unassigned' ? null : salesId })
-        .eq('id', dispensaryId)
-
-      if (error) throw error
-
+    const result = await assignSalesRep(dispensaryId, salesId === 'unassigned' ? null : salesId)
+    if (!result.error) {
       toast.success('Sales assignment updated')
       fetchDispensary()
-    } catch (error) {
-      console.error('Error updating sales assignment:', error)
+    } else {
+      console.error('Error updating sales assignment:', result.error)
       toast.error('Failed to update sales assignment')
-    } finally {
-      setUpdatingSales(false)
     }
+    setUpdatingSales(false)
   }
 
   const handleToggleActive = async (isActive: boolean) => {
-    try {
-      const { error } = await supabase
-        .from('customers')
-        .update({ is_active: isActive, updated_at: new Date().toISOString() })
-        .eq('id', dispensaryId)
-
-      if (error) throw error
-
+    const result = await setCustomerActiveStatus(dispensaryId, isActive)
+    if (!result.error) {
       toast.success(isActive ? 'Dispensary marked as active' : 'Dispensary marked as inactive')
       fetchDispensary()
-    } catch (error) {
-      console.error('Error updating active status:', error)
+    } else {
+      console.error('Error updating active status:', result.error)
       toast.error('Failed to update active status')
     }
   }
 
   const handleDeleteOrder = async (order: OrderWithAgent) => {
-    try {
-      // First delete order items
-      const { error: itemsError } = await supabase
-        .from('order_items')
-        .delete()
-        .eq('order_id', order.id)
-
-      if (itemsError) {
-        throw itemsError
-      }
-
-      // Then delete the order
-      const { error: orderError } = await supabase
-        .from('orders')
-        .delete()
-        .eq('id', order.id)
-
-      if (orderError) {
-        throw orderError
-      }
-
+    const result = await deleteOrder(order.id)
+    if (!result.error) {
       toast.success('Order deleted successfully')
-      fetchOrders() // Refresh orders list
-    } catch (error) {
-      console.error('Error deleting order:', error)
+      fetchOrders()
+    } else {
+      console.error('Error deleting order:', result.error)
       toast.error('Failed to delete order. Please try again.')
     }
   }
@@ -363,38 +273,12 @@ export default function DispensaryDetailPage() {
   const quickUpdateStatus = async (orderId: string, newStatus: string) => {
     if (!canApproveOrders || !user) return
 
-    try {
-      const updateData: Record<string, any> = {
-        status: newStatus,
-        updated_at: new Date().toISOString(),
-        last_edited_by: user.id,
-        last_edited_at: new Date().toISOString(),
-      }
-
-      if (newStatus === 'confirmed') {
-        updateData.approved_by = user.id
-        updateData.approved_at = new Date().toISOString()
-      }
-
-      if (newStatus === 'delivered') {
-        updateData.delivered_at = new Date().toISOString()
-      }
-
-      if (newStatus !== 'delivered') {
-        updateData.delivered_at = null
-      }
-
-      const { error } = await supabase
-        .from('orders')
-        .update(updateData)
-        .eq('id', orderId)
-
-      if (error) throw error
-
+    const result = await updateOrderStatus(orderId, newStatus, user.id)
+    if (!result.error) {
       toast.success(`Order status updated to ${newStatus}`)
       fetchOrders()
-    } catch (error) {
-      console.error('Error updating order status:', error)
+    } else {
+      console.error('Error updating order status:', result.error)
       toast.error('Failed to update order status')
     }
   }
@@ -491,13 +375,13 @@ export default function DispensaryDetailPage() {
                 </div>
               </div>
             )}
-            
+
             {dispensary.phone_number && (
               <div className="flex items-start gap-2">
                 <Phone className="h-4 w-4 text-muted-foreground mt-1" />
                 <div>
                   <p className="text-sm font-medium">Phone</p>
-                  <a 
+                  <a
                     href={`tel:${dispensary.phone_number}`}
                     className="text-sm text-primary hover:underline"
                   >
@@ -506,13 +390,13 @@ export default function DispensaryDetailPage() {
                 </div>
               </div>
             )}
-            
+
             {dispensary.email && (
               <div className="flex items-start gap-2">
                 <Mail className="h-4 w-4 text-muted-foreground mt-1" />
                 <div>
                   <p className="text-sm font-medium">Email</p>
-                  <a 
+                  <a
                     href={`mailto:${dispensary.email}`}
                     className="text-sm text-primary hover:underline"
                   >
@@ -784,7 +668,7 @@ export default function DispensaryDetailPage() {
               Log Communication
             </Button>
           </div>
-          
+
           {communications.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center">
@@ -837,7 +721,7 @@ export default function DispensaryDetailPage() {
               </Button>
             )}
           </div>
-          
+
           {/* Search and Filters */}
           <Card>
             <CardHeader>
@@ -871,7 +755,7 @@ export default function DispensaryDetailPage() {
               </div>
             </CardContent>
           </Card>
-          
+
           {filteredOrders.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center">
@@ -933,9 +817,9 @@ export default function DispensaryDetailPage() {
                           </TableCell>
                           <TableCell className="hidden lg:table-cell">
                             <div className="text-sm">
-                              {order.final_delivery_date 
+                              {order.final_delivery_date
                                 ? formatDate(order.final_delivery_date)
-                                : order.requested_delivery_date 
+                                : order.requested_delivery_date
                                   ? formatDate(order.requested_delivery_date)
                                   : '—'
                               }
@@ -1066,8 +950,8 @@ export default function DispensaryDetailPage() {
                   <div className="flex justify-between items-center">
                     <span className="text-sm">Last Contact</span>
                     <span className="font-medium">
-                      {dispensary.last_communication_date 
-                        ? formatDate(dispensary.last_communication_date) 
+                      {dispensary.last_communication_date
+                        ? formatDate(dispensary.last_communication_date)
                         : 'Never'
                       }
                     </span>
@@ -1075,7 +959,7 @@ export default function DispensaryDetailPage() {
                   <div className="flex justify-between items-center">
                     <span className="text-sm">Days Since Last Contact</span>
                     <span className="font-medium">
-                      {dispensary.last_communication_date 
+                      {dispensary.last_communication_date
                         ? Math.floor((Date.now() - new Date(dispensary.last_communication_date).getTime()) / (1000 * 60 * 60 * 24))
                         : 'N/A'
                       }
@@ -1092,7 +976,7 @@ export default function DispensaryDetailPage() {
       <EditDispensarySheet
         open={editDispensaryOpen}
         onClose={() => setEditDispensaryOpen(false)}
-        dispensary={dispensary}
+        dispensary={dispensary as DispensaryProfile | null}
         onSuccess={() => {
           fetchDispensary()
           setEditDispensaryOpen(false)

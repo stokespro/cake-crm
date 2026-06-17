@@ -3,9 +3,8 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
-import { createVendor, updateVendor } from '@/actions/finance'
+import { createVendor, updateVendor, getVendors } from '@/actions/finance'
 import type { Vendor } from '@/actions/finance'
-import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -73,7 +72,6 @@ const blankForm: VendorFormState = {
 export default function VendorsPage() {
   const router = useRouter()
   const { user, isLoading: authLoading } = useAuth()
-  const supabase = createClient()
 
   const [vendors, setVendors] = useState<Vendor[]>([])
   const [loading, setLoading] = useState(true)
@@ -96,20 +94,16 @@ export default function VendorsPage() {
 
   const fetchVendors = useCallback(async () => {
     try {
-      const { data, error } = await supabase
-        .from('finance_vendors')
-        .select('*')
-        .order('name', { ascending: true })
-
-      if (error) throw error
-      setVendors(data || [])
+      const result = await getVendors()
+      if (!result.success || !result.data) throw new Error(result.error ?? 'Failed to load vendors')
+      setVendors(result.data)
     } catch (error) {
       console.error('Error fetching vendors:', error)
       toast.error('Failed to load vendors')
     } finally {
       setLoading(false)
     }
-  }, [supabase])
+  }, [])
 
   useEffect(() => {
     if (canManage) {

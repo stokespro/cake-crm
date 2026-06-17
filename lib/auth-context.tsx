@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { logoutAction } from '@/actions/auth';
 
 export type UserRole = 'admin' | 'management' | 'sales' | 'standard' | 'vault' | 'packaging' | 'agent';
 
@@ -113,6 +114,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     setUser(null);
     localStorage.removeItem(USER_STORAGE_KEY);
+    // Clear the server-side session cookie so the server can no longer
+    // identify this client. Fire-and-forget — UI state is already cleared.
+    logoutAction().catch((err) => console.error('logoutAction failed:', err));
   }, []);
 
   return (

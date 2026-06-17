@@ -3,7 +3,6 @@
 import { Suspense, useEffect, useState, useCallback, useMemo, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -72,9 +71,15 @@ import {
   CalendarIcon,
   Check,
 } from 'lucide-react'
-import type { Customer, Profile } from '@/types/database'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
+import {
+  getCustomers,
+  getCustomerCities,
+  getSalesPeople,
+  type CustomerRecord,
+  type ProfileRecord,
+} from '@/actions/customers'
 
 const PAGE_SIZE = 50
 
@@ -130,9 +135,8 @@ function DispensariesPageContent() {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const [isPending, startTransition] = useTransition()
+  const [, startTransition] = useTransition()
 
-  const supabase = createClient()
   const { user, isLoading: authLoading } = useAuth()
 
   // Parse filter state from URL
@@ -142,13 +146,13 @@ function DispensariesPageContent() {
   const [searchInput, setSearchInput] = useState(filters.search)
 
   // Data state
-  const [dispensaries, setDispensaries] = useState<Customer[]>([])
+  const [dispensaries, setDispensaries] = useState<CustomerRecord[]>([])
   const [totalCount, setTotalCount] = useState(0)
   const [loading, setLoading] = useState(true)
 
   // Filter options data
   const [cities, setCities] = useState<string[]>([])
-  const [salesPeople, setSalesPeople] = useState<Profile[]>([])
+  const [salesPeople, setSalesPeople] = useState<ProfileRecord[]>([])
   const [citiesLoading, setCitiesLoading] = useState(true)
   const [salesPeopleLoading, setSalesPeopleLoading] = useState(true)
 
@@ -192,130 +196,46 @@ function DispensariesPageContent() {
   // Fetch filter options on mount
   useEffect(() => {
     const fetchCities = async () => {
-      try {
-        const allCities: any[] = []
-        let from = 0
-        const batchSize = 1000
-
-        while (true) {
-          const { data, error } = await supabase
-            .from('customers')
-            .select('city')
-            .not('city', 'is', null)
-            .order('city')
-            .range(from, from + batchSize - 1)
-
-          if (error) throw error
-          if (!data || data.length === 0) break
-
-          allCities.push(...data)
-          if (data.length < batchSize) break
-          from += batchSize
-        }
-
-        const uniqueCities = [...new Set(allCities.map(d => d.city).filter(Boolean) as string[])]
-        setCities(uniqueCities)
-      } catch (error) {
-        console.error('Error fetching cities:', error)
-      } finally {
-        setCitiesLoading(false)
-      }
+      const result = await getCustomerCities()
+      if (result.data) setCities(result.data)
+      setCitiesLoading(false)
     }
 
-    const fetchSalesPeople = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .in('role', ['sales', 'agent'])
-          .order('full_name')
-
-        if (error) throw error
-        setSalesPeople(data || [])
-      } catch (error) {
-        console.error('Error fetching sales people:', error)
-      } finally {
-        setSalesPeopleLoading(false)
-      }
+    const fetchSalesPeopleData = async () => {
+      const result = await getSalesPeople()
+      if (result.data) setSalesPeople(result.data)
+      setSalesPeopleLoading(false)
     }
 
     fetchCities()
-    fetchSalesPeople()
-  }, [supabase])
+    fetchSalesPeopleData()
+  }, [])
 
   // Fetch dispensaries with filters
   useEffect(() => {
     const fetchDispensaries = async () => {
       setLoading(true)
-      try {
-        let query = supabase
-          .from('customers')
-          .select('*, assigned_sales:profiles!customers_assigned_sales_id_fkey(id, full_name)', { count: 'exact' })
+      const result = await getCustomers({
+        search: filters.search,
+        city: filters.city,
+        salesPersonId: filters.salesPersonId,
+        hasOrders: filters.hasOrders,
+        startDate: filters.startDate,
+        endDate: filters.endDate,
+        status: filters.status,
+        page: filters.page,
+        pageSize: PAGE_SIZE,
+      })
 
-        // Apply search filter
-        if (filters.search) {
-          const searchTerm = `%${filters.search}%`
-          query = query.or(
-            `business_name.ilike.${searchTerm},license_name.ilike.${searchTerm},address.ilike.${searchTerm},email.ilike.${searchTerm},omma_license.ilike.${searchTerm}`
-          )
-        }
-
-        // Apply city filter
-        if (filters.city) {
-          query = query.eq('city', filters.city)
-        }
-
-        // Apply sales person filter
-        if (filters.salesPersonId) {
-          if (filters.salesPersonId === 'unassigned') {
-            query = query.is('assigned_sales_id', null)
-          } else {
-            query = query.eq('assigned_sales_id', filters.salesPersonId)
-          }
-        }
-
-        // Apply status filter
-        if (filters.status === 'active') {
-          query = query.eq('is_active', true)
-        } else if (filters.status === 'inactive') {
-          query = query.eq('is_active', false)
-        }
-
-        // Apply has orders filter
-        if (filters.hasOrders) {
-          query = query.eq('has_orders', true)
-        }
-
-        // Apply date range filter
-        if (filters.startDate) {
-          query = query.gte('last_order_date', filters.startDate)
-        }
-        if (filters.endDate) {
-          query = query.lte('first_order_date', filters.endDate)
-        }
-
-        // Apply ordering
-        query = query.order('business_name')
-
-        // Apply pagination
-        const from = (filters.page - 1) * PAGE_SIZE
-        const to = from + PAGE_SIZE - 1
-        query = query.range(from, to)
-
-        const { data, error, count } = await query
-
-        if (error) throw error
-        setDispensaries(data || [])
-        setTotalCount(count || 0)
-      } catch (error) {
-        console.error('Error fetching customers:', error)
-      } finally {
-        setLoading(false)
+      if (result.data) {
+        setDispensaries(result.data)
+        setTotalCount(result.count)
       }
+      setLoading(false)
     }
 
     fetchDispensaries()
-  }, [supabase, filters])
+  }, [filters])
 
   const clearAllFilters = () => {
     setSearchInput('')
