@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState, useMemo } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -33,54 +32,10 @@ import {
   ChevronUp,
   ChevronDown,
 } from 'lucide-react'
+import { getInventoryData, type InventorySku, type InventoryStrain, type InventoryProductType, type InventoryRecord, type InventoryPackage } from '@/actions/inventory'
 
 // Low stock threshold (in cases)
 const LOW_STOCK_THRESHOLD = 5
-
-interface SKU {
-  id: string
-  code: string
-  name: string
-  strain_id: string
-  product_type_id: string
-  grams_per_unit: number
-  units_per_case: number
-}
-
-interface Strain {
-  id: string
-  name: string
-}
-
-interface ProductType {
-  id: string
-  name: string
-}
-
-interface InventoryRecord {
-  sku_id: string
-  cased: number
-  filled: number
-  staged: number
-}
-
-interface VaultPackage {
-  strain_id: string
-  type_id: string
-  current_weight: number
-  is_active: boolean
-}
-
-interface OrderItem {
-  sku_id: string
-  quantity: number
-}
-
-interface Order {
-  id: string
-  status: string
-  order_items: OrderItem[]
-}
 
 interface InventoryRow {
   skuId: string
@@ -104,11 +59,11 @@ type SortField = 'sku' | 'type' | 'vault' | 'staged' | 'filled' | 'cased' | 'ord
 type SortDirection = 'asc' | 'desc'
 
 export default function InventoryPage() {
-  const [skus, setSkus] = useState<SKU[]>([])
-  const [strains, setStrains] = useState<Strain[]>([])
-  const [productTypes, setProductTypes] = useState<ProductType[]>([])
+  const [skus, setSkus] = useState<InventorySku[]>([])
+  const [strains, setStrains] = useState<InventoryStrain[]>([])
+  const [productTypes, setProductTypes] = useState<InventoryProductType[]>([])
   const [inventory, setInventory] = useState<InventoryRecord[]>([])
-  const [vaultPackages, setVaultPackages] = useState<VaultPackage[]>([])
+  const [vaultPackages, setVaultPackages] = useState<InventoryPackage[]>([])
   const [pendingOrderItems, setPendingOrderItems] = useState<Map<string, number>>(new Map())
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -117,7 +72,6 @@ export default function InventoryPage() {
   const [filterStock, setFilterStock] = useState('all')
   const [sortField, setSortField] = useState<SortField>('sku')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
-  const supabase = createClient()
   const { user } = useAuth()
 
   useEffect(() => {
@@ -126,42 +80,23 @@ export default function InventoryPage() {
 
   const fetchAllData = async () => {
     try {
-      // Fetch all data in parallel
-      const [
-        skusResult,
-        strainsResult,
-        productTypesResult,
-        inventoryResult,
-        packagesResult,
-        ordersResult,
-      ] = await Promise.all([
-        supabase.from('skus').select('id, code, name, strain_id, product_type_id, grams_per_unit, units_per_case').eq('status', 'active').order('code'),
-        supabase.from('strains').select('id, name'),
-        supabase.from('product_types').select('id, name'),
-        supabase.from('inventory').select('sku_id, cased, filled, staged'),
-        supabase.from('packages').select('strain_id, type_id, current_weight, is_active').eq('is_active', true),
-        // Only pending/confirmed orders represent uncommitted cases — packed orders have
-        // already had their units physically deducted from inventory.cased, so counting
-        // them again would double-count and under-report available stock.
-        supabase.from('orders').select('id, status, order_items(sku_id, quantity)').in('status', ['pending', 'confirmed']),
-      ])
+      const result = await getInventoryData()
 
-      if (skusResult.error) throw skusResult.error
-      if (strainsResult.error) throw strainsResult.error
-      if (productTypesResult.error) throw productTypesResult.error
-      if (inventoryResult.error) throw inventoryResult.error
-      if (packagesResult.error) throw packagesResult.error
-      if (ordersResult.error) throw ordersResult.error
+      if ('error' in result) {
+        console.error('Error fetching inventory data:', result.error)
+        return
+      }
 
-      setSkus(skusResult.data || [])
-      setStrains(strainsResult.data || [])
-      setProductTypes(productTypesResult.data || [])
-      setInventory(inventoryResult.data || [])
-      setVaultPackages(packagesResult.data || [])
+      const { skus, strains, productTypes, inventory, packages, orders } = result.data
+
+      setSkus(skus)
+      setStrains(strains)
+      setProductTypes(productTypes)
+      setInventory(inventory)
+      setVaultPackages(packages)
 
       // Calculate pending orders by SKU
       const orderItemsMap = new Map<string, number>()
-      const orders = ordersResult.data || []
       for (const order of orders) {
         for (const item of order.order_items || []) {
           const current = orderItemsMap.get(item.sku_id) || 0

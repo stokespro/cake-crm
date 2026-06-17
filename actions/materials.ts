@@ -1,6 +1,12 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
+import { requireRole } from '@/lib/auth/session'
+import { createServiceClient } from '@/lib/supabase/server'
+
+// Roles that can read materials (matches canViewSection 'materials' / 'packaging')
+const MATERIALS_READ_ROLES = ['admin', 'management', 'packaging', 'standard', 'vault']
+// Roles that can mutate materials (packaging workers + management)
+const MATERIALS_WRITE_ROLES = ['admin', 'management', 'packaging']
 
 // Types for materials
 export interface Material {
@@ -66,10 +72,13 @@ export async function getMaterials(): Promise<{
   data?: Material[]
   error?: string
 }> {
-  try {
-    const supabase = await createClient()
+  const auth = await requireRole(MATERIALS_READ_ROLES)
+  if (!auth.authorized) return { success: false, error: auth.reason }
 
-    const { data, error } = await supabase
+  try {
+    const db = await createServiceClient()
+
+    const { data, error } = await db
       .from('materials')
       .select('*')
       .order('name')
@@ -91,10 +100,13 @@ export async function getMaterial(id: string): Promise<{
   data?: Material
   error?: string
 }> {
-  try {
-    const supabase = await createClient()
+  const auth = await requireRole(MATERIALS_READ_ROLES)
+  if (!auth.authorized) return { success: false, error: auth.reason }
 
-    const { data, error } = await supabase
+  try {
+    const db = await createServiceClient()
+
+    const { data, error } = await db
       .from('materials')
       .select('*')
       .eq('id', id)
@@ -121,11 +133,14 @@ export async function createMaterial(input: CreateMaterialInput): Promise<{
   data?: Material
   error?: string
 }> {
+  const auth = await requireRole(MATERIALS_WRITE_ROLES)
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
   try {
-    const supabase = await createClient()
+    const db = await createServiceClient()
 
     // Check for duplicate name
-    const { data: existing } = await supabase
+    const { data: existing } = await db
       .from('materials')
       .select('id')
       .eq('name', input.name.trim())
@@ -143,7 +158,7 @@ export async function createMaterial(input: CreateMaterialInput): Promise<{
       low_stock_threshold: input.low_stock_threshold || 10,
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from('materials')
       .insert(materialData)
       .select()
@@ -156,7 +171,7 @@ export async function createMaterial(input: CreateMaterialInput): Promise<{
 
     // Log initial stock transaction if there's initial stock
     if (input.initial_stock && input.initial_stock > 0) {
-      await supabase.from('material_transactions').insert({
+      await db.from('material_transactions').insert({
         material_id: data.id,
         quantity: input.initial_stock,
         transaction_type: 'initial',
@@ -183,12 +198,15 @@ export async function updateMaterial(
   data?: Material
   error?: string
 }> {
+  const auth = await requireRole(MATERIALS_WRITE_ROLES)
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
   try {
-    const supabase = await createClient()
+    const db = await createServiceClient()
 
     // Check for duplicate name if name is being updated
     if (input.name) {
-      const { data: existing } = await supabase
+      const { data: existing } = await db
         .from('materials')
         .select('id')
         .eq('name', input.name.trim())
@@ -209,7 +227,7 @@ export async function updateMaterial(
     if (input.material_type !== undefined) updateData.material_type = input.material_type
     if (input.low_stock_threshold !== undefined) updateData.low_stock_threshold = input.low_stock_threshold
 
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from('materials')
       .update(updateData)
       .eq('id', id)
@@ -236,16 +254,19 @@ export async function deleteMaterial(id: string): Promise<{
   success: boolean
   error?: string
 }> {
+  const auth = await requireRole(MATERIALS_WRITE_ROLES)
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
   try {
-    const supabase = await createClient()
+    const db = await createServiceClient()
 
     // Delete related transactions first
-    await supabase
+    await db
       .from('material_transactions')
       .delete()
       .eq('material_id', id)
 
-    const { error } = await supabase
+    const { error } = await db
       .from('materials')
       .delete()
       .eq('id', id)
@@ -276,15 +297,18 @@ export async function restockMaterial(
   data?: Material
   error?: string
 }> {
+  const auth = await requireRole(MATERIALS_WRITE_ROLES)
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
   try {
     if (quantity <= 0) {
       return { success: false, error: 'Quantity must be greater than 0' }
     }
 
-    const supabase = await createClient()
+    const db = await createServiceClient()
 
     // Get current material
-    const { data: material, error: fetchError } = await supabase
+    const { data: material, error: fetchError } = await db
       .from('materials')
       .select('*')
       .eq('id', id)
@@ -296,7 +320,7 @@ export async function restockMaterial(
 
     // Update stock
     const newStock = material.current_stock + quantity
-    const { data, error: updateError } = await supabase
+    const { data, error: updateError } = await db
       .from('materials')
       .update({
         current_stock: newStock,
@@ -312,7 +336,7 @@ export async function restockMaterial(
     }
 
     // Log transaction
-    await supabase.from('material_transactions').insert({
+    await db.from('material_transactions').insert({
       material_id: id,
       quantity: quantity,
       transaction_type: 'restock',
@@ -342,15 +366,18 @@ export async function useMaterial(
   data?: Material
   error?: string
 }> {
+  const auth = await requireRole(MATERIALS_WRITE_ROLES)
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
   try {
     if (quantity <= 0) {
       return { success: false, error: 'Quantity must be greater than 0' }
     }
 
-    const supabase = await createClient()
+    const db = await createServiceClient()
 
     // Get current material
-    const { data: material, error: fetchError } = await supabase
+    const { data: material, error: fetchError } = await db
       .from('materials')
       .select('*')
       .eq('id', id)
@@ -366,7 +393,7 @@ export async function useMaterial(
 
     // Update stock
     const newStock = material.current_stock - quantity
-    const { data, error: updateError } = await supabase
+    const { data, error: updateError } = await db
       .from('materials')
       .update({
         current_stock: newStock,
@@ -382,7 +409,7 @@ export async function useMaterial(
     }
 
     // Log transaction (negative quantity for usage)
-    await supabase.from('material_transactions').insert({
+    await db.from('material_transactions').insert({
       material_id: id,
       quantity: -quantity,
       transaction_type: 'usage',
@@ -407,10 +434,13 @@ export async function getMaterialTransactions(materialId?: string): Promise<{
   data?: MaterialTransaction[]
   error?: string
 }> {
-  try {
-    const supabase = await createClient()
+  const auth = await requireRole(MATERIALS_READ_ROLES)
+  if (!auth.authorized) return { success: false, error: auth.reason }
 
-    let query = supabase
+  try {
+    const db = await createServiceClient()
+
+    let query = db
       .from('material_transactions')
       .select(`
         *,
@@ -452,15 +482,18 @@ export async function adjustMaterialStock(
   data?: Material
   error?: string
 }> {
+  const auth = await requireRole(MATERIALS_WRITE_ROLES)
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
   try {
     if (newStock < 0) {
       return { success: false, error: 'Stock cannot be negative' }
     }
 
-    const supabase = await createClient()
+    const db = await createServiceClient()
 
     // Get current material
-    const { data: material, error: fetchError } = await supabase
+    const { data: material, error: fetchError } = await db
       .from('materials')
       .select('*')
       .eq('id', id)
@@ -473,7 +506,7 @@ export async function adjustMaterialStock(
     const difference = newStock - material.current_stock
 
     // Update stock
-    const { data, error: updateError } = await supabase
+    const { data, error: updateError } = await db
       .from('materials')
       .update({
         current_stock: newStock,
@@ -489,7 +522,7 @@ export async function adjustMaterialStock(
     }
 
     // Log transaction
-    await supabase.from('material_transactions').insert({
+    await db.from('material_transactions').insert({
       material_id: id,
       quantity: difference,
       transaction_type: 'adjustment',
@@ -513,10 +546,13 @@ export async function getSkuMaterials(skuId: string): Promise<{
   data?: SkuMaterialWithDetails[]
   error?: string
 }> {
-  try {
-    const supabase = await createClient()
+  const auth = await requireRole(MATERIALS_READ_ROLES)
+  if (!auth.authorized) return { success: false, error: auth.reason }
 
-    const { data, error } = await supabase
+  try {
+    const db = await createServiceClient()
+
+    const { data, error } = await db
       .from('sku_materials')
       .select(`
         *,
@@ -546,15 +582,18 @@ export async function assignMaterialToSku(
   data?: SkuMaterial
   error?: string
 }> {
+  const auth = await requireRole(MATERIALS_WRITE_ROLES)
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
   try {
     if (quantityPerUnit <= 0) {
       return { success: false, error: 'Quantity per unit must be greater than 0' }
     }
 
-    const supabase = await createClient()
+    const db = await createServiceClient()
 
     // Check if assignment already exists
-    const { data: existing } = await supabase
+    const { data: existing } = await db
       .from('sku_materials')
       .select('id')
       .eq('sku_id', skuId)
@@ -565,7 +604,7 @@ export async function assignMaterialToSku(
       return { success: false, error: 'This material is already assigned to this SKU' }
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from('sku_materials')
       .insert({
         sku_id: skuId,
@@ -596,14 +635,17 @@ export async function updateSkuMaterial(
   data?: SkuMaterial
   error?: string
 }> {
+  const auth = await requireRole(MATERIALS_WRITE_ROLES)
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
   try {
     if (quantityPerUnit <= 0) {
       return { success: false, error: 'Quantity per unit must be greater than 0' }
     }
 
-    const supabase = await createClient()
+    const db = await createServiceClient()
 
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from('sku_materials')
       .update({
         quantity_per_unit: quantityPerUnit,
@@ -633,10 +675,13 @@ export async function removeSkuMaterial(
   success: boolean
   error?: string
 }> {
-  try {
-    const supabase = await createClient()
+  const auth = await requireRole(MATERIALS_WRITE_ROLES)
+  if (!auth.authorized) return { success: false, error: auth.reason }
 
-    const { error } = await supabase
+  try {
+    const db = await createServiceClient()
+
+    const { error } = await db
       .from('sku_materials')
       .delete()
       .eq('sku_id', skuId)
@@ -677,11 +722,14 @@ export async function checkMaterialAvailability(
   data?: MaterialAvailabilityResult
   error?: string
 }> {
+  const auth = await requireRole(MATERIALS_READ_ROLES)
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
   try {
-    const supabase = await createClient()
+    const db = await createServiceClient()
 
     // Get materials required for this SKU
-    const { data: skuMaterials, error: skuError } = await supabase
+    const { data: skuMaterials, error: skuError } = await db
       .from('sku_materials')
       .select(`
         material_id,
@@ -746,11 +794,14 @@ export async function deductMaterialsForCasing(
   success: boolean
   error?: string
 }> {
+  const auth = await requireRole(MATERIALS_WRITE_ROLES)
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
   try {
-    const supabase = await createClient()
+    const db = await createServiceClient()
 
     // Get materials required for this SKU
-    const { data: skuMaterials, error: skuError } = await supabase
+    const { data: skuMaterials, error: skuError } = await db
       .from('sku_materials')
       .select(`
         material_id,
@@ -795,7 +846,7 @@ export async function deductMaterialsForCasing(
       const newStock = materialData.current_stock - deductAmount
 
       // Update stock
-      const { error: updateError } = await supabase
+      const { error: updateError } = await db
         .from('materials')
         .update({
           current_stock: newStock,
@@ -809,7 +860,7 @@ export async function deductMaterialsForCasing(
       }
 
       // Log transaction
-      await supabase.from('material_transactions').insert({
+      await db.from('material_transactions').insert({
         material_id: materialData.id,
         quantity: -deductAmount,
         transaction_type: 'usage',

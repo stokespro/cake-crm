@@ -1,59 +1,22 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { ArrowLeft, Loader2 } from 'lucide-react'
+import { createSku, checkSkuNameExists } from '@/actions/products'
 
 export default function NewProductPage() {
   const [strainName, setStrainName] = useState('')
-  const [pricePerUnit, setPricePerUnit] = useState('')
   const [description, setDescription] = useState('')
-  const [thcPercentage, setThcPercentage] = useState('')
-  const [cbdPercentage, setCbdPercentage] = useState('')
-  const [category, setCategory] = useState('')
-  const [inStock, setInStock] = useState(true)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [userRole, setUserRole] = useState<string>('agent')
   const router = useRouter()
-  const supabase = createClient()
-
-  useEffect(() => {
-    checkUserPermissions()
-  }, [])
-
-  const checkUserPermissions = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        router.push('/login')
-        return
-      }
-
-      const { data } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single()
-
-      if (data) {
-        setUserRole(data.role)
-        if (data.role !== 'management' && data.role !== 'admin') {
-          router.push('/dashboard/products')
-        }
-      }
-    } catch (error) {
-      console.error('Error checking permissions:', error)
-      router.push('/dashboard/products')
-    }
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -61,39 +24,28 @@ export default function NewProductPage() {
     setError(null)
 
     try {
-      // Check for duplicate strain names first
-      const { data: existingProducts, error: checkError } = await supabase
-        .from('products')
-        .select('id, strain_name')
-        .eq('strain_name', strainName.trim())
-
-      if (checkError) {
-        console.error('Error checking for duplicate strain name:', checkError)
+      // Check for duplicate names
+      const nameCheck = await checkSkuNameExists(strainName.trim())
+      if (nameCheck.error) {
         throw new Error('Unable to validate strain name. Please try again.')
       }
-
-      if (existingProducts && existingProducts.length > 0) {
+      if (nameCheck.exists) {
         throw new Error('A product with this strain name already exists. Please choose a different name.')
       }
 
-      const { error } = await supabase
-        .from('products')
-        .insert({
-          strain_name: strainName.trim(),
-          price_per_unit: parseFloat(pricePerUnit),
-          description: description.trim() || null,
-          thc_percentage: thcPercentage ? parseFloat(thcPercentage) : null,
-          cbd_percentage: cbdPercentage ? parseFloat(cbdPercentage) : null,
-          category: category.trim() || null,
-          in_stock: inStock
-        })
+      const result = await createSku({
+        code: strainName.trim().toUpperCase().replace(/\s+/g, '-'),
+        name: strainName.trim(),
+        strain_id: '',
+        product_type_id: '',
+        units_per_case: 0,
+        grams_per_unit: 0,
+        status: 'active',
+        description: description.trim() || null,
+      })
 
-      if (error) {
-        // Check for duplicate strain_name constraint violation as fallback
-        if (error.code === '23505' && error.message.includes('products_strain_name_key')) {
-          throw new Error('A product with this strain name already exists. Please choose a different name.')
-        }
-        throw error
+      if ('error' in result && result.error) {
+        throw new Error(result.error)
       }
 
       router.push('/dashboard/products')
@@ -102,14 +54,6 @@ export default function NewProductPage() {
     } finally {
       setLoading(false)
     }
-  }
-
-  if (userRole !== 'management' && userRole !== 'admin') {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-muted-foreground">Checking permissions...</div>
-      </div>
-    )
   }
 
   return (
@@ -132,7 +76,7 @@ export default function NewProductPage() {
         <CardHeader>
           <CardTitle>Product Information</CardTitle>
           <CardDescription>
-            Enter the strain details and pricing information
+            Enter the strain details
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
@@ -143,76 +87,17 @@ export default function NewProductPage() {
               </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="strainName">Strain Name *</Label>
-                <Input
-                  id="strainName"
-                  placeholder="Blue Dream"
-                  value={strainName}
-                  onChange={(e) => setStrainName(e.target.value)}
-                  required
-                  disabled={loading}
-                  className="h-12"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="pricePerUnit">Price per Unit ($) *</Label>
-                <Input
-                  id="pricePerUnit"
-                  type="number"
-                  step="0.01"
-                  placeholder="25.00"
-                  value={pricePerUnit}
-                  onChange={(e) => setPricePerUnit(e.target.value)}
-                  required
-                  disabled={loading}
-                  className="h-12"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="thcPercentage">THC %</Label>
-                <Input
-                  id="thcPercentage"
-                  type="number"
-                  step="0.1"
-                  placeholder="22.5"
-                  value={thcPercentage}
-                  onChange={(e) => setThcPercentage(e.target.value)}
-                  disabled={loading}
-                  className="h-12"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="cbdPercentage">CBD %</Label>
-                <Input
-                  id="cbdPercentage"
-                  type="number"
-                  step="0.1"
-                  placeholder="0.5"
-                  value={cbdPercentage}
-                  onChange={(e) => setCbdPercentage(e.target.value)}
-                  disabled={loading}
-                  className="h-12"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="category">Category</Label>
-                <Input
-                  id="category"
-                  placeholder="Hybrid, Indica, Sativa"
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  disabled={loading}
-                  className="h-12"
-                />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="strainName">Strain Name *</Label>
+              <Input
+                id="strainName"
+                placeholder="Blue Dream"
+                value={strainName}
+                onChange={(e) => setStrainName(e.target.value)}
+                required
+                disabled={loading}
+                className="h-12"
+              />
             </div>
 
             <div className="space-y-2">
@@ -226,23 +111,6 @@ export default function NewProductPage() {
                 disabled={loading}
                 className="resize-none"
               />
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="inStock"
-                checked={inStock}
-                onChange={(e) => setInStock(e.target.checked)}
-                disabled={loading}
-                className="h-4 w-4 rounded border-gray-300"
-              />
-              <Label 
-                htmlFor="inStock" 
-                className="text-sm font-normal cursor-pointer"
-              >
-                Product is currently in stock
-              </Label>
             </div>
           </CardContent>
 

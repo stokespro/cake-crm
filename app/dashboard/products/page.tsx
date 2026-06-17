@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -31,6 +30,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { ProductSheet } from '@/components/products/product-sheet'
+import { getProducts } from '@/actions/products'
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([])
@@ -42,7 +42,6 @@ export default function ProductsPage() {
   const [sheetOpen, setSheetOpen] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<Product | undefined>(undefined)
   const [error, setError] = useState<string | null>(null)
-  const supabase = createClient()
   const { user } = useAuth()
 
   // Get user role from auth context
@@ -60,17 +59,16 @@ export default function ProductsPage() {
     try {
       setError(null)
 
-      const { data, error: queryError } = await supabase
-        .from('products')
-        .select('*')
-        .order('item_name')
+      const result = await getProducts()
 
-      if (queryError) {
-        console.error('Error fetching products:', queryError)
-        throw queryError
+      if ('error' in result) {
+        console.error('Error fetching products:', result.error)
+        setError(`Database connection error: ${result.error}`)
+        setProducts([])
+        return
       }
 
-      setProducts(data || [])
+      setProducts(result.data)
     } catch (error) {
       console.error('Error fetching products:', error)
       setError(`Database connection error: ${error instanceof Error ? error.message : 'Unknown error'}`)

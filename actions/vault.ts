@@ -1,7 +1,17 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
+import { requireRole } from '@/lib/auth/session'
+import { createServiceClient } from '@/lib/supabase/server'
 import type { VaultPackage, Transaction, PackageFilters, ProductType, Strain, Batch } from '@/types/vault'
+
+// Roles that can read vault data (matches canViewSection 'vault')
+const VAULT_READ_ROLES = ['admin', 'management', 'vault', 'standard']
+// Roles that can mutate packages (vault workers + management)
+const VAULT_WRITE_ROLES = ['admin', 'management', 'vault']
+// Roles that can access admin functions (strains/batches/product types)
+const VAULT_ADMIN_ROLES = ['admin', 'management']
+// Roles that can read inventory (broader — matches canViewSection 'inventory')
+const INVENTORY_READ_ROLES = ['admin', 'management', 'vault', 'packaging', 'standard', 'sales', 'agent']
 
 // Get a single package by tag ID
 export async function getPackage(tagId: string): Promise<{
@@ -9,9 +19,12 @@ export async function getPackage(tagId: string): Promise<{
   package?: VaultPackage | null
   error?: string
 }> {
-  const supabase = await createClient()
+  const auth = await requireRole(VAULT_READ_ROLES)
+  if (!auth.authorized) return { success: false, error: auth.reason }
 
-  const { data, error } = await supabase
+  const db = await createServiceClient()
+
+  const { data, error } = await db
     .from('packages')
     .select(`
       *,
@@ -39,9 +52,12 @@ export async function getFilteredPackages(filters: PackageFilters & { activeOnly
   packages?: VaultPackage[]
   error?: string
 }> {
-  const supabase = await createClient()
+  const auth = await requireRole(VAULT_READ_ROLES)
+  if (!auth.authorized) return { success: false, error: auth.reason }
 
-  let query = supabase
+  const db = await createServiceClient()
+
+  let query = db
     .from('packages')
     .select(`
       *,
@@ -82,9 +98,12 @@ export async function getAllPackages(options?: { activeOnly?: boolean }): Promis
   packages?: VaultPackage[]
   error?: string
 }> {
-  const supabase = await createClient()
+  const auth = await requireRole(VAULT_READ_ROLES)
+  if (!auth.authorized) return { success: false, error: auth.reason }
 
-  let query = supabase
+  const db = await createServiceClient()
+
+  let query = db
     .from('packages')
     .select(`
       *,
@@ -106,16 +125,42 @@ export async function getAllPackages(options?: { activeOnly?: boolean }): Promis
   return { success: true, packages: data as VaultPackage[] }
 }
 
+// Get packages for inventory page (broader role set)
+export async function getPackagesForInventory(): Promise<{
+  success: boolean
+  packages?: Pick<VaultPackage, 'strain_id' | 'type_id' | 'current_weight' | 'is_active'>[]
+  error?: string
+}> {
+  const auth = await requireRole(INVENTORY_READ_ROLES)
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
+  const db = await createServiceClient()
+
+  const { data, error } = await db
+    .from('packages')
+    .select('strain_id, type_id, current_weight, is_active')
+    .eq('is_active', true)
+
+  if (error) {
+    return { success: false, error: error.message }
+  }
+
+  return { success: true, packages: data }
+}
+
 // Get unique batches for filtering (only active batches)
 export async function getUniqueBatches(): Promise<{
   success: boolean
   batches?: string[]
   error?: string
 }> {
-  const supabase = await createClient()
+  const auth = await requireRole(VAULT_READ_ROLES)
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
+  const db = await createServiceClient()
 
   // Get all active batch names
-  const { data: activeBatches, error: batchError } = await supabase
+  const { data: activeBatches, error: batchError } = await db
     .from('batches')
     .select('name')
     .eq('is_active', true)
@@ -127,7 +172,7 @@ export async function getUniqueBatches(): Promise<{
   const activeBatchNames = new Set(activeBatches.map(b => b.name))
 
   // Get unique batches from packages, filtered to only active ones
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('packages')
     .select('batch')
     .order('batch', { ascending: true })
@@ -146,9 +191,12 @@ export async function getRecentTransactions(tagId: string, limit: number = 10): 
   transactions?: Transaction[]
   error?: string
 }> {
-  const supabase = await createClient()
+  const auth = await requireRole(VAULT_READ_ROLES)
+  if (!auth.authorized) return { success: false, error: auth.reason }
 
-  const { data, error } = await supabase
+  const db = await createServiceClient()
+
+  const { data, error } = await db
     .from('transactions')
     .select(`
       *,
@@ -172,14 +220,17 @@ export async function adjustWeight(
   type: 'add' | 'remove',
   userId: string
 ): Promise<{ success: boolean; package?: VaultPackage; error?: string }> {
-  const supabase = await createClient()
+  const auth = await requireRole(VAULT_WRITE_ROLES)
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
+  const db = await createServiceClient()
 
   if (amount <= 0) {
     return { success: false, error: 'Amount must be greater than 0' }
   }
 
   // Get current package
-  const { data: currentPackage, error: fetchError } = await supabase
+  const { data: currentPackage, error: fetchError } = await db
     .from('packages')
     .select('current_weight')
     .eq('tag_id', tagId)
@@ -205,7 +256,7 @@ export async function adjustWeight(
   newBalance = Math.round(newBalance * 100) / 100
 
   // Update package
-  const { error: updateError } = await supabase
+  const { error: updateError } = await db
     .from('packages')
     .update({ current_weight: newBalance })
     .eq('tag_id', tagId)
@@ -215,7 +266,7 @@ export async function adjustWeight(
   }
 
   // Log transaction
-  await supabase
+  await db
     .from('transactions')
     .insert({
       tag_id: tagId,
@@ -226,7 +277,7 @@ export async function adjustWeight(
     })
 
   // Fetch updated package with joins
-  const { data: updatedPackage, error: refetchError } = await supabase
+  const { data: updatedPackage, error: refetchError } = await db
     .from('packages')
     .select(`
       *,
@@ -254,7 +305,10 @@ export async function createPackage(
   startingWeight: number,
   userId: string
 ): Promise<{ success: boolean; package?: VaultPackage; error?: string }> {
-  const supabase = await createClient()
+  const auth = await requireRole(VAULT_WRITE_ROLES)
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
+  const db = await createServiceClient()
 
   if (!tagId.trim()) {
     return { success: false, error: 'Tag ID is required' }
@@ -277,7 +331,7 @@ export async function createPackage(
   }
 
   // Check if tag already exists
-  const { data: existing } = await supabase
+  const { data: existing } = await db
     .from('packages')
     .select('tag_id')
     .eq('tag_id', tagId.trim())
@@ -288,7 +342,7 @@ export async function createPackage(
   }
 
   // Create the package
-  const { data: packageData, error: packageError } = await supabase
+  const { data: packageData, error: packageError } = await db
     .from('packages')
     .insert({
       tag_id: tagId.trim(),
@@ -312,7 +366,7 @@ export async function createPackage(
   }
 
   // Log the initial transaction
-  await supabase
+  await db
     .from('transactions')
     .insert({
       tag_id: tagId.trim(),
@@ -330,9 +384,12 @@ export async function togglePackageActive(
   tagId: string,
   isActive: boolean
 ): Promise<{ success: boolean; package?: VaultPackage; error?: string }> {
-  const supabase = await createClient()
+  const auth = await requireRole(VAULT_ADMIN_ROLES)
+  if (!auth.authorized) return { success: false, error: auth.reason }
 
-  const { data, error } = await supabase
+  const db = await createServiceClient()
+
+  const { data, error } = await db
     .from('packages')
     .update({ is_active: isActive, updated_at: new Date().toISOString() })
     .eq('tag_id', tagId)
@@ -361,7 +418,10 @@ export async function updatePackage(
     typeId?: string
   }
 ): Promise<{ success: boolean; package?: VaultPackage; error?: string }> {
-  const supabase = await createClient()
+  const auth = await requireRole(VAULT_ADMIN_ROLES)
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
+  const db = await createServiceClient()
 
   const updateData: Record<string, unknown> = {}
 
@@ -396,7 +456,7 @@ export async function updatePackage(
 
   updateData.updated_at = new Date().toISOString()
 
-  const { error: updateError } = await supabase
+  const { error: updateError } = await db
     .from('packages')
     .update(updateData)
     .eq('tag_id', tagId)
@@ -406,7 +466,7 @@ export async function updatePackage(
   }
 
   // Fetch updated package with joins
-  const { data: updatedPackage, error: refetchError } = await supabase
+  const { data: updatedPackage, error: refetchError } = await db
     .from('packages')
     .select(`
       *,
@@ -430,9 +490,12 @@ export async function getStrains(): Promise<{
   strains?: Strain[]
   error?: string
 }> {
-  const supabase = await createClient()
+  const auth = await requireRole(VAULT_READ_ROLES)
+  if (!auth.authorized) return { success: false, error: auth.reason }
 
-  const { data, error } = await supabase
+  const db = await createServiceClient()
+
+  const { data, error } = await db
     .from('strains')
     .select('*')
     .order('name', { ascending: true })
@@ -450,9 +513,12 @@ export async function getProductTypes(): Promise<{
   productTypes?: ProductType[]
   error?: string
 }> {
-  const supabase = await createClient()
+  const auth = await requireRole(VAULT_READ_ROLES)
+  if (!auth.authorized) return { success: false, error: auth.reason }
 
-  const { data, error } = await supabase
+  const db = await createServiceClient()
+
+  const { data, error } = await db
     .from('product_types')
     .select('*')
     .order('name', { ascending: true })
@@ -471,14 +537,17 @@ export async function getProductTypes(): Promise<{
 export async function createStrain(
   name: string
 ): Promise<{ success: boolean; strain?: Strain; error?: string }> {
-  const supabase = await createClient()
+  const auth = await requireRole(VAULT_ADMIN_ROLES)
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
+  const db = await createServiceClient()
 
   if (!name.trim()) {
     return { success: false, error: 'Name is required' }
   }
 
   // Check if name already exists
-  const { data: existing } = await supabase
+  const { data: existing } = await db
     .from('strains')
     .select('id')
     .ilike('name', name.trim())
@@ -488,7 +557,7 @@ export async function createStrain(
     return { success: false, error: 'Strain already exists' }
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('strains')
     .insert({ name: name.trim() })
     .select()
@@ -505,14 +574,17 @@ export async function updateStrain(
   id: string,
   name: string
 ): Promise<{ success: boolean; strain?: Strain; error?: string }> {
-  const supabase = await createClient()
+  const auth = await requireRole(VAULT_ADMIN_ROLES)
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
+  const db = await createServiceClient()
 
   if (!name.trim()) {
     return { success: false, error: 'Name is required' }
   }
 
   // Check if name already exists for another strain
-  const { data: existing } = await supabase
+  const { data: existing } = await db
     .from('strains')
     .select('id')
     .ilike('name', name.trim())
@@ -523,7 +595,7 @@ export async function updateStrain(
     return { success: false, error: 'Strain already exists' }
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('strains')
     .update({ name: name.trim() })
     .eq('id', id)
@@ -538,10 +610,13 @@ export async function updateStrain(
 }
 
 export async function deleteStrain(id: string): Promise<{ success: boolean; error?: string }> {
-  const supabase = await createClient()
+  const auth = await requireRole(VAULT_ADMIN_ROLES)
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
+  const db = await createServiceClient()
 
   // Check if any packages use this strain
-  const { data: packages } = await supabase
+  const { data: packages } = await db
     .from('packages')
     .select('tag_id')
     .eq('strain_id', id)
@@ -551,7 +626,7 @@ export async function deleteStrain(id: string): Promise<{ success: boolean; erro
     return { success: false, error: 'Cannot delete strain that is in use by packages' }
   }
 
-  const { error } = await supabase
+  const { error } = await db
     .from('strains')
     .delete()
     .eq('id', id)
@@ -572,9 +647,12 @@ export async function getBatches(options?: { activeOnly?: boolean }): Promise<{
   batches?: Batch[]
   error?: string
 }> {
-  const supabase = await createClient()
+  const auth = await requireRole(VAULT_READ_ROLES)
+  if (!auth.authorized) return { success: false, error: auth.reason }
 
-  let query = supabase
+  const db = await createServiceClient()
+
+  let query = db
     .from('batches')
     .select(`
       *,
@@ -600,9 +678,12 @@ export async function toggleBatchActive(
   id: string,
   isActive: boolean
 ): Promise<{ success: boolean; batch?: Batch; error?: string }> {
-  const supabase = await createClient()
+  const auth = await requireRole(VAULT_ADMIN_ROLES)
+  if (!auth.authorized) return { success: false, error: auth.reason }
 
-  const { data, error } = await supabase
+  const db = await createServiceClient()
+
+  const { data, error } = await db
     .from('batches')
     .update({ is_active: isActive })
     .eq('id', id)
@@ -623,7 +704,10 @@ export async function createBatch(
   name: string,
   strainId: string
 ): Promise<{ success: boolean; batch?: Batch; error?: string }> {
-  const supabase = await createClient()
+  const auth = await requireRole(VAULT_ADMIN_ROLES)
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
+  const db = await createServiceClient()
 
   if (!name.trim()) {
     return { success: false, error: 'Batch name is required' }
@@ -634,7 +718,7 @@ export async function createBatch(
   }
 
   // Check if batch already exists
-  const { data: existing } = await supabase
+  const { data: existing } = await db
     .from('batches')
     .select('id')
     .ilike('name', name.trim())
@@ -644,7 +728,7 @@ export async function createBatch(
     return { success: false, error: 'Batch already exists' }
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('batches')
     .insert({ name: name.trim(), strain_id: strainId })
     .select(`
@@ -665,7 +749,10 @@ export async function updateBatch(
   name: string,
   strainId: string
 ): Promise<{ success: boolean; batch?: Batch; error?: string }> {
-  const supabase = await createClient()
+  const auth = await requireRole(VAULT_ADMIN_ROLES)
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
+  const db = await createServiceClient()
 
   if (!name.trim()) {
     return { success: false, error: 'Batch name is required' }
@@ -676,7 +763,7 @@ export async function updateBatch(
   }
 
   // Check if another batch with this name exists
-  const { data: existing } = await supabase
+  const { data: existing } = await db
     .from('batches')
     .select('id')
     .ilike('name', name.trim())
@@ -687,7 +774,7 @@ export async function updateBatch(
     return { success: false, error: 'Another batch with this name already exists' }
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('batches')
     .update({ name: name.trim(), strain_id: strainId })
     .eq('id', id)
@@ -705,10 +792,13 @@ export async function updateBatch(
 }
 
 export async function deleteBatch(id: string): Promise<{ success: boolean; error?: string }> {
-  const supabase = await createClient()
+  const auth = await requireRole(VAULT_ADMIN_ROLES)
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
+  const db = await createServiceClient()
 
   // First get the batch name to check packages
-  const { data: batch } = await supabase
+  const { data: batch } = await db
     .from('batches')
     .select('name')
     .eq('id', id)
@@ -719,7 +809,7 @@ export async function deleteBatch(id: string): Promise<{ success: boolean; error
   }
 
   // Check if any packages use this batch (by name, since packages.batch is a text field)
-  const { data: packages } = await supabase
+  const { data: packages } = await db
     .from('packages')
     .select('tag_id')
     .eq('batch', batch.name)
@@ -729,7 +819,7 @@ export async function deleteBatch(id: string): Promise<{ success: boolean; error
     return { success: false, error: 'Cannot delete batch that is in use by packages' }
   }
 
-  const { error } = await supabase
+  const { error } = await db
     .from('batches')
     .delete()
     .eq('id', id)
@@ -748,14 +838,17 @@ export async function deleteBatch(id: string): Promise<{ success: boolean; error
 export async function createProductType(
   name: string
 ): Promise<{ success: boolean; productType?: ProductType; error?: string }> {
-  const supabase = await createClient()
+  const auth = await requireRole(VAULT_ADMIN_ROLES)
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
+  const db = await createServiceClient()
 
   if (!name.trim()) {
     return { success: false, error: 'Name is required' }
   }
 
   // Check if name already exists
-  const { data: existing } = await supabase
+  const { data: existing } = await db
     .from('product_types')
     .select('id')
     .ilike('name', name.trim())
@@ -765,7 +858,7 @@ export async function createProductType(
     return { success: false, error: 'Product type already exists' }
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('product_types')
     .insert({ name: name.trim() })
     .select()
@@ -782,14 +875,17 @@ export async function updateProductType(
   id: string,
   name: string
 ): Promise<{ success: boolean; productType?: ProductType; error?: string }> {
-  const supabase = await createClient()
+  const auth = await requireRole(VAULT_ADMIN_ROLES)
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
+  const db = await createServiceClient()
 
   if (!name.trim()) {
     return { success: false, error: 'Name is required' }
   }
 
   // Check if name already exists for another type
-  const { data: existing } = await supabase
+  const { data: existing } = await db
     .from('product_types')
     .select('id')
     .ilike('name', name.trim())
@@ -800,7 +896,7 @@ export async function updateProductType(
     return { success: false, error: 'Product type already exists' }
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('product_types')
     .update({ name: name.trim() })
     .eq('id', id)
@@ -815,10 +911,13 @@ export async function updateProductType(
 }
 
 export async function deleteProductType(id: string): Promise<{ success: boolean; error?: string }> {
-  const supabase = await createClient()
+  const auth = await requireRole(VAULT_ADMIN_ROLES)
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
+  const db = await createServiceClient()
 
   // Check if any packages use this type
-  const { data: packages } = await supabase
+  const { data: packages } = await db
     .from('packages')
     .select('tag_id')
     .eq('type_id', id)
@@ -828,7 +927,7 @@ export async function deleteProductType(id: string): Promise<{ success: boolean;
     return { success: false, error: 'Cannot delete type that is in use by packages' }
   }
 
-  const { error } = await supabase
+  const { error } = await db
     .from('product_types')
     .delete()
     .eq('id', id)

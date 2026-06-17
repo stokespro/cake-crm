@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -29,6 +28,14 @@ import {
 import { Loader2, ChevronDown, ChevronUp, Package } from 'lucide-react'
 import type { Product, ProductType } from '@/types/database'
 import { SkuMaterials } from './sku-materials'
+import {
+  getProductTypes,
+  getStrains,
+  checkSkuCodeExists,
+  checkSkuNameExists,
+  createSku,
+  updateSku,
+} from '@/actions/products'
 
 interface ProductSheetProps {
   open: boolean
@@ -53,7 +60,6 @@ export function ProductSheet({ open, onClose, product, onSuccess }: ProductSheet
   const [loadingStrains, setLoadingStrains] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [materialsOpen, setMaterialsOpen] = useState(false)
-  const supabase = createClient()
 
   // Fetch product types and strains on mount
   useEffect(() => {
@@ -64,13 +70,12 @@ export function ProductSheet({ open, onClose, product, onSuccess }: ProductSheet
   const fetchProductTypes = async () => {
     setLoadingTypes(true)
     try {
-      const { data, error } = await supabase
-        .from('product_types')
-        .select('*')
-        .order('name')
-
-      if (error) throw error
-      setProductTypes(data || [])
+      const result = await getProductTypes()
+      if ('error' in result) {
+        console.error('Error fetching product types:', result.error)
+      } else {
+        setProductTypes(result.data || [])
+      }
     } catch (error) {
       console.error('Error fetching product types:', error)
     } finally {
@@ -81,13 +86,12 @@ export function ProductSheet({ open, onClose, product, onSuccess }: ProductSheet
   const fetchStrains = async () => {
     setLoadingStrains(true)
     try {
-      const { data, error } = await supabase
-        .from('strains')
-        .select('id, name')
-        .order('name')
-
-      if (error) throw error
-      setStrains(data || [])
+      const result = await getStrains()
+      if ('error' in result) {
+        console.error('Error fetching strains:', result.error)
+      } else {
+        setStrains(result.data || [])
+      }
     } catch (error) {
       console.error('Error fetching strains:', error)
     } finally {
@@ -172,57 +176,26 @@ export function ProductSheet({ open, onClose, product, onSuccess }: ProductSheet
         return false
       }
 
-      // Check for duplicate codes
-      try {
-        const { data: existingCodes, error: codeError } = await supabase
-          .from('skus')
-          .select('id, code')
-          .eq('code', code.trim().toUpperCase())
-
-        if (codeError) {
-          console.error('Error checking for duplicate code:', codeError)
-          setError('Unable to validate SKU code. Please try again.')
-          return false
-        }
-
-        if (existingCodes && existingCodes.length > 0) {
-          setError('A product with this SKU code already exists. Please choose a different code.')
-          return false
-        }
-      } catch (error) {
-        console.error('Error checking for duplicate code:', error)
+      // Check for duplicate codes via server action
+      const codeCheck = await checkSkuCodeExists(code.trim().toUpperCase())
+      if (codeCheck.error) {
         setError('Unable to validate SKU code. Please try again.')
+        return false
+      }
+      if (codeCheck.exists) {
+        setError('A product with this SKU code already exists. Please choose a different code.')
         return false
       }
     }
 
-    // Check for duplicate names
-    try {
-      let query = supabase
-        .from('skus')
-        .select('id, name')
-        .eq('name', itemName.trim())
-
-      // If editing, exclude the current product from the check
-      if (product) {
-        query = query.neq('id', product.id)
-      }
-
-      const { data: existingProducts, error: checkError } = await query
-
-      if (checkError) {
-        console.error('Error checking for duplicate name:', checkError)
-        setError('Unable to validate item name. Please try again.')
-        return false
-      }
-
-      if (existingProducts && existingProducts.length > 0) {
-        setError('A product with this name already exists. Please choose a different name.')
-        return false
-      }
-    } catch (error) {
-      console.error('Error checking for duplicate name:', error)
+    // Check for duplicate names via server action
+    const nameCheck = await checkSkuNameExists(itemName.trim(), product?.id)
+    if (nameCheck.error) {
       setError('Unable to validate item name. Please try again.')
+      return false
+    }
+    if (nameCheck.exists) {
+      setError('A product with this name already exists. Please choose a different name.')
       return false
     }
 
@@ -240,51 +213,35 @@ export function ProductSheet({ open, onClose, product, onSuccess }: ProductSheet
     setLoading(true)
 
     try {
-      // Write directly to skus table (products is a view)
-      // in_stock is NOT written here — it is derived automatically from inventory levels
-      const skuData = {
-        name: itemName.trim(),
-        description: description.trim() || null,
-        product_type_id: productTypeId,
-        units_per_case: unitsPerCase as number,
-        grams_per_unit: gramsPerUnit as number,
-        status,
-        updated_at: new Date().toISOString(),
-      }
-
       if (product) {
-        // Edit mode - update existing SKU
-        const { error: updateError } = await supabase
-          .from('skus')
-          .update(skuData)
-          .eq('id', product.id)
+        // Edit mode - update existing SKU via server action
+        const result = await updateSku(product.id, {
+          name: itemName.trim(),
+          description: description.trim() || null,
+          product_type_id: productTypeId,
+          units_per_case: unitsPerCase as number,
+          grams_per_unit: gramsPerUnit as number,
+          status,
+        })
 
-        if (updateError) {
-          if (updateError.code === '23505') {
-            throw new Error('A product with this name already exists. Please choose a different name.')
-          }
-          throw new Error(`Failed to update product: ${updateError.message}`)
+        if ('error' in result && result.error) {
+          throw new Error(result.error)
         }
       } else {
-        // Create mode - insert new SKU
-        const { error: insertError } = await supabase
-          .from('skus')
-          .insert({
-            code: code.trim().toUpperCase(),
-            name: itemName.trim(),
-            strain_id: strainId,
-            product_type_id: productTypeId,
-            units_per_case: unitsPerCase as number,
-            grams_per_unit: gramsPerUnit as number,
-            status,
-            description: description.trim() || null,
-          })
+        // Create mode - insert new SKU via server action
+        const result = await createSku({
+          code: code.trim().toUpperCase(),
+          name: itemName.trim(),
+          strain_id: strainId,
+          product_type_id: productTypeId,
+          units_per_case: unitsPerCase as number,
+          grams_per_unit: gramsPerUnit as number,
+          status,
+          description: description.trim() || null,
+        })
 
-        if (insertError) {
-          if (insertError.code === '23505') {
-            throw new Error('A product with this code or name already exists. Please choose different values.')
-          }
-          throw new Error(`Failed to create product: ${insertError.message}`)
+        if ('error' in result && result.error) {
+          throw new Error(result.error)
         }
       }
 
