@@ -138,7 +138,7 @@ export async function getCultivationTaskSummary(): Promise<
   return { data: data ?? [] }
 }
 
-export async function getMyTodayTasks(userId: string, todayStr: string): Promise<
+export async function getMyTodayTasks(todayStr: string): Promise<
   { data: unknown[]; error?: never } | { data?: never; error: string }
 > {
   const auth = await requireRole(VIEW_ROLES)
@@ -150,7 +150,8 @@ export async function getMyTodayTasks(userId: string, todayStr: string): Promise
     .select(
       '*, room:grow_rooms(id, room_name, room_number), assigned_user:users!cultivation_tasks_assigned_to_fkey(id, name)'
     )
-    .eq('assigned_to', userId)
+    // Use server-side verified userId from session — never trust a client-passed id
+    .eq('assigned_to', auth.session.userId)
     .in('status', ['pending', 'in_progress'])
     .or('frequency.is.null,recurring_parent_id.not.is.null')
     .lte('due_date', todayStr)
@@ -888,80 +889,85 @@ function dueDatesNeeded(
 export async function generateRecurringTasksAction(): Promise<
   { generated: number; error?: never } | { error: string }
 > {
-  const auth = await requireRole(VIEW_ROLES)
-  if (!auth.authorized) return { error: auth.reason }
+  try {
+    const auth = await requireRole(VIEW_ROLES)
+    if (!auth.authorized) return { generated: 0 }
 
-  const db = await createServiceClient()
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const todayStr = today.toISOString().split('T')[0]
-  const horizonStr = addDaysToDateStr(todayStr, LOOKAHEAD_DAYS)
+    const db = await createServiceClient()
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const todayStr = today.toISOString().split('T')[0]
+    const horizonStr = addDaysToDateStr(todayStr, LOOKAHEAD_DAYS)
 
-  // Fetch all recurring definitions
-  const { data: definitions, error } = await db
-    .from('cultivation_tasks')
-    .select('*')
-    .not('frequency', 'is', null)
-    .is('recurring_parent_id', null)
-    .order('created_at')
-
-  if (error || !definitions) return { generated: 0 }
-
-  let generated = 0
-
-  for (const def of definitions) {
-    const needed = dueDatesNeeded(
-      def.frequency,
-      def.last_generated_date ?? null,
-      todayStr,
-      horizonStr,
-      def.day_of_week ?? null,
-      def.created_at
-    )
-
-    if (needed.length === 0) continue
-
-    // Fetch existing children to avoid duplicates
-    const { data: existing } = await db
+    // Fetch all recurring definitions
+    const { data: definitions, error } = await db
       .from('cultivation_tasks')
-      .select('due_date')
-      .eq('recurring_parent_id', def.id)
-      .gte('due_date', needed[0])
-      .lte('due_date', needed[needed.length - 1])
+      .select('*')
+      .not('frequency', 'is', null)
+      .is('recurring_parent_id', null)
+      .order('created_at')
 
-    const existingDates = new Set((existing ?? []).map((r: { due_date: string }) => r.due_date))
+    if (error || !definitions) return { generated: 0 }
 
-    const toInsert = needed
-      .filter((d) => !existingDates.has(d))
-      .map((dueDate) => ({
-        title: def.title,
-        description: def.description,
-        task_type: 'recurring',
-        room_id: def.room_id,
-        due_date: dueDate,
-        priority: def.priority,
-        estimated_minutes: def.estimated_minutes,
-        assigned_to: def.assigned_to,
-        assigned_group: def.assigned_group,
-        status: 'pending',
-        recurring_parent_id: def.id,
-        frequency: null,
-        created_by: def.created_by,
-      }))
+    let generated = 0
 
-    if (toInsert.length === 0) continue
+    for (const def of definitions) {
+      const needed = dueDatesNeeded(
+        def.frequency,
+        def.last_generated_date ?? null,
+        todayStr,
+        horizonStr,
+        def.day_of_week ?? null,
+        def.created_at
+      )
 
-    const { error: insertError } = await db.from('cultivation_tasks').insert(toInsert)
+      if (needed.length === 0) continue
 
-    if (!insertError) {
-      generated += toInsert.length
-      const maxDate = toInsert[toInsert.length - 1].due_date
-      await db
+      // Fetch existing children to avoid duplicates
+      const { data: existing } = await db
         .from('cultivation_tasks')
-        .update({ last_generated_date: maxDate })
-        .eq('id', def.id)
-    }
-  }
+        .select('due_date')
+        .eq('recurring_parent_id', def.id)
+        .gte('due_date', needed[0])
+        .lte('due_date', needed[needed.length - 1])
 
-  return { generated }
+      const existingDates = new Set((existing ?? []).map((r: { due_date: string }) => r.due_date))
+
+      const toInsert = needed
+        .filter((d) => !existingDates.has(d))
+        .map((dueDate) => ({
+          title: def.title,
+          description: def.description,
+          task_type: 'recurring',
+          room_id: def.room_id,
+          due_date: dueDate,
+          priority: def.priority,
+          estimated_minutes: def.estimated_minutes,
+          assigned_to: def.assigned_to,
+          status: 'pending',
+          recurring_parent_id: def.id,
+          frequency: null,
+          created_by: def.created_by,
+        }))
+
+      if (toInsert.length === 0) continue
+
+      const { error: insertError } = await db.from('cultivation_tasks').insert(toInsert)
+
+      if (!insertError) {
+        generated += toInsert.length
+        const maxDate = toInsert[toInsert.length - 1].due_date
+        await db
+          .from('cultivation_tasks')
+          .update({ last_generated_date: maxDate })
+          .eq('id', def.id)
+      }
+    }
+
+    return { generated }
+  } catch (err) {
+    // Never block page load — recurring generation is best-effort
+    console.error('[cultivation] generateRecurringTasksAction unexpected error:', err)
+    return { generated: 0 }
+  }
 }

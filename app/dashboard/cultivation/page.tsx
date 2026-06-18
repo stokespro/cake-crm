@@ -313,7 +313,10 @@ export default function CultivationPage() {
   }, [])
 
   async function fetchData() {
-    // Generate any pending recurring task instances
+    try {
+    // Best-effort: generate any pending recurring task instances
+    // Wrapped in its own try/catch inside the action — failure here must not
+    // block the rest of the page load.
     await generateRecurringTasksAction()
 
     const todayStr = format(new Date(), 'yyyy-MM-dd')
@@ -321,7 +324,8 @@ export default function CultivationPage() {
       getGrowRooms(),
       getActiveCycles(),
       getCultivationTaskSummary(),
-      user ? getMyTodayTasks(user.id, todayStr) : Promise.resolve({ data: [] }),
+      // userId is now derived server-side from the session — no client-passed id
+      user ? getMyTodayTasks(todayStr) : Promise.resolve({ data: [] }),
     ])
 
     if (roomsRes.data) setRooms(roomsRes.data)
@@ -373,8 +377,11 @@ export default function CultivationPage() {
       setTaskStats({ overdue, dueToday, completedToday, upcomingThisWeek })
       setRoomTaskCounts(counts)
     }
-
-    setLoading(false)
+    } catch (err) {
+      console.error('[cultivation] fetchData error:', err)
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {

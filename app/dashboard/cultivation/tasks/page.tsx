@@ -136,19 +136,25 @@ export default function CultivationTasksPage() {
   const canComplete = user ? canCompleteCultivation(user.role) : false
 
   async function fetchData() {
-    // Generate any pending recurring task instances
-    await generateRecurringTasksAction()
+    try {
+      // Best-effort: generate any pending recurring task instances
+      // Action is wrapped internally — failure here must not block data load.
+      await generateRecurringTasksAction()
 
-    const [tasksRes, roomsRes, usersRes] = await Promise.all([
-      getCultivationTasks(),
-      getGrowRooms(),
-      getCultivationUsers(),
-    ])
+      const [tasksRes, roomsRes, usersRes] = await Promise.all([
+        getCultivationTasks(),
+        getGrowRooms(),
+        getCultivationUsers(),
+      ])
 
-    if (tasksRes.data) setTasks(tasksRes.data as CultivationTask[])
-    if (roomsRes.data) setRooms(roomsRes.data as GrowRoom[])
-    if (usersRes.data) setUsers(usersRes.data as UserOption[])
-    setLoading(false)
+      if (tasksRes.data) setTasks(tasksRes.data as CultivationTask[])
+      if (roomsRes.data) setRooms(roomsRes.data as GrowRoom[])
+      if (usersRes.data) setUsers(usersRes.data as UserOption[])
+    } catch (err) {
+      console.error('[cultivation/tasks] fetchData error:', err)
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
