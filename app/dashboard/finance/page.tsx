@@ -639,8 +639,10 @@ function ReconciliationPanel() {
 // -----------------------------------------------------------------------
 
 function UntrackedExpensesPanel({
+  month,
   onCreateBill,
 }: {
+  month: string
   onCreateBill: (prefill: { name: string; amount: string; due_date: string }) => void
 }) {
   const [open, setOpen] = useState(false)
@@ -651,7 +653,7 @@ function UntrackedExpensesPanel({
   const fetchUntracked = useCallback(async () => {
     setLoading(true)
     try {
-      const result = await getUntrackedBankTransactions()
+      const result = await getUntrackedBankTransactions(month)
       if (result.success) setTransactions(result.data ?? [])
     } catch (err) {
       console.error('Error fetching untracked transactions:', err)
@@ -659,7 +661,18 @@ function UntrackedExpensesPanel({
       setLoading(false)
       setFetched(true)
     }
-  }, [])
+  }, [month])
+
+  // Re-fetch when month changes (reset fetched so the panel reloads on next open,
+  // or immediately if already open)
+  useEffect(() => {
+    setFetched(false)
+    setTransactions([])
+    if (open) {
+      fetchUntracked()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [month])
 
   // Fetch once when opened
   const handleOpenChange = (next: boolean) => {
@@ -1153,6 +1166,7 @@ export default function FinanceOverviewPage() {
 
       {/* Untracked expenses (collapsed by default) */}
       <UntrackedExpensesPanel
+        month={month}
         onCreateBill={handleCreateBillFromTransaction}
       />
     </div>

@@ -331,9 +331,10 @@ export async function dismissReconciliationMatch(
 // ============================================================
 // getUntrackedBankTransactions
 // ============================================================
-// Calls the service-role-only RPC.
+// Calls the service-role-only RPC, then filters to the given month.
+// `month` is the same YYYY-MM-01 string used by getMonthSummary (e.g. '2026-06-01').
 
-export async function getUntrackedBankTransactions(): Promise<{
+export async function getUntrackedBankTransactions(month: string): Promise<{
   success: boolean
   data?: BankTransaction[]
   error?: string
@@ -350,7 +351,14 @@ export async function getUntrackedBankTransactions(): Promise<{
       return { success: false, error: error.message }
     }
 
-    return { success: true, data: (data ?? []) as BankTransaction[] }
+    // Filter to only transactions whose txn_date falls within the selected month.
+    // Both month and txn_date are ISO date strings; compare YYYY-MM prefixes.
+    const monthPrefix = month.substring(0, 7) // 'YYYY-MM'
+    const filtered = ((data ?? []) as BankTransaction[]).filter(
+      (txn) => txn.txn_date.substring(0, 7) === monthPrefix
+    )
+
+    return { success: true, data: filtered }
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error'
     return { success: false, error: msg }
