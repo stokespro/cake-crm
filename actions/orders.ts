@@ -249,6 +249,7 @@ export async function getOrderSkus(): Promise<
   const { data, error } = await db
     .from('skus')
     .select('id, code, name, price_per_unit, units_per_case, in_stock, status, product_type_id')
+    .neq('status', 'discontinued')
     .order('code')
 
   if (error) {
@@ -497,8 +498,7 @@ export interface SaveOrderInput {
   status: OrderStatus
   order_notes: string
   requested_delivery_date: string | null
-  actual_delivery_date: string   // '' means clear; non-empty means set
-  total_price: number
+  delivered_at_override: string        // '' = no change; 'YYYY-MM-DD' overwrites delivered_at
   // Current delivered_at from the DB (to decide auto-set logic)
   existing_delivered_at?: string | null
   items: UpdateOrderItemInput[]
@@ -513,10 +513,16 @@ export async function saveOrder(
 
   const db = await createServiceClient()
 
-  // Compute delivered_at
+  // Server-side total guard: recompute from line items — never trust the client value
+  const recomputedTotal = (input.items ?? [])
+    .filter(item => !item._deleted)
+    .reduce((sum, item) => sum + (item.line_total ?? 0), 0)
+
+  // Compute delivered_at — use T12:00:00Z (midday UTC) for date strings so
+  // Central-time dates don't slip a day backward.
   let deliveredAt: string | null = null
-  if (input.actual_delivery_date) {
-    deliveredAt = new Date(input.actual_delivery_date).toISOString()
+  if (input.delivered_at_override) {
+    deliveredAt = new Date(input.delivered_at_override + 'T12:00:00Z').toISOString()
   } else if (input.status === 'delivered' && !input.existing_delivered_at) {
     deliveredAt = new Date().toISOString()
   } else if (input.status !== 'delivered') {
@@ -527,13 +533,13 @@ export async function saveOrder(
   const keepExistingDeliveredAt =
     input.status === 'delivered' &&
     !!input.existing_delivered_at &&
-    !input.actual_delivery_date
+    !input.delivered_at_override
 
   const updatePayload: Record<string, unknown> = {
     status: input.status,
     order_notes: input.order_notes,
     requested_delivery_date: input.requested_delivery_date || null,
-    total_price: input.total_price,
+    total_price: recomputedTotal,
     last_edited_by: auth.session.userId,
     last_edited_at: new Date().toISOString(),
   }

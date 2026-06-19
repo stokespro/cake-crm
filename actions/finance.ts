@@ -634,6 +634,7 @@ export async function getMonthSummary(month: string): Promise<{
     const supabase = await createServiceClient()
 
     const today = new Date().toISOString().substring(0, 10)
+    const nextMonth = incrementMonth(month)
 
     // Fetch bills, snapshots, orders, and bank balance in parallel.
     // Bank balance uses the service-role client (service_role-only RPC).
@@ -658,19 +659,22 @@ export async function getMonthSummary(month: string): Promise<{
         .order('snapshot_date', { ascending: false })
         .limit(1),
 
+      // Month-scoped: delivered orders attributed by delivered_at; pipeline by requested_delivery_date.
+      // Joins order_items so we can use the HYBRID revenue rule (line items when present,
+      // else fall back to orders.total_price for legacy header-only orders).
       supabase
         .from('orders')
         .select(`
-          id,
-          order_number,
-          status,
-          total_price,
-          delivered_at,
-          requested_delivery_date,
-          customers(business_name)
+          id, order_number, status, total_price, delivered_at, requested_delivery_date,
+          customers(business_name),
+          order_items(line_total)
         `)
-        .or(`status.eq.delivered,status.eq.confirmed,status.eq.packed`)
-        .order('requested_delivery_date', { ascending: true }),
+        .or(
+          `and(status.eq.delivered,delivered_at.gte.${month},delivered_at.lt.${nextMonth}),` +
+          `and(status.in.(confirmed,packed),requested_delivery_date.gte.${month},requested_delivery_date.lt.${nextMonth})`
+        )
+        .order('requested_delivery_date', { ascending: true })
+        .range(0, 4999),
 
       // Non-fatal: catch so a bank RPC error doesn't block the whole page.
       createServiceClient()
@@ -712,8 +716,9 @@ export async function getMonthSummary(month: string): Promise<{
       }
     }
 
-    // Compute realized and pipeline revenue
-    const nextMonth = incrementMonth(month)
+    // Compute realized and pipeline revenue — HYBRID rule:
+    // use SUM(order_items.line_total) when the order has items, else fall back
+    // to orders.total_price (preserves $176,940 of legacy header-only orders).
     let realizedRevenue = 0
     let pipelineRevenue = 0
 
@@ -726,24 +731,26 @@ export async function getMonthSummary(month: string): Promise<{
         : order.customers
       const customerName = customer?.business_name ?? 'Unknown'
 
-      const orderInput: OrderInput = {
+      const items = (order.order_items ?? []) as { line_total: number | null }[]
+      const itemsTotal = items.reduce((s, i) => s + (i.line_total ?? 0), 0)
+      // HYBRID: line items when present, else legacy header total
+      const orderRevenue = items.length > 0 ? itemsTotal : (order.total_price ?? 0)
+
+      orderInputs.push({
         id: order.id,
         order_number: String(order.order_number),
         customer_name: customerName,
-        total_price: order.total_price ?? 0,
+        total_price: orderRevenue,            // item-accurate, legacy-safe
         status: order.status,
         delivered_at: order.delivered_at ?? null,
         requested_delivery_date: order.requested_delivery_date ?? null,
-      }
-      orderInputs.push(orderInput)
+      })
 
       if (order.status === 'delivered' && order.delivered_at) {
         const deliveredDate = order.delivered_at.substring(0, 10)
-        if (deliveredDate >= month && deliveredDate < nextMonth) {
-          realizedRevenue += order.total_price ?? 0
-        }
+        if (deliveredDate >= month && deliveredDate < nextMonth) realizedRevenue += orderRevenue
       } else if (['confirmed', 'packed'].includes(order.status)) {
-        pipelineRevenue += order.total_price ?? 0
+        pipelineRevenue += orderRevenue
       }
     }
 

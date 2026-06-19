@@ -525,7 +525,7 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
 
               {order && (
                 <div className="space-y-2">
-                  <Label htmlFor="deliveredAt">Actual Delivery Date</Label>
+                  <Label htmlFor="deliveredAt">Delivered Date</Label>
                   <Input
                     id="deliveredAt"
                     type="date"
@@ -534,7 +534,7 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
                     disabled={loading}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Set when order was actually delivered (used for commission calculations)
+                    Date order was delivered — controls which month revenue is attributed to.
                   </p>
                 </div>
               )}

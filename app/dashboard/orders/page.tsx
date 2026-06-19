@@ -83,7 +83,7 @@ interface EditFormData {
   order_notes: string
   order_date: string
   requested_delivery_date: string
-  actual_delivery_date: string
+  delivered_at_override: string
   order_items: EditOrderItem[]
 }
 
@@ -377,7 +377,7 @@ export default function OrdersPage() {
       order_notes: order.order_notes || '',
       order_date: order.order_date ? order.order_date.split('T')[0] : '',
       requested_delivery_date: order.requested_delivery_date ? order.requested_delivery_date.split('T')[0] : '',
-      actual_delivery_date: order.delivered_at ? order.delivered_at.split('T')[0] : '',
+      delivered_at_override: order.delivered_at ? order.delivered_at.split('T')[0] : '',
       order_items: editItems,
     })
   }
@@ -401,8 +401,7 @@ export default function OrdersPage() {
         status: editForm.status,
         order_notes: editForm.order_notes,
         requested_delivery_date: editForm.requested_delivery_date || null,
-        actual_delivery_date: editForm.actual_delivery_date,
-        total_price: getEditTotal(),
+        delivered_at_override: editForm.delivered_at_override,
         existing_delivered_at: selectedOrder.delivered_at,
         items: (editForm.order_items ?? []).map(item => ({
           id: item.id,
@@ -1228,12 +1227,15 @@ export default function OrdersPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Actual Delivery Date</label>
+                  <label className="text-sm font-medium">Delivered Date</label>
                   <Input
                     type="date"
-                    value={editForm.actual_delivery_date}
-                    onChange={(e) => updateEditForm('actual_delivery_date', e.target.value)}
+                    value={editForm.delivered_at_override}
+                    onChange={(e) => updateEditForm('delivered_at_override', e.target.value)}
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Date order was delivered — controls which month revenue is attributed to.
+                  </p>
                 </div>
               </div>
 
