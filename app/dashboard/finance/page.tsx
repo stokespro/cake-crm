@@ -42,19 +42,22 @@ import {
   Building2,
   XCircle,
   Plus,
+  CreditCard,
+  Link as LinkIcon,
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { getMonthSummary } from '@/actions/finance'
 import { upsertCashSnapshot } from './_actions/snapshot'
 import {
-  runReconciliation,
+  runDailyReconciliation,
   getReconciliationLog,
   confirmReconciliationMatch,
   dismissReconciliationMatch,
   getUntrackedBankTransactions,
+  getProposedTransactions,
 } from './_actions/bank'
 import type { MonthSummary } from '@/actions/finance'
-import type { ReconciliationLogRow, BankTransaction } from './_actions/bank'
+import type { ReconciliationLogRow, BankTransaction, ProposedTransaction } from './_actions/bank'
 import type { CashFlowResult, CashFlowEvent } from '@/lib/finance/cash-flow'
 
 // -----------------------------------------------------------------------
@@ -188,6 +191,27 @@ function ReconMatchBadge({ matchType }: { matchType: ReconciliationLogRow['match
       return (
         <Badge variant="outline" className="text-xs text-amber-600 border-amber-400">
           Fuzzy match
+        </Badge>
+      )
+    case 'card_amount_vendor':
+      return (
+        <Badge variant="outline" className="text-xs text-blue-600 border-blue-400">
+          <CreditCard className="h-3 w-3 mr-1" />
+          Card/ACH match
+        </Badge>
+      )
+    case 'amount_only':
+      return (
+        <Badge variant="outline" className="text-xs text-orange-600 border-orange-400">
+          <AlertTriangle className="h-3 w-3 mr-1" />
+          Amount only — verify
+        </Badge>
+      )
+    case 'already_paid_non_check':
+      return (
+        <Badge variant="outline" className="text-xs text-green-700 border-green-400">
+          <CheckCircle className="h-3 w-3 mr-1" />
+          Paid — link only
         </Badge>
       )
     default:
@@ -396,22 +420,20 @@ function ReconciliationPanel() {
   const handleReconcile = async () => {
     setReconciling(true)
     try {
-      const result = await runReconciliation()
+      const result = await runDailyReconciliation()
       if (!result.success || !result.data) {
         toast.error(result.error ?? 'Reconciliation failed')
         return
       }
-      const { auto_applied_count, mismatch_count, already_paid_count, no_bill_match } = result.data
+      const { check_auto_applied, check_mismatch, noncheck_proposed } = result.data
       const parts: string[] = []
-      if (auto_applied_count > 0)
-        parts.push(`${auto_applied_count} check${auto_applied_count !== 1 ? 's' : ''} paid`)
-      if (mismatch_count > 0)
-        parts.push(`${mismatch_count} need${mismatch_count !== 1 ? '' : 's'} review`)
-      if (already_paid_count > 0)
-        parts.push(`${already_paid_count} already paid`)
-      if (no_bill_match > 0)
-        parts.push(`${no_bill_match} unmatched`)
-      toast.success(parts.length > 0 ? parts.join(', ') : 'No new checks to reconcile')
+      if (check_auto_applied > 0)
+        parts.push(`${check_auto_applied} check${check_auto_applied !== 1 ? 's' : ''} auto-paid`)
+      if (check_mismatch > 0)
+        parts.push(`${check_mismatch} check${check_mismatch !== 1 ? 's' : ''} need review`)
+      if (noncheck_proposed > 0)
+        parts.push(`${noncheck_proposed} non-check${noncheck_proposed !== 1 ? 's' : ''} proposed`)
+      toast.success(parts.length > 0 ? parts.join(', ') : 'No new items to reconcile')
       await fetchLog()
     } catch (err) {
       console.error('Reconciliation error:', err)
@@ -480,8 +502,7 @@ function ReconciliationPanel() {
           </Button>
         </div>
         <p className="text-xs text-muted-foreground">
-          Matches cleared checks from Regent Bank against scheduled bills by check number.
-          {/* TODO (Phase 3+): fuzzy non-check matching — amount + vendor + date suggestions. */}
+          Matches cleared checks automatically by check number; proposes card/ACH/wire matches for human review.
         </p>
       </CardHeader>
       <CardContent className="p-0">
@@ -521,11 +542,20 @@ function ReconciliationPanel() {
                       <TableHead className="text-right">Bank Amt</TableHead>
                       <TableHead className="text-right">Bill Amt</TableHead>
                       <TableHead>Type</TableHead>
+                      <TableHead>Method</TableHead>
                       <TableHead className="text-right w-[140px]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {pendingRows.map((row) => (
+                    {pendingRows.map((row) => {
+                      const isLinkOnly = row.match_type === 'already_paid_non_check'
+                      const canConfirm =
+                        row.match_type === 'check_amount_mismatch' ||
+                        row.match_type === 'already_paid' ||
+                        row.match_type === 'card_amount_vendor' ||
+                        row.match_type === 'amount_only' ||
+                        row.match_type === 'already_paid_non_check'
+                      return (
                       <TableRow key={row.id}>
                         <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                           {row.bank_date ? format(parseISO(row.bank_date), 'MMM d, yyyy') : '—'}
@@ -545,9 +575,12 @@ function ReconciliationPanel() {
                         <TableCell>
                           <ReconMatchBadge matchType={row.match_type} />
                         </TableCell>
+                        <TableCell className="text-xs text-muted-foreground capitalize">
+                          {row.suggested_payment_method ?? '—'}
+                        </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
-                            {(row.match_type === 'check_amount_mismatch' || row.match_type === 'already_paid') && (
+                            {canConfirm && (
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -555,8 +588,17 @@ function ReconciliationPanel() {
                                 disabled={confirmingId === row.id}
                                 onClick={() => handleConfirm(row.id)}
                               >
-                                <CheckCircle className="h-3 w-3 mr-1" />
-                                {confirmingId === row.id ? '...' : 'Confirm'}
+                                {isLinkOnly ? (
+                                  <>
+                                    <LinkIcon className="h-3 w-3 mr-1" />
+                                    {confirmingId === row.id ? '...' : 'Link'}
+                                  </>
+                                ) : (
+                                  <>
+                                    <CheckCircle className="h-3 w-3 mr-1" />
+                                    {confirmingId === row.id ? '...' : 'Confirm'}
+                                  </>
+                                )}
                               </Button>
                             )}
                             <Button
@@ -572,7 +614,8 @@ function ReconciliationPanel() {
                           </div>
                         </TableCell>
                       </TableRow>
-                    ))}
+                      )
+                    })}
                   </TableBody>
                 </Table>
               </div>
@@ -647,14 +690,19 @@ function UntrackedExpensesPanel({
 }) {
   const [open, setOpen] = useState(false)
   const [transactions, setTransactions] = useState<BankTransaction[]>([])
+  const [proposed, setProposed] = useState<ProposedTransaction[]>([])
   const [loading, setLoading] = useState(false)
   const [fetched, setFetched] = useState(false)
 
   const fetchUntracked = useCallback(async () => {
     setLoading(true)
     try {
-      const result = await getUntrackedBankTransactions(month)
-      if (result.success) setTransactions(result.data ?? [])
+      const [untrackedRes, proposedRes] = await Promise.all([
+        getUntrackedBankTransactions(month),
+        getProposedTransactions(month),
+      ])
+      if (untrackedRes.success) setTransactions(untrackedRes.data ?? [])
+      if (proposedRes.success) setProposed(proposedRes.data ?? [])
     } catch (err) {
       console.error('Error fetching untracked transactions:', err)
     } finally {
@@ -668,6 +716,7 @@ function UntrackedExpensesPanel({
   useEffect(() => {
     setFetched(false)
     setTransactions([])
+    setProposed([])
     if (open) {
       fetchUntracked()
     }
@@ -682,6 +731,10 @@ function UntrackedExpensesPanel({
     }
   }
 
+  // Build a set of bs_ids that have a pending_review proposal — these render muted
+  const proposedBsIds = new Set(proposed.map((p) => p.bank_bs_id))
+  const totalCount = transactions.length + proposed.filter((p) => !transactions.some((t) => t.bs_id === p.bank_bs_id)).length
+
   return (
     <Collapsible open={open} onOpenChange={handleOpenChange}>
       <CollapsibleTrigger asChild>
@@ -689,9 +742,9 @@ function UntrackedExpensesPanel({
           <span className="flex items-center gap-2">
             <ArrowDownCircle className="h-4 w-4" />
             Untracked Bank Expenses
-            {transactions.length > 0 && (
+            {totalCount > 0 && (
               <Badge variant="outline" className="text-xs">
-                {transactions.length}
+                {totalCount}
               </Badge>
             )}
           </span>
@@ -709,7 +762,7 @@ function UntrackedExpensesPanel({
           <CardContent className="p-0">
             {loading ? (
               <div className="py-8 text-center text-sm text-muted-foreground">Loading...</div>
-            ) : transactions.length === 0 ? (
+            ) : transactions.length === 0 && proposed.length === 0 ? (
               <div className="py-8 text-center text-sm text-muted-foreground">
                 <CheckCircle className="h-8 w-8 mx-auto mb-2 opacity-40" />
                 All bank outflows are accounted for
@@ -722,43 +775,52 @@ function UntrackedExpensesPanel({
                       <TableHead className="w-[90px]">Date</TableHead>
                       <TableHead>Description</TableHead>
                       <TableHead className="text-right">Amount</TableHead>
-                      <TableHead className="w-[110px]" />
+                      <TableHead className="w-[150px]" />
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {transactions.map((txn) => (
-                      <TableRow key={txn.bs_id}>
-                        <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                          {format(parseISO(txn.txn_date), 'MMM d, yyyy')}
-                        </TableCell>
-                        <TableCell className="text-sm max-w-[220px]">
-                          <span className="truncate block">{txn.description}</span>
-                          {txn.merchant_name && txn.merchant_name !== txn.description && (
-                            <span className="text-xs text-muted-foreground">{txn.merchant_name}</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right text-sm font-mono text-red-600 font-medium">
-                          {formatMoney(Math.abs(txn.amount))}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-7 text-xs"
-                            onClick={() =>
-                              onCreateBill({
-                                name: txn.merchant_name ?? txn.description,
-                                amount: String(Math.abs(txn.amount)),
-                                due_date: txn.txn_date,
-                              })
-                            }
-                          >
-                            <Plus className="h-3 w-3 mr-1" />
-                            Create Bill
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {transactions.map((txn) => {
+                      const hasProposal = proposedBsIds.has(txn.bs_id)
+                      return (
+                        <TableRow key={txn.bs_id} className={hasProposal ? 'opacity-60' : undefined}>
+                          <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                            {format(parseISO(txn.txn_date), 'MMM d, yyyy')}
+                          </TableCell>
+                          <TableCell className="text-sm max-w-[220px]">
+                            <span className="truncate block">{txn.description}</span>
+                            {txn.merchant_name && txn.merchant_name !== txn.description && (
+                              <span className="text-xs text-muted-foreground">{txn.merchant_name}</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right text-sm font-mono text-red-600 font-medium">
+                            {formatMoney(Math.abs(txn.amount))}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {hasProposal ? (
+                              <Badge variant="outline" className="text-xs text-muted-foreground">
+                                Match proposed — see reconciliation
+                              </Badge>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs"
+                                onClick={() =>
+                                  onCreateBill({
+                                    name: txn.merchant_name ?? txn.description,
+                                    amount: String(Math.abs(txn.amount)),
+                                    due_date: txn.txn_date,
+                                  })
+                                }
+                              >
+                                <Plus className="h-3 w-3 mr-1" />
+                                Create Bill
+                              </Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
                   </TableBody>
                 </Table>
               </div>

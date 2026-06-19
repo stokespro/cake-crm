@@ -59,6 +59,7 @@ interface VendorFormState {
   contact_info: string
   notes: string
   is_active: boolean
+  bank_keywords: string
 }
 
 const blankForm: VendorFormState = {
@@ -67,6 +68,7 @@ const blankForm: VendorFormState = {
   contact_info: '',
   notes: '',
   is_active: true,
+  bank_keywords: '',
 }
 
 export default function VendorsPage() {
@@ -125,6 +127,7 @@ export default function VendorsPage() {
       contact_info: vendor.contact_info || '',
       notes: vendor.notes || '',
       is_active: vendor.is_active,
+      bank_keywords: vendor.bank_keywords || '',
     })
     setSheetOpen(true)
   }
@@ -146,6 +149,7 @@ export default function VendorsPage() {
           contact_info: form.contact_info || null,
           notes: form.notes || null,
           is_active: form.is_active,
+          bank_keywords: form.bank_keywords || null,
         })
       } else {
         result = await createVendor({
@@ -402,6 +406,21 @@ export default function VendorsPage() {
                 rows={3}
                 disabled={saving}
               />
+            </div>
+
+            {/* Bank Description Keywords */}
+            <div className="space-y-2">
+              <Label htmlFor="vendor-bank-keywords">Bank Description Keywords</Label>
+              <Input
+                id="vendor-bank-keywords"
+                value={form.bank_keywords}
+                onChange={(e) => updateForm({ bank_keywords: e.target.value })}
+                placeholder="e.g. ROYPACK or KABOTA,KUBOTA (comma-separated)"
+                disabled={saving}
+              />
+              <p className="text-xs text-muted-foreground">
+                Substrings that identify this vendor in bank statements. Used to auto-propose bill matches.
+              </p>
             </div>
 
             {/* Active toggle — only show on edit */}

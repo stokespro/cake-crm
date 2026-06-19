@@ -21,6 +21,7 @@ export interface Vendor {
   contact_info: string | null
   notes: string | null
   is_active: boolean
+  bank_keywords: string | null
   created_at: string
   updated_at: string
 }
@@ -143,6 +144,7 @@ export async function updateVendor(
     contact_info?: string | null
     notes?: string | null
     is_active?: boolean
+    bank_keywords?: string | null
   }
 ): Promise<{ success: boolean; data?: Vendor; error?: string }> {
   const auth = await requireFinance()
@@ -154,11 +156,12 @@ export async function updateVendor(
     const updateData: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
     }
-    if (input.name !== undefined)         updateData.name = input.name.trim()
-    if (input.category !== undefined)     updateData.category = input.category?.trim() || null
-    if (input.contact_info !== undefined) updateData.contact_info = input.contact_info?.trim() || null
-    if (input.notes !== undefined)        updateData.notes = input.notes?.trim() || null
-    if (input.is_active !== undefined)    updateData.is_active = input.is_active
+    if (input.name !== undefined)          updateData.name = input.name.trim()
+    if (input.category !== undefined)      updateData.category = input.category?.trim() || null
+    if (input.contact_info !== undefined)  updateData.contact_info = input.contact_info?.trim() || null
+    if (input.notes !== undefined)         updateData.notes = input.notes?.trim() || null
+    if (input.is_active !== undefined)     updateData.is_active = input.is_active
+    if (input.bank_keywords !== undefined) updateData.bank_keywords = input.bank_keywords?.trim() || null
 
     const { data, error } = await supabase
       .from('finance_vendors')

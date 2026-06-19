@@ -37,6 +37,9 @@ export type ReconMatchType =
   | 'fuzzy_suggested'
   | 'untracked'
   | 'already_paid'
+  | 'card_amount_vendor'
+  | 'amount_only'
+  | 'already_paid_non_check'
 
 export type ReconStatus = 'auto_applied' | 'pending_review' | 'confirmed' | 'dismissed'
 
@@ -50,6 +53,7 @@ export interface ReconciliationLogRow {
   bank_date: string | null
   bank_description: string | null
   status: ReconStatus
+  suggested_payment_method: string | null
   applied_at: string | null
   applied_by: string | null
   created_at: string
@@ -164,6 +168,7 @@ export async function getReconciliationLog(
         bank_date,
         bank_description,
         status,
+        suggested_payment_method,
         applied_at,
         applied_by,
         created_at,
@@ -203,6 +208,7 @@ export async function getReconciliationLog(
         bank_date: r.bank_date,
         bank_description: r.bank_description,
         status: r.status as ReconStatus,
+        suggested_payment_method: r.suggested_payment_method ?? null,
         applied_at: r.applied_at,
         applied_by: r.applied_by,
         created_at: r.created_at,
@@ -220,9 +226,13 @@ export async function getReconciliationLog(
 // ============================================================
 // confirmReconciliationMatch
 // ============================================================
-// For check_amount_mismatch: marks the linked bill paid at the BANK amount.
-// For already_paid: just confirms the log row (bill is already paid).
-// Sets log status='confirmed', applied_by=session.userId, applied_at=now.
+// Handles all pending_review match types via bill's CURRENT status (amendment F):
+//   - bill.status === 'paid' → backfill missing paid_date / payment_method / amount_paid (amendments E+F)
+//   - bill.status !== 'paid' → markBillPaid at bank amount/date/method (covers check_amount_mismatch,
+//     card_amount_vendor, amount_only, already_paid_non_check when bill not yet paid)
+//
+// After confirming, dismisses all other pending_review rows for the same
+// bank_bs_id OR bill_id (amendment D).
 
 export async function confirmReconciliationMatch(
   logId: string
@@ -236,10 +246,10 @@ export async function confirmReconciliationMatch(
   try {
     const supabase = await createServiceClient()
 
-    // Fetch the log row
+    // Fetch the log row — include suggested_payment_method and bank_bs_id for amendments D/E/F
     const { data: logRow, error: fetchError } = await supabase
       .from('finance_reconciliation_log')
-      .select('id, bill_id, match_type, bank_amount, bank_date, status')
+      .select('id, bill_id, match_type, bank_amount, bank_date, bank_bs_id, suggested_payment_method, status')
       .eq('id', logId)
       .single()
 
@@ -251,24 +261,53 @@ export async function confirmReconciliationMatch(
       return { success: false, error: 'Only pending_review rows can be confirmed' }
     }
 
-    // For check_amount_mismatch: pay the bill at the bank amount
-    if (logRow.match_type === 'check_amount_mismatch' && logRow.bill_id) {
-      const bankAmount = Math.abs(logRow.bank_amount ?? 0)
-      const bankDate = logRow.bank_date ?? new Date().toISOString().substring(0, 10)
+    const bankAmount = Math.abs(logRow.bank_amount ?? 0)
+    const bankDate   = logRow.bank_date ?? new Date().toISOString().substring(0, 10)
+    const payMethod  = logRow.suggested_payment_method ?? 'other'
 
-      const payResult = await markBillPaid(logRow.bill_id, {
-        amount_paid: bankAmount,
-        paid_date: bankDate,
-        payment_method: 'check',
-      })
+    if (logRow.bill_id) {
+      // Amendment F: key off the bill's CURRENT status, not the stored match_type
+      const { data: bill, error: billFetchError } = await supabase
+        .from('finance_bills')
+        .select('status, paid_date, amount_paid, payment_method')
+        .eq('id', logRow.bill_id)
+        .single()
 
-      if (!payResult.success) {
-        return { success: false, error: payResult.error ?? 'Failed to mark bill paid' }
+      if (billFetchError || !bill) {
+        return { success: false, error: billFetchError?.message ?? 'Bill not found' }
+      }
+
+      if (bill.status === 'paid') {
+        // Amendments E + F: backfill only missing payment fields
+        const patch: Record<string, unknown> = { updated_at: new Date().toISOString() }
+        if (!bill.paid_date)                              patch.paid_date = bankDate
+        if (!bill.payment_method)                         patch.payment_method = payMethod
+        if (!bill.amount_paid || Number(bill.amount_paid) === 0) patch.amount_paid = bankAmount
+
+        const { error: patchError } = await supabase
+          .from('finance_bills')
+          .update(patch)
+          .eq('id', logRow.bill_id)
+
+        if (patchError) {
+          console.error('confirmReconciliationMatch backfill error:', patchError)
+          return { success: false, error: patchError.message }
+        }
+      } else {
+        // Mark the bill paid from the bank transaction (check_amount_mismatch, card_amount_vendor, amount_only)
+        const payResult = await markBillPaid(logRow.bill_id, {
+          amount_paid: bankAmount,
+          paid_date: bankDate,
+          payment_method: payMethod,
+        })
+
+        if (!payResult.success) {
+          return { success: false, error: payResult.error ?? 'Failed to mark bill paid' }
+        }
       }
     }
-    // For already_paid: bill is already paid, just confirm the log row
 
-    // Update log row status
+    // Set this row confirmed
     const { error: updateError } = await supabase
       .from('finance_reconciliation_log')
       .update({
@@ -281,6 +320,25 @@ export async function confirmReconciliationMatch(
     if (updateError) {
       console.error('confirmReconciliationMatch update error:', updateError)
       return { success: false, error: updateError.message }
+    }
+
+    // Amendment D: dismiss conflicting pending_review rows on BOTH sides —
+    // same bank_bs_id (other proposals for this charge) or same bill_id
+    // (other proposals pointing at this bill).
+    const orFilter = logRow.bill_id
+      ? `bank_bs_id.eq.${logRow.bank_bs_id},bill_id.eq.${logRow.bill_id}`
+      : `bank_bs_id.eq.${logRow.bank_bs_id}`
+
+    const { error: dismissError } = await supabase
+      .from('finance_reconciliation_log')
+      .update({ status: 'dismissed', applied_at: new Date().toISOString() })
+      .eq('status', 'pending_review')
+      .neq('id', logId)
+      .or(orFilter)
+
+    if (dismissError) {
+      // Non-fatal: log but don't fail the confirm
+      console.error('confirmReconciliationMatch dismiss-conflicts error:', dismissError)
     }
 
     return { success: true }
@@ -322,6 +380,161 @@ export async function dismissReconciliationMatch(
     }
 
     return { success: true }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error'
+    return { success: false, error: msg }
+  }
+}
+
+// ============================================================
+// runDailyReconciliation
+// ============================================================
+// Orchestrates check reconciliation then non-check proposals.
+// Returns counts for both legs.
+
+export interface DailyReconciliationResult {
+  check_auto_applied: number
+  check_mismatch: number
+  noncheck_proposed: number
+}
+
+export async function runDailyReconciliation(): Promise<{
+  success: boolean
+  data?: DailyReconciliationResult
+  error?: string
+}> {
+  const auth = await requireFinance()
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
+  try {
+    const supabase = await createServiceClient()
+    const { data, error } = await supabase.rpc('run_daily_reconciliation')
+
+    if (error) {
+      console.error('runDailyReconciliation error:', error)
+      return { success: false, error: error.message }
+    }
+
+    const row = Array.isArray(data) ? data[0] : data
+    return { success: true, data: row as DailyReconciliationResult }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error'
+    return { success: false, error: msg }
+  }
+}
+
+// ============================================================
+// runNonCheckReconciliation
+// ============================================================
+// Proposes non-check debit matches only.
+
+export interface NonCheckReconciliationResult {
+  scanned_count: number
+  proposed_count: number
+  skipped_count: number
+}
+
+export async function runNonCheckReconciliation(): Promise<{
+  success: boolean
+  data?: NonCheckReconciliationResult
+  error?: string
+}> {
+  const auth = await requireFinance()
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
+  try {
+    const supabase = await createServiceClient()
+    const { data, error } = await supabase.rpc('reconcile_non_check_debits')
+
+    if (error) {
+      console.error('runNonCheckReconciliation error:', error)
+      return { success: false, error: error.message }
+    }
+
+    const row = Array.isArray(data) ? data[0] : data
+    return { success: true, data: row as NonCheckReconciliationResult }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error'
+    return { success: false, error: msg }
+  }
+}
+
+// ============================================================
+// getProposedTransactions
+// ============================================================
+// Returns pending_review rows from finance_reconciliation_log joined
+// to finance_bills(name), scoped to a calendar month by bank_date.
+// Does NOT call get_bank_transactions — reads log rows directly.
+
+export interface ProposedTransaction {
+  log_id: string
+  bank_bs_id: number
+  bill_id: string | null
+  bill_name: string | null
+  match_type: ReconMatchType
+  bank_amount: number | null
+  bank_date: string | null
+  bank_description: string | null
+  suggested_payment_method: string | null
+}
+
+export async function getProposedTransactions(month: string): Promise<{
+  success: boolean
+  data?: ProposedTransaction[]
+  error?: string
+}> {
+  const auth = await requireFinance()
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
+  try {
+    const supabase = await createServiceClient()
+
+    // Scope to the given month by YYYY-MM prefix on bank_date
+    const monthStart = month                               // 'YYYY-MM-01'
+    const [year, mon] = month.split('-').map(Number)
+    const endDate = new Date(year, mon, 1)                 // first day of next month
+    const monthEnd = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-01`
+
+    const { data, error } = await supabase
+      .from('finance_reconciliation_log')
+      .select(`
+        id,
+        bank_bs_id,
+        bill_id,
+        match_type,
+        bank_amount,
+        bank_date,
+        bank_description,
+        suggested_payment_method,
+        bill:finance_bills(name)
+      `)
+      .eq('status', 'pending_review')
+      .gte('bank_date', monthStart)
+      .lt('bank_date', monthEnd)
+      .order('bank_date', { ascending: false })
+
+    if (error) {
+      console.error('getProposedTransactions error:', error)
+      return { success: false, error: error.message }
+    }
+
+    const rows: ProposedTransaction[] = (data ?? []).map((r) => {
+      const billData = r.bill as { name: string } | { name: string }[] | null
+      const billName = Array.isArray(billData) ? (billData[0]?.name ?? null) : (billData?.name ?? null)
+      return {
+        log_id: r.id,
+        bank_bs_id: r.bank_bs_id,
+        bill_id: r.bill_id,
+        bill_name: billName,
+        match_type: r.match_type as ReconMatchType,
+        bank_amount: r.bank_amount,
+        bank_date: r.bank_date,
+        bank_description: r.bank_description,
+        suggested_payment_method: r.suggested_payment_method ?? null,
+      }
+    })
+
+    return { success: true, data: rows }
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error'
     return { success: false, error: msg }
