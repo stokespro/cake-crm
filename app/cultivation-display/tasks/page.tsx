@@ -101,24 +101,24 @@ function TaskRow({ task, onRequestComplete, isOverdue }: TaskRowProps) {
       className={`${isOverdue ? 'border-l-2 border-l-red-500' : ''} h-9`}
     >
       {/* Title — truncates with ellipsis via table-fixed layout */}
-      <TableCell className="py-1 pr-2 overflow-hidden">
+      <TableCell className="px-1 py-1 overflow-hidden">
         <span className="block truncate text-lg font-medium leading-snug" title={task.title}>
           {task.title}
         </span>
       </TableCell>
 
       {/* Phase / Day */}
-      <TableCell className="py-1 text-base text-zinc-300 whitespace-nowrap">
+      <TableCell className="px-1 py-1 text-base text-zinc-300 whitespace-nowrap">
         {phaseDayLabel(task)}
       </TableCell>
 
       {/* Assigned To */}
-      <TableCell className="py-1 text-base text-zinc-400 whitespace-nowrap overflow-hidden">
+      <TableCell className="px-1 py-1 text-base text-zinc-400 whitespace-nowrap overflow-hidden">
         <span className="block truncate">{task.assigned_user?.name ?? 'Unassigned'}</span>
       </TableCell>
 
       {/* Complete icon button — opens confirmation dialog */}
-      <TableCell className="py-1 text-center">
+      <TableCell className="px-1 py-1 text-center">
         <button
           onClick={() => onRequestComplete(task)}
           aria-label="Mark complete"
@@ -149,32 +149,34 @@ function RoomGroupTable({ group, completedIds, onRequestComplete, isOverdue }: R
       <h3 className="text-xl font-semibold text-zinc-300 border-b border-zinc-700 pb-1 mb-1">
         {group.roomName}
       </h3>
-      <Table className="table-fixed w-full">
-        <colgroup>
-          <col style={{ width: '50%' }} />
-          <col style={{ width: '22%' }} />
-          <col style={{ width: '20%' }} />
-          <col style={{ width: '8%' }} />
-        </colgroup>
-        <TableHeader>
-          <TableRow className="border-zinc-700 hover:bg-transparent">
-            <TableHead className="text-xs uppercase tracking-wide text-zinc-500 py-1 h-7">Title</TableHead>
-            <TableHead className="text-xs uppercase tracking-wide text-zinc-500 py-1 h-7 whitespace-nowrap">Phase / Day</TableHead>
-            <TableHead className="text-xs uppercase tracking-wide text-zinc-500 py-1 h-7 whitespace-nowrap">Assigned To</TableHead>
-            <TableHead className="text-xs uppercase tracking-wide text-zinc-500 py-1 h-7 text-center">Done</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {visibleTasks.map((task) => (
-            <TaskRow
-              key={task.id}
-              task={task}
-              onRequestComplete={onRequestComplete}
-              isOverdue={isOverdue}
-            />
-          ))}
-        </TableBody>
-      </Table>
+      <div className="w-full overflow-x-hidden">
+        <Table className="table-fixed w-full">
+          <colgroup>
+            <col style={{ width: '50%' }} />
+            <col style={{ width: '22%' }} />
+            <col style={{ width: '20%' }} />
+            <col style={{ width: '8%' }} />
+          </colgroup>
+          <TableHeader>
+            <TableRow className="border-zinc-700 hover:bg-transparent">
+              <TableHead className="text-xs uppercase tracking-wide text-zinc-500 px-1 py-1 h-7">Title</TableHead>
+              <TableHead className="text-xs uppercase tracking-wide text-zinc-500 px-1 py-1 h-7 whitespace-nowrap">Phase / Day</TableHead>
+              <TableHead className="text-xs uppercase tracking-wide text-zinc-500 px-1 py-1 h-7 whitespace-nowrap">Assigned To</TableHead>
+              <TableHead className="text-xs uppercase tracking-wide text-zinc-500 px-1 py-1 h-7 text-center">Done</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {visibleTasks.map((task) => (
+              <TaskRow
+                key={task.id}
+                task={task}
+                onRequestComplete={onRequestComplete}
+                isOverdue={isOverdue}
+              />
+            ))}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   )
 }
