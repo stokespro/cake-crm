@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
 import { getCultivationTasksForDisplay, completeTask } from '@/actions/cultivation'
-import { Checkbox } from '@/components/ui/checkbox'
+import { CheckCircle } from 'lucide-react'
 import {
   Table,
   TableBody,
@@ -112,9 +112,9 @@ function TaskRow({ task, userId, onCompleted, isOverdue }: TaskRowProps) {
     <TableRow
       className={`${isOverdue ? 'border-l-2 border-l-red-500' : ''} h-9`}
     >
-      {/* Title */}
-      <TableCell className="py-1 pr-2 max-w-[260px]">
-        <span className="text-lg font-medium truncate leading-snug">
+      {/* Title — truncates with ellipsis via table-fixed layout */}
+      <TableCell className="py-1 pr-2 overflow-hidden">
+        <span className="block truncate text-lg font-medium leading-snug" title={task.title}>
           {task.title}
         </span>
       </TableCell>
@@ -125,19 +125,20 @@ function TaskRow({ task, userId, onCompleted, isOverdue }: TaskRowProps) {
       </TableCell>
 
       {/* Assigned To */}
-      <TableCell className="py-1 text-base text-zinc-400 whitespace-nowrap">
-        {task.assigned_user?.name ?? 'Unassigned'}
+      <TableCell className="py-1 text-base text-zinc-400 whitespace-nowrap overflow-hidden">
+        <span className="block truncate">{task.assigned_user?.name ?? 'Unassigned'}</span>
       </TableCell>
 
-      {/* Complete checkbox */}
-      <TableCell className="py-1 text-center w-12">
-        <Checkbox
-          checked={false}
+      {/* Complete icon button */}
+      <TableCell className="py-1 text-center">
+        <button
+          onClick={handleComplete}
           disabled={pending}
-          onCheckedChange={handleComplete}
-          className="h-5 w-5 border-zinc-500 data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
-          aria-label={`Mark "${task.title}" complete`}
-        />
+          aria-label="Mark complete"
+          className="inline-flex items-center justify-center text-zinc-400 hover:text-green-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        >
+          <CheckCircle className="h-6 w-6" />
+        </button>
       </TableCell>
     </TableRow>
   )
@@ -162,13 +163,19 @@ function RoomGroupTable({ group, userId, completedIds, onCompleted, isOverdue }:
       <h3 className="text-xl font-semibold text-zinc-300 border-b border-zinc-700 pb-1 mb-1">
         {group.roomName}
       </h3>
-      <Table>
+      <Table className="table-fixed w-full">
+        <colgroup>
+          <col style={{ width: '50%' }} />
+          <col style={{ width: '22%' }} />
+          <col style={{ width: '20%' }} />
+          <col style={{ width: '8%' }} />
+        </colgroup>
         <TableHeader>
           <TableRow className="border-zinc-700 hover:bg-transparent">
             <TableHead className="text-xs uppercase tracking-wide text-zinc-500 py-1 h-7">Title</TableHead>
             <TableHead className="text-xs uppercase tracking-wide text-zinc-500 py-1 h-7 whitespace-nowrap">Phase / Day</TableHead>
             <TableHead className="text-xs uppercase tracking-wide text-zinc-500 py-1 h-7 whitespace-nowrap">Assigned To</TableHead>
-            <TableHead className="text-xs uppercase tracking-wide text-zinc-500 py-1 h-7 w-12 text-center">Done</TableHead>
+            <TableHead className="text-xs uppercase tracking-wide text-zinc-500 py-1 h-7 text-center">Done</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
