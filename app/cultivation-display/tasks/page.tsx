@@ -14,6 +14,16 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from '@/components/ui/alert-dialog'
 import { PHASE_CONFIG } from '@/types/cultivation'
 import type { CultivationTask, PipelineStage } from '@/types/cultivation'
 
@@ -81,33 +91,11 @@ function phaseDayLabel(task: CultivationTask): string {
 
 interface TaskRowProps {
   task: CultivationTask
-  userId: string
-  onCompleted: (taskId: string) => void
+  onRequestComplete: (task: CultivationTask) => void
   isOverdue: boolean
 }
 
-function TaskRow({ task, userId, onCompleted, isOverdue }: TaskRowProps) {
-  const [pending, setPending] = useState(false)
-
-  async function handleComplete() {
-    if (pending) return
-    setPending(true)
-    // Optimistic: caller removes the row immediately
-    onCompleted(task.id)
-    const result = await completeTask({
-      taskId: task.id,
-      completedBy: userId,
-      notes: null,
-    })
-    if (result.error) {
-      // Revert signal — caller should re-add; simplest is a full refetch
-      toast.error(`Failed to complete task: ${result.error}`)
-      // Re-add not trivially done optimistically; trigger a refetch via custom event
-      window.dispatchEvent(new CustomEvent('cultivation-task-revert'))
-    }
-    setPending(false)
-  }
-
+function TaskRow({ task, onRequestComplete, isOverdue }: TaskRowProps) {
   return (
     <TableRow
       className={`${isOverdue ? 'border-l-2 border-l-red-500' : ''} h-9`}
@@ -129,13 +117,12 @@ function TaskRow({ task, userId, onCompleted, isOverdue }: TaskRowProps) {
         <span className="block truncate">{task.assigned_user?.name ?? 'Unassigned'}</span>
       </TableCell>
 
-      {/* Complete icon button */}
+      {/* Complete icon button — opens confirmation dialog */}
       <TableCell className="py-1 text-center">
         <button
-          onClick={handleComplete}
-          disabled={pending}
+          onClick={() => onRequestComplete(task)}
           aria-label="Mark complete"
-          className="inline-flex items-center justify-center text-zinc-400 hover:text-green-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="inline-flex items-center justify-center text-zinc-400 hover:text-green-400 transition-colors"
         >
           <CheckCircle className="h-6 w-6" />
         </button>
@@ -148,13 +135,12 @@ function TaskRow({ task, userId, onCompleted, isOverdue }: TaskRowProps) {
 
 interface RoomGroupTableProps {
   group: { roomName: string; tasks: CultivationTask[] }
-  userId: string
   completedIds: Set<string>
-  onCompleted: (taskId: string) => void
+  onRequestComplete: (task: CultivationTask) => void
   isOverdue: boolean
 }
 
-function RoomGroupTable({ group, userId, completedIds, onCompleted, isOverdue }: RoomGroupTableProps) {
+function RoomGroupTable({ group, completedIds, onRequestComplete, isOverdue }: RoomGroupTableProps) {
   const visibleTasks = group.tasks.filter((t) => !completedIds.has(t.id))
   if (visibleTasks.length === 0) return null
 
@@ -183,8 +169,7 @@ function RoomGroupTable({ group, userId, completedIds, onCompleted, isOverdue }:
             <TaskRow
               key={task.id}
               task={task}
-              userId={userId}
-              onCompleted={onCompleted}
+              onRequestComplete={onRequestComplete}
               isOverdue={isOverdue}
             />
           ))}
@@ -203,9 +188,8 @@ interface ColumnProps {
   groups: Array<{ roomName: string; tasks: CultivationTask[] }>
   emptyMessage: string
   emptyClass: string
-  userId: string
   completedIds: Set<string>
-  onCompleted: (taskId: string) => void
+  onRequestComplete: (task: CultivationTask) => void
   isOverdue: boolean
 }
 
@@ -216,9 +200,8 @@ function TaskColumn({
   groups,
   emptyMessage,
   emptyClass,
-  userId,
   completedIds,
-  onCompleted,
+  onRequestComplete,
   isOverdue,
 }: ColumnProps) {
   const allTaskCount = groups.reduce((n, g) => {
@@ -243,9 +226,8 @@ function TaskColumn({
             <RoomGroupTable
               key={group.roomName}
               group={group}
-              userId={userId}
               completedIds={completedIds}
-              onCompleted={onCompleted}
+              onRequestComplete={onRequestComplete}
               isOverdue={isOverdue}
             />
           ))
@@ -265,6 +247,8 @@ export default function CultivationTasksDisplayPage() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [userId, setUserId] = useState<string>('')
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set())
+  const [confirmTask, setConfirmTask] = useState<CultivationTask | null>(null)
+  const [confirming, setConfirming] = useState(false)
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // UX-only auth redirect — display pages are read-only; gate with localStorage
@@ -336,6 +320,28 @@ export default function CultivationTasksDisplayPage() {
     })
   }
 
+  function handleRequestComplete(task: CultivationTask) {
+    setConfirmTask(task)
+  }
+
+  async function handleConfirmComplete() {
+    if (!confirmTask || confirming) return
+    setConfirming(true)
+    // Optimistic removal
+    handleCompleted(confirmTask.id)
+    setConfirmTask(null)
+    const result = await completeTask({
+      taskId: confirmTask.id,
+      completedBy: userId,
+      notes: null,
+    })
+    if (result.error) {
+      toast.error(`Failed to complete task: ${result.error}`)
+      window.dispatchEvent(new CustomEvent('cultivation-task-revert'))
+    }
+    setConfirming(false)
+  }
+
   const overdueGroups = groupByRoom(overdueTasks)
   const todayGroups = groupByRoom(todayTasks)
 
@@ -368,9 +374,8 @@ export default function CultivationTasksDisplayPage() {
           groups={overdueGroups}
           emptyMessage="No overdue tasks"
           emptyClass="text-green-400"
-          userId={userId}
           completedIds={completedIds}
-          onCompleted={handleCompleted}
+          onRequestComplete={handleRequestComplete}
           isOverdue={true}
         />
         <TaskColumn
@@ -380,9 +385,8 @@ export default function CultivationTasksDisplayPage() {
           groups={todayGroups}
           emptyMessage="All caught up for today"
           emptyClass="text-zinc-400"
-          userId={userId}
           completedIds={completedIds}
-          onCompleted={handleCompleted}
+          onRequestComplete={handleRequestComplete}
           isOverdue={false}
         />
       </div>
@@ -393,6 +397,31 @@ export default function CultivationTasksDisplayPage() {
           Updated {format(lastUpdated, 'h:mm a')}
         </div>
       )}
+
+      {/* Confirmation dialog — prevents accidental mis-taps on wall monitor */}
+      <AlertDialog open={confirmTask !== null} onOpenChange={(open) => { if (!open) setConfirmTask(null) }}>
+        <AlertDialogContent className="max-w-xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-2xl font-bold">
+              Mark task complete?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-lg mt-1">
+              Mark &ldquo;{confirmTask?.title}&rdquo; as complete?
+              {confirmTask?.room?.room_name ? ` (${confirmTask.room.room_name})` : ''}
+              {' '}This removes it from the board.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="text-base">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="text-base bg-green-700 hover:bg-green-600"
+              onClick={handleConfirmComplete}
+            >
+              Mark Complete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
