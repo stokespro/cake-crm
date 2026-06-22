@@ -165,6 +165,31 @@ export async function getMyTodayTasks(todayStr: string): Promise<
   return { data: data ?? [] }
 }
 
+export async function getCultivationTasksForDisplay(todayStr: string): Promise<
+  { data: unknown[]; error?: never } | { data?: never; error: string }
+> {
+  const auth = await requireRole(VIEW_ROLES)
+  if (!auth.authorized) return { error: auth.reason }
+
+  const db = await createServiceClient()
+  const { data, error } = await db
+    .from('cultivation_tasks')
+    .select(
+      '*, room:grow_rooms(id, room_name, room_number), assigned_user:users!cultivation_tasks_assigned_to_fkey(id, name)'
+    )
+    .in('status', ['pending', 'in_progress'])
+    .lte('due_date', todayStr)
+    .or('frequency.is.null,recurring_parent_id.not.is.null')
+    .order('due_date', { ascending: true })
+    .order('priority', { ascending: false })
+
+  if (error) {
+    console.error('[cultivation] getCultivationTasksForDisplay error:', error)
+    return { error: 'Failed to load tasks for display' }
+  }
+  return { data: data ?? [] }
+}
+
 export async function getCultivationUsers(): Promise<
   { data: { id: string; name: string; role: string }[]; error?: never } | { data?: never; error: string }
 > {

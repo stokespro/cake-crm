@@ -35,21 +35,18 @@ import {
   Settings,
   CheckSquare,
   MessageSquare,
-  Play,
-  FastForward,
-  History,
   Plus,
-  Edit2,
-  Trash2,
 } from 'lucide-react'
 import { format, isToday, isPast, startOfWeek, endOfWeek } from 'date-fns'
 import { parseLocalDate } from '@/lib/utils'
 import { toast } from 'sonner'
 import { useAuth, canManageCultivation, canCompleteCultivation } from '@/lib/auth-context'
-import { GrowRoom, RoomCycle, PHASE_CONFIG, GrowPhase, CultivationTask, TaskPriority, PipelineStage } from '@/types/cultivation'
+import { GrowRoom, RoomCycle, CultivationTask } from '@/types/cultivation'
+import { PRIORITY_BADGE } from '@/lib/cultivation/helpers'
 import { TaskCompletionSheet } from '@/components/cultivation/task-completion-sheet'
 import { StartCycleDialog, AdvanceStageDialog } from '@/components/cultivation/flip-room-dialog'
 import { RoomHistorySheet } from '@/components/cultivation/room-history-sheet'
+import { RoomCard } from '@/components/cultivation/room-card'
 import {
   getGrowRooms,
   getActiveCycles,
@@ -72,46 +69,6 @@ interface TaskStats {
 
 interface RoomTaskCounts {
   [roomId: string]: { pending: number; overdue: number }
-}
-
-// ─── Constants ───────────────────────────────────────────────────────────────
-
-const PRIORITY_BADGE: Record<TaskPriority, string> = {
-  critical: 'bg-red-600 text-white',
-  high: 'bg-orange-500 text-white',
-  medium: 'bg-yellow-500 text-white',
-  low: 'bg-gray-400 text-white',
-}
-
-const PHASE_BADGE_CLASSES: Record<string, string> = {
-  empty: 'bg-gray-500 text-white',
-  dome: 'bg-teal-600 text-white',
-  veg: 'bg-green-600 text-white',
-  flower: 'bg-purple-600 text-white',
-  harvest: 'bg-amber-600 text-white',
-  dry: 'bg-orange-600 text-white',
-  trim: 'bg-rose-600 text-white',
-}
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function getDayProgress(activeCycle: RoomCycle | undefined): { current: number; total: number } | null {
-  if (!activeCycle?.start_date || !activeCycle?.expected_end_date) return null
-  const startDate = parseLocalDate(activeCycle.start_date)
-  const endDate = parseLocalDate(activeCycle.expected_end_date)
-  const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
-  if (totalDays <= 0) return null
-  const currentDay = Math.floor((new Date().getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1
-  return { current: Math.max(Math.min(currentDay, totalDays), 1), total: totalDays }
-}
-
-function getPairingLabel(room: GrowRoom, rooms: GrowRoom[]): string | null {
-  if (!room.pairing_group) return null
-  const paired = rooms.find(
-    (r) => r.pairing_group === room.pairing_group && r.id !== room.id
-  )
-  if (!paired) return null
-  return `Paired with ${paired.room_name}`
 }
 
 // ─── Room Admin Dialog ────────────────────────────────────────────────────────
@@ -600,186 +557,21 @@ export default function CultivationPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {rooms.map((room) => {
             const roomCycles = activeCyclesMap[room.id] || []
-            const primaryCycle = roomCycles[0]
-            const pairingLabel = getPairingLabel(room, rooms)
-            const phaseConfig = PHASE_CONFIG[room.current_phase]
             const roomCounts = roomTaskCounts[room.id]
 
             return (
-              <Card key={room.id}>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base">
-                      {room.room_name}
-                      <span className="text-muted-foreground font-normal text-sm ml-1">
-                        #{room.room_number}
-                      </span>
-                    </CardTitle>
-                    <div className="flex items-center gap-1">
-                      <Badge className={PHASE_BADGE_CLASSES[room.current_phase] || 'bg-gray-500 text-white'}>
-                        {phaseConfig?.label || room.current_phase}
-                      </Badge>
-                      {roomCycles.length > 1 && (
-                        <Badge variant="outline" className="text-xs">
-                          {roomCycles.length} cycles
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                  {pairingLabel && (
-                    <p className="text-xs text-muted-foreground">{pairingLabel}</p>
-                  )}
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {room.current_phase === 'empty' && roomCycles.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No active cycle</p>
-                  ) : (
-                    <>
-                      {/* All active cycles with milestone timelines */}
-                      {roomCycles.map((cycle) => {
-                        const progress = getDayProgress(cycle)
-                        const stageConfig = PHASE_CONFIG[cycle.current_stage as GrowPhase]
-                        const hasMilestones =
-                          cycle.dome_start ||
-                          cycle.veg_start ||
-                          cycle.flower_start ||
-                          cycle.harvest_date ||
-                          cycle.trim_start
-                        return (
-                          <div key={cycle.id} className="space-y-1">
-                            <div className="flex items-center justify-between text-sm">
-                              <span className="text-muted-foreground">
-                                {cycle.cycle_number ? `Cycle #${cycle.cycle_number}` : 'Cycle'}
-                              </span>
-                              <Badge className={`${PHASE_BADGE_CLASSES[cycle.current_stage] || 'bg-gray-500 text-white'} text-xs`}>
-                                {stageConfig?.label || cycle.current_stage}
-                              </Badge>
-                            </div>
-                            <div className="flex items-center justify-between text-sm">
-                              <span className="text-muted-foreground">Progress</span>
-                              <span className="font-medium">
-                                {progress
-                                  ? `Day ${progress.current} of ${progress.total}`
-                                  : '—'}
-                              </span>
-                            </div>
-                            {progress && (
-                              <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-                                <div
-                                  className={`h-full rounded-full ${PHASE_BADGE_CLASSES[cycle.current_stage]?.split(' ')[0] || 'bg-gray-500'}`}
-                                  style={{
-                                    width: `${Math.min((progress.current / progress.total) * 100, 100)}%`,
-                                  }}
-                                />
-                              </div>
-                            )}
-                            {hasMilestones && (
-                              <div className="text-[11px] text-muted-foreground leading-relaxed pt-1">
-                                {cycle.dome_start && (
-                                  <span>Dome: {format(parseLocalDate(cycle.dome_start), 'MMM d')}</span>
-                                )}
-                                {cycle.veg_start && (
-                                  <span> &rarr; Veg: {format(parseLocalDate(cycle.veg_start), 'MMM d')}</span>
-                                )}
-                                {cycle.flower_start && (
-                                  <span> &rarr; Flower: {format(parseLocalDate(cycle.flower_start), 'MMM d')}</span>
-                                )}
-                                {cycle.harvest_date && (
-                                  <span> &rarr; Harvest: {format(parseLocalDate(cycle.harvest_date), 'MMM d')}</span>
-                                )}
-                                {cycle.trim_start && (
-                                  <span> &rarr; Trim: {format(parseLocalDate(cycle.trim_start), 'MMM d')}</span>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        )
-                      })}
-
-                      {/* Phase start date */}
-                      {room.phase_start_date && (
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-muted-foreground">Stage Started</span>
-                          <span>{format(parseLocalDate(room.phase_start_date), 'MMM d, yyyy')}</span>
-                        </div>
-                      )}
-                    </>
-                  )}
-
-                  {/* Task counts */}
-                  {roomCounts && (
-                    <p className="text-xs text-muted-foreground">
-                      {roomCounts.pending} pending
-                      {roomCounts.overdue > 0 && (
-                        <span className="text-red-600"> / {roomCounts.overdue} overdue</span>
-                      )}
-                    </p>
-                  )}
-
-                  {/* Notes */}
-                  {room.notes && (
-                    <p className="text-xs text-muted-foreground line-clamp-2">{room.notes}</p>
-                  )}
-
-                  {/* Action buttons */}
-                  <div className="flex flex-wrap gap-2 pt-1">
-                    {/* admin/management only: Start Cycle, Advance Stage, Edit, Remove */}
-                    {isManagement && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleStartCycle(room)}
-                      >
-                        <Play className="h-4 w-4 mr-1" />
-                        Start Cycle
-                      </Button>
-                    )}
-                    {isManagement && roomCycles.length > 0 && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleAdvanceStage(room)}
-                      >
-                        <FastForward className="h-4 w-4 mr-1" />
-                        Advance Stage
-                      </Button>
-                    )}
-
-                    {/* History is visible to everyone */}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleHistory(room)}
-                    >
-                      <History className="h-4 w-4 mr-1" />
-                      History
-                    </Button>
-
-                    {/* admin/management only: Edit, Remove */}
-                    {isManagement && (
-                      <>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEditRoom(room)}
-                        >
-                          <Edit2 className="h-4 w-4 mr-1" />
-                          Edit
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-destructive"
-                          onClick={() => handleDeleteRoom(room)}
-                        >
-                          <Trash2 className="h-4 w-4 mr-1" />
-                          Remove
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+              <RoomCard
+                key={room.id}
+                room={room}
+                activeCycles={roomCycles}
+                allRooms={rooms}
+                taskCounts={roomCounts}
+                onStartCycle={isManagement ? handleStartCycle : undefined}
+                onAdvanceStage={isManagement ? handleAdvanceStage : undefined}
+                onHistory={handleHistory}
+                onEdit={isManagement ? handleEditRoom : undefined}
+                onDelete={isManagement ? handleDeleteRoom : undefined}
+              />
             )
           })}
         </div>
