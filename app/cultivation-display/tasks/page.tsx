@@ -6,7 +6,6 @@ import { format } from 'date-fns'
 import { toast } from 'sonner'
 import { getCultivationTasksForDisplay, completeTask } from '@/actions/cultivation'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Badge } from '@/components/ui/badge'
 import {
   Table,
   TableBody,
@@ -15,7 +14,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { PRIORITY_BADGE } from '@/lib/cultivation/helpers'
 import { PHASE_CONFIG } from '@/types/cultivation'
 import type { CultivationTask, PipelineStage } from '@/types/cultivation'
 
@@ -114,18 +112,11 @@ function TaskRow({ task, userId, onCompleted, isOverdue }: TaskRowProps) {
     <TableRow
       className={`${isOverdue ? 'border-l-2 border-l-red-500' : ''} h-9`}
     >
-      {/* Title + priority badge */}
+      {/* Title */}
       <TableCell className="py-1 pr-2 max-w-[260px]">
-        <div className="flex items-center gap-2 min-w-0">
-          <Badge
-            className={`${PRIORITY_BADGE[task.priority]} text-xs px-1.5 py-0 shrink-0 leading-5`}
-          >
-            {task.priority.charAt(0).toUpperCase()}
-          </Badge>
-          <span className="text-lg font-medium truncate leading-snug">
-            {task.title}
-          </span>
-        </div>
+        <span className="text-lg font-medium truncate leading-snug">
+          {task.title}
+        </span>
       </TableCell>
 
       {/* Phase / Day */}
