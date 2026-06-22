@@ -168,17 +168,6 @@ export function RoomCard({
               )
             })}
 
-            {/* Phase start date */}
-            {room.phase_start_date && (
-              <div
-                className={`flex items-center justify-between ${tv ? 'text-base' : 'text-sm'}`}
-              >
-                <span className={tv ? 'text-zinc-400' : 'text-muted-foreground'}>
-                  Stage Started
-                </span>
-                <span>{format(parseLocalDate(room.phase_start_date), 'MMM d, yyyy')}</span>
-              </div>
-            )}
           </>
         )}
 
