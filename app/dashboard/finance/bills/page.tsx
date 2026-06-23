@@ -63,6 +63,7 @@ import {
   MoreVertical,
   FileStack,
   Edit2,
+  Trash2,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -74,6 +75,7 @@ import { format, parseISO } from 'date-fns'
 import {
   createBill,
   updateBill,
+  deleteBill,
   markBillPaid,
   instantiateBillsFromTemplates,
   getBillsForMonth,
@@ -230,6 +232,11 @@ export default function BillsPage() {
     payment_ref: '',
   })
   const [paidSaving, setPaidSaving] = useState(false)
+
+  // Delete confirmation
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [deletingBill, setDeletingBill] = useState<Bill | null>(null)
+  const [deleteInProgress, setDeleteInProgress] = useState(false)
 
   // Instantiate dialog
   const [instantiateDialogOpen, setInstantiateDialogOpen] = useState(false)
@@ -427,6 +434,37 @@ export default function BillsPage() {
       toast.error('Failed to record payment')
     } finally {
       setPaidSaving(false)
+    }
+  }
+
+  // -----------------------------------------------------------------------
+  // Delete bill
+  // -----------------------------------------------------------------------
+
+  const openDeleteDialog = (bill: Bill) => {
+    setDeletingBill(bill)
+    setDeleteDialogOpen(true)
+  }
+
+  const handleDeleteBill = async () => {
+    if (!deletingBill) return
+
+    setDeleteInProgress(true)
+    try {
+      const result = await deleteBill(deletingBill.id)
+      if (!result.success) {
+        toast.error(result.error || 'Failed to delete bill')
+        return
+      }
+      toast.success(`"${deletingBill.name}" deleted`)
+      setDeleteDialogOpen(false)
+      setBillSheetOpen(false)
+      fetchData()
+    } catch (err) {
+      console.error('Error deleting bill:', err)
+      toast.error('Failed to delete bill')
+    } finally {
+      setDeleteInProgress(false)
     }
   }
 
@@ -746,6 +784,13 @@ export default function BillsPage() {
                               <Edit2 className="h-4 w-4 mr-2" />
                               Edit
                             </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => openDeleteDialog(bill)}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -798,6 +843,13 @@ export default function BillsPage() {
                       <DropdownMenuItem onClick={() => openEditBillSheet(bill)}>
                         <Edit2 className="h-4 w-4 mr-2" />
                         Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => openDeleteDialog(bill)}
+                        className="text-destructive focus:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -1002,6 +1054,20 @@ export default function BillsPage() {
                 Cancel
               </Button>
             </div>
+
+            {editingBill && (
+              <div className="pt-2 border-t">
+                <Button
+                  variant="ghost"
+                  className="w-full text-destructive hover:text-destructive hover:bg-destructive/10"
+                  onClick={() => openDeleteDialog(editingBill)}
+                  disabled={billSaving}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete Bill
+                </Button>
+              </div>
+            )}
           </div>
         </SheetContent>
       </Sheet>
@@ -1096,6 +1162,34 @@ export default function BillsPage() {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Delete Bill Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Bill?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deletingBill && (
+                <>
+                  This will permanently delete <strong>{deletingBill.name}</strong> ({formatMoney(deletingBill.amount)}).
+                  {deletingBill.status === 'paid' && ' This bill has already been marked as paid.'}
+                  {' '}This action cannot be undone.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteInProgress}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteBill}
+              disabled={deleteInProgress}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteInProgress ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Instantiate from Templates Dialog */}
       <AlertDialog open={instantiateDialogOpen} onOpenChange={setInstantiateDialogOpen}>

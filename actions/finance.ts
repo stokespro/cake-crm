@@ -575,6 +575,36 @@ export async function markBillPaid(
   }
 }
 
+export async function deleteBill(billId: string): Promise<{
+  success: boolean
+  error?: string
+}> {
+  const auth = await requireFinance()
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
+  try {
+    const supabase = await createServiceClient()
+
+    // finance_reconciliation_log.bill_id has ON DELETE SET NULL, so deleting
+    // a reconciled bill is safe — the reconciliation log rows are preserved
+    // with bill_id set to null.
+    const { error } = await supabase
+      .from('finance_bills')
+      .delete()
+      .eq('id', billId)
+
+    if (error) {
+      console.error('Error deleting bill:', error)
+      return { success: false, error: error.message }
+    }
+
+    return { success: true }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    return { success: false, error: errorMessage }
+  }
+}
+
 // ============================================================
 // CASH SNAPSHOTS
 // ============================================================
