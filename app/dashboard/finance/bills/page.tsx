@@ -78,6 +78,8 @@ import {
   Trash2,
   Check,
   ChevronsUpDown,
+  Search,
+  X,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -211,6 +213,9 @@ export default function BillsPage() {
   const [templates, setTemplates] = useState<BillTemplate[]>([])
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [vendorFilter, setVendorFilter] = useState<string>('all')
+  const [vendorFilterOpen, setVendorFilterOpen] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('table')
 
   // Bill form sheet
@@ -300,9 +305,24 @@ export default function BillsPage() {
   // -----------------------------------------------------------------------
 
   const filteredBills = bills.filter((b) => {
-    if (statusFilter === 'all') return true
-    return b.status === statusFilter
+    if (statusFilter !== 'all' && b.status !== statusFilter) return false
+    if (vendorFilter !== 'all' && b.vendor_id !== vendorFilter) return false
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase()
+      const matchesName = b.name.toLowerCase().includes(q)
+      const matchesVendor = b.vendor?.name?.toLowerCase().includes(q) ?? false
+      if (!matchesName && !matchesVendor) return false
+    }
+    return true
   })
+
+  const hasActiveFilters = searchQuery !== '' || statusFilter !== 'all' || vendorFilter !== 'all'
+
+  const clearFilters = () => {
+    setSearchQuery('')
+    setStatusFilter('all')
+    setVendorFilter('all')
+  }
 
   // -----------------------------------------------------------------------
   // Bill form (create / edit)
@@ -701,23 +721,112 @@ export default function BillsPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex items-center gap-3">
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[160px]">
-            <SelectValue placeholder="Filter by status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="unpaid">Unpaid</SelectItem>
-            <SelectItem value="partial">Partial</SelectItem>
-            <SelectItem value="paid">Paid</SelectItem>
-            <SelectItem value="void">Void</SelectItem>
-          </SelectContent>
-        </Select>
-        <span className="text-sm text-muted-foreground">
-          {filteredBills.length} of {bills.length} bills
-        </span>
-      </div>
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base">Filters</CardTitle>
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-muted-foreground">
+                {filteredBills.length} of {bills.length} bills
+              </span>
+              {hasActiveFilters && (
+                <Button variant="ghost" size="sm" onClick={clearFilters}>
+                  <X className="h-3 w-3 mr-1" />
+                  Clear Filters
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search bills or vendors..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+
+            {/* Status filter */}
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="unpaid">Unpaid</SelectItem>
+                <SelectItem value="partial">Partial</SelectItem>
+                <SelectItem value="paid">Paid</SelectItem>
+                <SelectItem value="void">Void</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Vendor filter */}
+            <Popover open={vendorFilterOpen} onOpenChange={setVendorFilterOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={vendorFilterOpen}
+                  className="w-full justify-between font-normal"
+                >
+                  {vendorFilter !== 'all'
+                    ? vendors.find((v) => v.id === vendorFilter)?.name ?? 'All vendors'
+                    : 'All vendors'}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Search vendors..." />
+                  <CommandList>
+                    <CommandEmpty>No vendor found.</CommandEmpty>
+                    <CommandGroup>
+                      <CommandItem
+                        value="all"
+                        onSelect={() => {
+                          setVendorFilter('all')
+                          setVendorFilterOpen(false)
+                        }}
+                      >
+                        <Check
+                          className={cn(
+                            'mr-2 h-4 w-4',
+                            vendorFilter === 'all' ? 'opacity-100' : 'opacity-0'
+                          )}
+                        />
+                        All vendors
+                      </CommandItem>
+                      {vendors.map((v) => (
+                        <CommandItem
+                          key={v.id}
+                          value={v.name}
+                          onSelect={() => {
+                            setVendorFilter(v.id)
+                            setVendorFilterOpen(false)
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              'mr-2 h-4 w-4',
+                              vendorFilter === v.id ? 'opacity-100' : 'opacity-0'
+                            )}
+                          />
+                          {v.name}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Bills list */}
       {filteredBills.length === 0 ? (
@@ -725,8 +834,8 @@ export default function BillsPage() {
           <CardContent className="py-12 text-center">
             <Banknote className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <p className="text-muted-foreground mb-4">
-              {statusFilter !== 'all'
-                ? 'No bills found with this status'
+              {hasActiveFilters
+                ? 'No bills match your current filters'
                 : 'No bills for this month yet'}
             </p>
             <div className="flex items-center justify-center gap-3">
