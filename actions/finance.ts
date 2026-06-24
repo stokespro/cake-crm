@@ -42,7 +42,7 @@ export interface BillTemplate {
   vendor?: Pick<Vendor, 'id' | 'name'>
 }
 
-export type BillStatus = 'unpaid' | 'paid' | 'partial' | 'scheduled' | 'void'
+export type BillStatus = 'unpaid' | 'paid' | 'partial' | 'void'
 
 export interface Bill {
   id: string
@@ -487,6 +487,11 @@ export async function updateBill(
   const auth = await requireFinance()
   if (!auth.authorized) return { success: false, error: auth.reason }
 
+  // Two-path fix: Edit only allows unpaid/void. Paid/partial must go through markBillPaid.
+  if (input.status === 'paid' || input.status === 'partial') {
+    return { success: false, error: 'Use Mark Paid to record payments. Edit only sets unpaid or void.' }
+  }
+
   try {
     const supabase = await createServiceClient()
 
@@ -523,6 +528,9 @@ export async function updateBill(
   }
 }
 
+const VALID_PAYMENT_METHODS = ['card', 'ach', 'check', 'cash'] as const
+type PaymentMethod = typeof VALID_PAYMENT_METHODS[number]
+
 export async function markBillPaid(
   billId: string,
   payment: {
@@ -534,6 +542,16 @@ export async function markBillPaid(
 ): Promise<{ success: boolean; data?: Bill; error?: string }> {
   const auth = await requireFinance()
   if (!auth.authorized) return { success: false, error: auth.reason }
+
+  // Validate payment_method ∈ {card,ach,check,cash}
+  const method = payment.payment_method?.trim() || null
+  if (!method || !(VALID_PAYMENT_METHODS as readonly string[]).includes(method)) {
+    return { success: false, error: 'Payment method is required. Choose card, ach, check, or cash.' }
+  }
+  // Check number required when method=check
+  if (method === 'check' && !payment.payment_ref?.trim()) {
+    return { success: false, error: 'Check number is required when payment method is check.' }
+  }
 
   try {
     const supabase = await createServiceClient()
@@ -557,8 +575,8 @@ export async function markBillPaid(
       .from('finance_bills')
       .update({
         amount_paid: payment.amount_paid,
-        paid_date: status === 'paid' ? payment.paid_date : null,
-        payment_method: payment.payment_method?.trim() || null,
+        paid_date: payment.paid_date,   // always set per spec
+        payment_method: method as PaymentMethod,
         payment_ref: payment.payment_ref?.trim() || null,
         status,
         updated_at: new Date().toISOString(),
@@ -683,6 +701,7 @@ export async function getMonthSummary(month: string): Promise<{
         .from('finance_bills')
         .select(`
           *,
+          payment_method,
           template:finance_bill_templates(id, name, amount),
           vendor:finance_vendors(id, name)
         `)
@@ -743,6 +762,22 @@ export async function getMonthSummary(month: string): Promise<{
     const bills = billsRes.data
     const latestSnapshot = snapshotsRes.data?.[0] ?? null
     const ordersData = ordersRes.data
+
+    // Non-fatal: build set of bill ids that have a confirmed/auto_applied reconciliation row.
+    // Used by the cash-flow engine for the STOKELY-REFINED clearance rule (Wave 4).
+    let confirmedBillIds = new Set<string>()
+    try {
+      const { data: reconRows } = await supabase
+        .from('finance_reconciliation_log')
+        .select('bill_id')
+        .in('status', ['confirmed', 'auto_applied'])
+        .not('bill_id', 'is', null)
+      if (reconRows) {
+        confirmedBillIds = new Set(reconRows.map((r) => r.bill_id as string))
+      }
+    } catch {
+      // non-fatal — bank_confirmed defaults to false, uncleared checks stay reserved
+    }
 
     // Resolve bank balance — gracefully null on any error
     let bankBalance: BankBalanceSummary | null = null
@@ -825,6 +860,8 @@ export async function getMonthSummary(month: string): Promise<{
         due_date: b.due_date,
         status: b.status as BillInput['status'],
         paid_date: b.paid_date ?? null,
+        payment_method: b.payment_method ?? null,
+        bank_confirmed: confirmedBillIds.has(b.id),
       }))
 
       const snapshotInput: SnapshotInput = {

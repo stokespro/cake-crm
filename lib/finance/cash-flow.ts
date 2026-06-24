@@ -46,8 +46,10 @@ export interface BillInput {
   amount: number
   amount_paid: number
   due_date: string          // ISO date 'YYYY-MM-DD'
-  status: 'unpaid' | 'paid' | 'partial' | 'scheduled' | 'void'
+  status: 'unpaid' | 'paid' | 'partial' | 'void'
   paid_date: string | null  // ISO date, may be null
+  payment_method: string | null
+  bank_confirmed: boolean
 }
 
 export interface OrderInput {
@@ -96,6 +98,14 @@ export function buildCashFlow(
   // ------------------------------------------------------------------
   for (const bill of bills) {
     if (bill.status === 'void') continue
+
+    if (bill.status === 'paid') {
+      // STOKELY-REFINED Option B: reserve ONLY uncleared checks.
+      // cash/card/ach/bank-confirmed checks are already out of the bank — drop from projection.
+      const isUnclearedCheck = bill.payment_method === 'check' && !bill.bank_confirmed
+      if (!isUnclearedCheck) continue
+      // Uncleared check → stays RESERVED as a future outflow (fall through to event creation below)
+    }
 
     const remaining = bill.amount - bill.amount_paid
     if (remaining <= 0) {

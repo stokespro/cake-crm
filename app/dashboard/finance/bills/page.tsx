@@ -70,7 +70,6 @@ import {
   LayoutGrid,
   List,
   CheckCircle,
-  Clock,
   AlertTriangle,
   Minus,
   MoreVertical,
@@ -156,13 +155,6 @@ function BillStatusBadge({ status }: { status: BillStatus }) {
           Unpaid
         </Badge>
       )
-    case 'scheduled':
-      return (
-        <Badge variant="outline">
-          <Clock className="h-3 w-3 mr-1" />
-          Scheduled
-        </Badge>
-      )
     case 'void':
       return <Badge variant="outline" className="text-muted-foreground">Void</Badge>
     default:
@@ -191,19 +183,15 @@ interface MarkPaidFormData {
 }
 
 const PAYMENT_METHODS = [
-  { value: 'check', label: 'Check' },
+  { value: 'card', label: 'Debit Card' },
   { value: 'ach', label: 'ACH' },
-  { value: 'wire', label: 'Wire' },
-  { value: 'credit_card', label: 'Credit Card' },
+  { value: 'check', label: 'Check' },
   { value: 'cash', label: 'Cash' },
-  { value: 'other', label: 'Other' },
 ]
 
+// Edit form only allows unpaid/void — paid/partial go through Mark Paid
 const BILL_STATUSES: { value: BillStatus; label: string }[] = [
   { value: 'unpaid', label: 'Unpaid' },
-  { value: 'scheduled', label: 'Scheduled' },
-  { value: 'partial', label: 'Partial' },
-  { value: 'paid', label: 'Paid' },
   { value: 'void', label: 'Void' },
 ]
 
@@ -432,13 +420,21 @@ export default function BillsPage() {
       toast.error('Payment date is required')
       return
     }
+    if (!paidForm.payment_method) {
+      toast.error('Payment method is required')
+      return
+    }
+    if (paidForm.payment_method === 'check' && !paidForm.payment_ref.trim()) {
+      toast.error('Check number is required when paying by check')
+      return
+    }
 
     setPaidSaving(true)
     try {
       const result = await markBillPaid(payingBill.id, {
         amount_paid: amount,
         paid_date: paidForm.paid_date,
-        payment_method: paidForm.payment_method || undefined,
+        payment_method: paidForm.payment_method,
         payment_ref: paidForm.payment_ref || undefined,
       })
       if (!result.success) {
@@ -589,7 +585,7 @@ export default function BillsPage() {
   // Summaries
   // -----------------------------------------------------------------------
 
-  const totalBills = bills.reduce((s, b) => s + b.amount, 0)
+  const totalBills = bills.filter((b) => b.status !== 'void').reduce((s, b) => s + b.amount, 0)
   const unpaidBills = bills.filter((b) => b.status === 'unpaid' || b.status === 'partial')
   const unpaidAmount = unpaidBills.reduce((s, b) => s + (b.amount - b.amount_paid), 0)
 
@@ -715,7 +711,6 @@ export default function BillsPage() {
             <SelectItem value="unpaid">Unpaid</SelectItem>
             <SelectItem value="partial">Partial</SelectItem>
             <SelectItem value="paid">Paid</SelectItem>
-            <SelectItem value="scheduled">Scheduled</SelectItem>
             <SelectItem value="void">Void</SelectItem>
           </SelectContent>
         </Select>
@@ -1204,16 +1199,15 @@ export default function BillsPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="payment-method">Payment Method (optional)</Label>
+              <Label htmlFor="payment-method">Payment Method *</Label>
               <Select
-                value={paidForm.payment_method || 'none'}
-                onValueChange={(v) => setPaidForm((p) => ({ ...p, payment_method: v === 'none' ? '' : v }))}
+                value={paidForm.payment_method || ''}
+                onValueChange={(v) => setPaidForm((p) => ({ ...p, payment_method: v }))}
               >
                 <SelectTrigger id="payment-method">
-                  <SelectValue placeholder="Select method" />
+                  <SelectValue placeholder="Select method (required)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Not specified</SelectItem>
                   {PAYMENT_METHODS.map((m) => (
                     <SelectItem key={m.value} value={m.value}>
                       {m.label}
@@ -1224,17 +1218,27 @@ export default function BillsPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="payment-ref">Reference / Check # (optional)</Label>
+              <Label htmlFor="payment-ref">
+                {paidForm.payment_method === 'check' ? 'Check Number *' : 'Reference (optional)'}
+              </Label>
               <Input
                 id="payment-ref"
-                placeholder="e.g. Check #1234, ACH ref..."
+                placeholder={paidForm.payment_method === 'check' ? 'e.g. 1234' : 'e.g. ACH ref...'}
                 value={paidForm.payment_ref}
                 onChange={(e) => setPaidForm((p) => ({ ...p, payment_ref: e.target.value }))}
               />
             </div>
 
             <div className="flex gap-2 pt-2">
-              <Button className="flex-1" onClick={handleMarkPaid} disabled={paidSaving}>
+              <Button
+                className="flex-1"
+                onClick={handleMarkPaid}
+                disabled={
+                  paidSaving ||
+                  !paidForm.payment_method ||
+                  (paidForm.payment_method === 'check' && !paidForm.payment_ref.trim())
+                }
+              >
                 {paidSaving ? 'Recording...' : 'Record Payment'}
               </Button>
               <Button variant="outline" onClick={() => setPaidSheetOpen(false)} disabled={paidSaving}>

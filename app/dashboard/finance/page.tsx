@@ -986,8 +986,9 @@ export default function FinanceOverviewPage() {
 
   const troughId = cashFlow?.troughEvent?.id ?? null
 
-  const totalBills = summary?.bills.reduce((s, b) => s + b.amount, 0) ?? 0
-  const totalPaid = summary?.bills.reduce((s, b) => s + b.amount_paid, 0) ?? 0
+  const nonVoidBills = summary?.bills.filter((b) => b.status !== 'void') ?? []
+  const totalBills = nonVoidBills.reduce((s, b) => s + b.amount, 0)
+  const totalPaid = nonVoidBills.reduce((s, b) => s + b.amount_paid, 0)
   const unpaidBills = totalBills - totalPaid
 
   return (
