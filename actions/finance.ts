@@ -88,6 +88,10 @@ export interface MonthSummary {
   latestSnapshot: CashSnapshot | null
   realizedRevenue: number
   pipelineRevenue: number
+  // Pipeline split — non-terms (confirmed/packed by requested_delivery_date)
+  // and terms (confirmed/packed/delivered + unpaid by terms_payment_date).
+  pipelineNonTerms: number
+  pipelineTerms: number
   cashFlow: {
     realized: CashFlowResult
     withPipeline: CashFlowResult
@@ -696,7 +700,8 @@ export async function getMonthSummary(month: string): Promise<{
       // Branch 1: non-terms delivered — realized by delivered_at
       // Branch 2: terms delivered + paid — realized by terms_paid_at
       // Branch 3: non-terms confirmed/packed — pipeline by requested_delivery_date
-      // Branch 4: terms delivered + unpaid — pipeline by terms_payment_date (expected)
+      // Branch 4: terms confirmed/packed/delivered + unpaid — pipeline by terms_payment_date
+      //   (relaxed from delivered-only so pre-delivery terms orders count in pipeline)
       // Joins order_items for HYBRID revenue rule (line items when present,
       // else fall back to orders.total_price for legacy header-only orders).
       supabase
@@ -711,7 +716,7 @@ export async function getMonthSummary(month: string): Promise<{
           `and(status.eq.delivered,payment_terms.eq.false,delivered_at.gte.${month},delivered_at.lt.${nextMonth}),` +
           `and(status.eq.delivered,payment_terms.eq.true,terms_paid_at.gte.${month},terms_paid_at.lt.${nextMonth}),` +
           `and(status.in.(confirmed,packed),payment_terms.eq.false,requested_delivery_date.gte.${month},requested_delivery_date.lt.${nextMonth}),` +
-          `and(status.eq.delivered,payment_terms.eq.true,terms_paid_at.is.null,terms_payment_date.gte.${month},terms_payment_date.lt.${nextMonth})`
+          `and(status.in.(confirmed,packed,delivered),payment_terms.eq.true,terms_paid_at.is.null,terms_payment_date.gte.${month},terms_payment_date.lt.${nextMonth})`
         )
         .order('requested_delivery_date', { ascending: true })
         .range(0, 4999),
@@ -761,7 +766,8 @@ export async function getMonthSummary(month: string): Promise<{
     // to orders.total_price (preserves $176,940 of legacy header-only orders).
     // Terms orders: realized on terms_paid_at; pipeline on terms_payment_date until paid.
     let realizedRevenue = 0
-    let pipelineRevenue = 0
+    let pipelineNonTerms = 0
+    let pipelineTerms = 0
 
     const orderInputs: OrderInput[] = []
 
@@ -800,7 +806,11 @@ export async function getMonthSummary(month: string): Promise<{
         const d = revenueDate.substring(0, 10)
         if (d >= month && d < nextMonth) realizedRevenue += orderRevenue
       } else if (!isRealized) {
-        pipelineRevenue += orderRevenue
+        if (isTerms) {
+          pipelineTerms += orderRevenue
+        } else {
+          pipelineNonTerms += orderRevenue
+        }
       }
     }
 
@@ -832,7 +842,9 @@ export async function getMonthSummary(month: string): Promise<{
         bills: (bills || []) as Bill[],
         latestSnapshot: latestSnapshot as CashSnapshot | null,
         realizedRevenue,
-        pipelineRevenue,
+        pipelineRevenue: pipelineNonTerms + pipelineTerms,
+        pipelineNonTerms,
+        pipelineTerms,
         cashFlow,
         bankBalance,
       },

@@ -756,7 +756,7 @@ export default function OrdersPage() {
               <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>
+                <TableHead className="hidden sm:table-cell">
                   <button
                     className="flex items-center font-medium hover:text-foreground"
                     onClick={() => toggleSort('order_number')}
@@ -774,7 +774,7 @@ export default function OrdersPage() {
                     <SortIcon field="customer" />
                   </button>
                 </TableHead>
-                <TableHead>Items</TableHead>
+                <TableHead className="hidden md:table-cell">Items</TableHead>
                 <TableHead>
                   <button
                     className="flex items-center font-medium hover:text-foreground"
@@ -784,7 +784,7 @@ export default function OrdersPage() {
                     <SortIcon field="status" />
                   </button>
                 </TableHead>
-                <TableHead>
+                <TableHead className="hidden lg:table-cell">
                   <button
                     className="flex items-center font-medium hover:text-foreground"
                     onClick={() => toggleSort('order_date')}
@@ -793,7 +793,7 @@ export default function OrdersPage() {
                     <SortIcon field="order_date" />
                   </button>
                 </TableHead>
-                <TableHead>
+                <TableHead className="hidden sm:table-cell">
                   <button
                     className="flex items-center font-medium hover:text-foreground"
                     onClick={() => toggleSort('delivery_date')}
@@ -821,13 +821,23 @@ export default function OrdersPage() {
                   className="cursor-pointer hover:bg-muted/50"
                   onClick={() => handleRowClick(order)}
                 >
-                  <TableCell className="font-medium">
+                  <TableCell className="hidden sm:table-cell font-medium">
                     {order.order_number ? `#${order.order_number}` : '—'}
                   </TableCell>
                   <TableCell>
-                    {order.customer?.business_name || 'Unknown'}
+                    <div className="font-medium">{order.customer?.business_name || 'Unknown'}</div>
+                    {/* Mobile: order number + delivery date as sub-text */}
+                    <div className="sm:hidden text-xs text-muted-foreground mt-0.5 space-y-0.5">
+                      {order.order_number && <span className="block">#{order.order_number}</span>}
+                      {order.requested_delivery_date && (
+                        <span className="block flex items-center gap-1">
+                          <Truck className="h-3 w-3 inline" />
+                          {' '}{format(parseLocalDate(order.requested_delivery_date), 'MMM d, yyyy')}
+                        </span>
+                      )}
+                    </div>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden md:table-cell">
                     <span className="text-muted-foreground">
                       {order.order_items?.length || 0} items
                     </span>
@@ -835,10 +845,10 @@ export default function OrdersPage() {
                   <TableCell>
                     <StatusBadgeDropdown orderId={order.id} currentStatus={order.status} canChangeStatus={canApproveOrders} onStatusChange={quickUpdateStatus} />
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden lg:table-cell">
                     {format(parseLocalDate(order.order_date), 'MMM d, yyyy')}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden sm:table-cell">
                     {order.requested_delivery_date
                       ? format(parseLocalDate(order.requested_delivery_date), 'MMM d, yyyy')
                       : '—'}

@@ -128,7 +128,7 @@ function CashFlowEventRow({
 
   return (
     <TableRow className={rowClass}>
-      <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+      <TableCell className="hidden sm:table-cell text-xs text-muted-foreground whitespace-nowrap">
         {format(parseISO(event.date), 'MMM d')}
       </TableCell>
       <TableCell>
@@ -142,6 +142,10 @@ function CashFlowEventRow({
               Low point
             </Badge>
           )}
+        </div>
+        {/* Mobile: show date as sub-text */}
+        <div className="sm:hidden text-xs text-muted-foreground mt-0.5">
+          {format(parseISO(event.date), 'MMM d')}
         </div>
       </TableCell>
       <TableCell className={`text-right text-sm ${amountClass}`}>
@@ -536,13 +540,13 @@ function ReconciliationPanel() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[90px]">Date</TableHead>
+                      <TableHead className="w-[90px] hidden sm:table-cell">Date</TableHead>
                       <TableHead>Description</TableHead>
-                      <TableHead>Matched Bill</TableHead>
+                      <TableHead className="hidden md:table-cell">Matched Bill</TableHead>
                       <TableHead className="text-right">Bank Amt</TableHead>
-                      <TableHead className="text-right">Bill Amt</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Method</TableHead>
+                      <TableHead className="hidden md:table-cell text-right">Bill Amt</TableHead>
+                      <TableHead className="hidden sm:table-cell">Type</TableHead>
+                      <TableHead className="hidden lg:table-cell">Method</TableHead>
                       <TableHead className="text-right w-[140px]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -557,25 +561,35 @@ function ReconciliationPanel() {
                         row.match_type === 'already_paid_non_check'
                       return (
                       <TableRow key={row.id}>
-                        <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                        <TableCell className="hidden sm:table-cell text-xs text-muted-foreground whitespace-nowrap">
                           {row.bank_date ? format(parseISO(row.bank_date), 'MMM d, yyyy') : '—'}
                         </TableCell>
                         <TableCell className="text-sm max-w-[180px]">
                           <span className="truncate block">{row.bank_description ?? '—'}</span>
+                          {/* Mobile: show date, matched bill, and type as sub-text */}
+                          <div className="sm:hidden text-xs text-muted-foreground mt-0.5 space-y-0.5">
+                            {row.bank_date && (
+                              <span className="block">{format(parseISO(row.bank_date), 'MMM d, yyyy')}</span>
+                            )}
+                            {row.bill_name && <span className="block">{row.bill_name}</span>}
+                          </div>
+                          <div className="md:hidden mt-1">
+                            <ReconMatchBadge matchType={row.match_type} />
+                          </div>
                         </TableCell>
-                        <TableCell className="text-sm">
+                        <TableCell className="hidden md:table-cell text-sm">
                           {row.bill_name ?? <span className="text-muted-foreground italic">No bill</span>}
                         </TableCell>
                         <TableCell className="text-right text-sm font-mono">
                           {row.bank_amount !== null ? formatMoney(Math.abs(row.bank_amount)) : '—'}
                         </TableCell>
-                        <TableCell className="text-right text-sm font-mono">
+                        <TableCell className="hidden md:table-cell text-right text-sm font-mono">
                           {row.bill_amount !== null ? formatMoney(row.bill_amount) : '—'}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="hidden sm:table-cell">
                           <ReconMatchBadge matchType={row.match_type} />
                         </TableCell>
-                        <TableCell className="text-xs text-muted-foreground capitalize">
+                        <TableCell className="hidden lg:table-cell text-xs text-muted-foreground capitalize">
                           {row.suggested_payment_method ?? '—'}
                         </TableCell>
                         <TableCell className="text-right">
@@ -634,9 +648,9 @@ function ReconciliationPanel() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[90px]">Date</TableHead>
+                      <TableHead className="hidden sm:table-cell w-[90px]">Date</TableHead>
                       <TableHead>Description</TableHead>
-                      <TableHead>Bill</TableHead>
+                      <TableHead className="hidden sm:table-cell">Bill</TableHead>
                       <TableHead className="text-right">Bank Amt</TableHead>
                       <TableHead>Result</TableHead>
                     </TableRow>
@@ -644,13 +658,20 @@ function ReconciliationPanel() {
                   <TableBody>
                     {clearedRows.map((row) => (
                       <TableRow key={row.id}>
-                        <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                        <TableCell className="hidden sm:table-cell text-xs text-muted-foreground whitespace-nowrap">
                           {row.bank_date ? format(parseISO(row.bank_date), 'MMM d, yyyy') : '—'}
                         </TableCell>
                         <TableCell className="text-sm max-w-[180px]">
                           <span className="truncate block">{row.bank_description ?? '—'}</span>
+                          {/* Mobile: show date and bill as sub-text */}
+                          <div className="sm:hidden text-xs text-muted-foreground mt-0.5 space-y-0.5">
+                            {row.bank_date && (
+                              <span className="block">{format(parseISO(row.bank_date), 'MMM d, yyyy')}</span>
+                            )}
+                            {row.bill_name && <span className="block">{row.bill_name}</span>}
+                          </div>
                         </TableCell>
-                        <TableCell className="text-sm">
+                        <TableCell className="hidden sm:table-cell text-sm">
                           {row.bill_name ?? <span className="text-muted-foreground italic">—</span>}
                         </TableCell>
                         <TableCell className="text-right text-sm font-mono">
@@ -772,7 +793,7 @@ function UntrackedExpensesPanel({
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[90px]">Date</TableHead>
+                      <TableHead className="hidden sm:table-cell w-[90px]">Date</TableHead>
                       <TableHead>Description</TableHead>
                       <TableHead className="text-right">Amount</TableHead>
                       <TableHead className="w-[150px]" />
@@ -783,7 +804,7 @@ function UntrackedExpensesPanel({
                       const hasProposal = proposedBsIds.has(txn.bs_id)
                       return (
                         <TableRow key={txn.bs_id} className={hasProposal ? 'opacity-60' : undefined}>
-                          <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                          <TableCell className="hidden sm:table-cell text-xs text-muted-foreground whitespace-nowrap">
                             {format(parseISO(txn.txn_date), 'MMM d, yyyy')}
                           </TableCell>
                           <TableCell className="text-sm max-w-[220px]">
@@ -791,6 +812,10 @@ function UntrackedExpensesPanel({
                             {txn.merchant_name && txn.merchant_name !== txn.description && (
                               <span className="text-xs text-muted-foreground">{txn.merchant_name}</span>
                             )}
+                            {/* Mobile: show date as sub-text */}
+                            <div className="sm:hidden text-xs text-muted-foreground mt-0.5">
+                              {format(parseISO(txn.txn_date), 'MMM d, yyyy')}
+                            </div>
                           </TableCell>
                           <TableCell className="text-right text-sm font-mono text-red-600 font-medium">
                             {formatMoney(Math.abs(txn.amount))}
@@ -1017,7 +1042,11 @@ export default function FinanceOverviewPage() {
                 </div>
                 <div className="text-xs text-muted-foreground flex items-center gap-1">
                   <Clock className="h-3 w-3" />
-                  Pipeline (confirmed/packed)
+                  Pipeline (expected)
+                </div>
+                <div className="mt-1 space-y-0.5 pl-4 text-xs text-muted-foreground">
+                  <div>Non-terms {formatMoney(summary?.pipelineNonTerms ?? 0)}</div>
+                  <div>Terms {formatMoney(summary?.pipelineTerms ?? 0)}</div>
                 </div>
               </div>
             )}
@@ -1153,20 +1182,23 @@ export default function FinanceOverviewPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[90px]">Date</TableHead>
+                      <TableHead className="hidden sm:table-cell w-[90px]">Date</TableHead>
                       <TableHead>Description</TableHead>
                       <TableHead className="text-right w-[130px]">Amount</TableHead>
-                      <TableHead className="text-right w-[140px]">Running Balance</TableHead>
+                      <TableHead className="text-right w-[140px]">Balance</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {/* Opening balance row */}
                     <TableRow className="bg-muted/30">
-                      <TableCell className="text-xs text-muted-foreground">
+                      <TableCell className="hidden sm:table-cell text-xs text-muted-foreground">
                         {format(parseISO(cashFlow.snapshotDate), 'MMM d')}
                       </TableCell>
                       <TableCell className="text-sm font-medium text-muted-foreground">
                         Opening balance (snapshot)
+                        <div className="sm:hidden text-xs text-muted-foreground mt-0.5">
+                          {format(parseISO(cashFlow.snapshotDate), 'MMM d')}
+                        </div>
                       </TableCell>
                       <TableCell />
                       <TableCell className="text-right text-sm font-mono font-semibold">

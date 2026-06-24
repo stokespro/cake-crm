@@ -747,7 +747,7 @@ export default function BillsPage() {
           </CardContent>
         </Card>
       ) : viewMode === 'table' ? (
-        /* Table view — desktop */
+        /* Table view */
         <Card className="overflow-hidden">
           <CardContent className="p-0">
             <div className="overflow-auto">
@@ -755,11 +755,11 @@ export default function BillsPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Bill</TableHead>
-                    <TableHead>Vendor</TableHead>
+                    <TableHead className="hidden sm:table-cell">Vendor</TableHead>
                     <TableHead className="text-right">Amount</TableHead>
-                    <TableHead>Due</TableHead>
+                    <TableHead className="hidden sm:table-cell">Due</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Paid</TableHead>
+                    <TableHead className="hidden sm:table-cell text-right">Paid</TableHead>
                     <TableHead className="w-[60px]" />
                   </TableRow>
                 </TableHeader>
@@ -768,21 +768,29 @@ export default function BillsPage() {
                     <TableRow key={bill.id}>
                       <TableCell className="font-medium">
                         {bill.name}
+                        {/* On mobile, surface vendor + due date as sub-text */}
+                        <div className="sm:hidden text-xs text-muted-foreground mt-0.5 space-y-0.5">
+                          {bill.vendor?.name && <span className="block">{bill.vendor.name}</span>}
+                          <span className="block">Due {format(parseISO(bill.due_date), 'MMM d, yyyy')}</span>
+                          {bill.amount_paid > 0 && (
+                            <span className="block text-green-600">{formatMoney(bill.amount_paid)} paid</span>
+                          )}
+                        </div>
                         {bill.notes && (
-                          <p className="text-xs text-muted-foreground truncate max-w-[200px]">{bill.notes}</p>
+                          <p className="text-xs text-muted-foreground truncate max-w-[200px] mt-0.5">{bill.notes}</p>
                         )}
                       </TableCell>
-                      <TableCell className="text-muted-foreground text-sm">
+                      <TableCell className="hidden sm:table-cell text-muted-foreground text-sm">
                         {bill.vendor?.name ?? '—'}
                       </TableCell>
                       <TableCell className="text-right font-medium">{formatMoney(bill.amount)}</TableCell>
-                      <TableCell className="text-sm whitespace-nowrap">
+                      <TableCell className="hidden sm:table-cell text-sm whitespace-nowrap">
                         {format(parseISO(bill.due_date), 'MMM d, yyyy')}
                       </TableCell>
                       <TableCell>
                         <BillStatusBadge status={bill.status} />
                       </TableCell>
-                      <TableCell className="text-right text-sm">
+                      <TableCell className="hidden sm:table-cell text-right text-sm">
                         {bill.amount_paid > 0 ? formatMoney(bill.amount_paid) : '—'}
                       </TableCell>
                       <TableCell>
@@ -905,7 +913,7 @@ export default function BillsPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Bill</TableHead>
-                      <TableHead className="text-right">Budgeted</TableHead>
+                      <TableHead className="hidden sm:table-cell text-right">Budgeted</TableHead>
                       <TableHead className="text-right">Actual</TableHead>
                       <TableHead className="text-right">Variance</TableHead>
                     </TableRow>
@@ -918,8 +926,16 @@ export default function BillsPage() {
                           {row.isUnplanned && (
                             <Badge variant="outline" className="ml-2 text-xs">Unplanned</Badge>
                           )}
+                          {/* Mobile: show budgeted amount as sub-text */}
+                          <div className="sm:hidden text-xs text-muted-foreground mt-0.5">
+                            {row.isVariable ? (
+                              <span className="italic">Budget: Variable</span>
+                            ) : row.budgeted !== null ? (
+                              <span>Budget: {formatMoney(row.budgeted)}</span>
+                            ) : null}
+                          </div>
                         </TableCell>
-                        <TableCell className="text-right text-sm">
+                        <TableCell className="hidden sm:table-cell text-right text-sm">
                           {row.isVariable ? (
                             <span className="text-muted-foreground italic">Variable</span>
                           ) : row.budgeted !== null ? (
@@ -946,8 +962,13 @@ export default function BillsPage() {
                   {/* Totals row */}
                   <TableBody>
                     <TableRow className="border-t-2 bg-muted/30 font-semibold">
-                      <TableCell>Total</TableCell>
-                      <TableCell className="text-right">{formatMoney(totalBudgeted)}</TableCell>
+                      <TableCell>
+                        Total
+                        <div className="sm:hidden text-xs font-normal text-muted-foreground mt-0.5">
+                          Budget: {formatMoney(totalBudgeted)}
+                        </div>
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell text-right">{formatMoney(totalBudgeted)}</TableCell>
                       <TableCell className="text-right">{formatMoney(totalActual)}</TableCell>
                       <TableCell className="text-right">
                         {totalVariance === 0 ? (
