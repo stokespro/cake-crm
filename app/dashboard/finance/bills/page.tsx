@@ -180,6 +180,16 @@ interface BillFormData {
   notes: string
 }
 
+interface BillFormErrors {
+  name?: string
+  amount?: string
+  due_date?: string
+  payment_method?: string
+  payment_ref?: string
+  paid_date?: string
+  amount_paid?: string
+}
+
 const PAYMENT_METHODS = [
   { value: 'card', label: 'Debit Card' },
   { value: 'ach', label: 'ACH' },
@@ -231,6 +241,7 @@ export default function BillsPage() {
     notes: '',
   })
   const [billSaving, setBillSaving] = useState(false)
+  const [billFormErrors, setBillFormErrors] = useState<BillFormErrors>({})
   const [vendorOpen, setVendorOpen] = useState(false)
 
   // Delete confirmation
@@ -332,6 +343,7 @@ export default function BillsPage() {
       amount_paid: '',
       notes: '',
     })
+    setBillFormErrors({})
     setVendorOpen(false)
     setBillSheetOpen(true)
   }
@@ -350,57 +362,55 @@ export default function BillsPage() {
       amount_paid: bill.amount_paid > 0 ? String(bill.amount_paid) : '',
       notes: bill.notes ?? '',
     })
+    setBillFormErrors({})
     setVendorOpen(false)
     setBillSheetOpen(true)
   }
 
   const handleSaveBill = async () => {
     const amount = parseFloat(billForm.amount)
-    if (!billForm.name.trim()) {
-      toast.error('Bill name is required')
-      return
-    }
-    if (isNaN(amount) || amount < 0) {
-      toast.error('Please enter a valid amount')
-      return
-    }
-    if (!billForm.due_date) {
-      toast.error('Due date is required')
-      return
-    }
-
     const needsPayment = billForm.status === 'paid' || billForm.status === 'partial'
 
-    // Client-side payment field validation
+    // Collect all field errors up front so we can show them inline
+    const errors: BillFormErrors = {}
+
+    if (!billForm.name.trim()) {
+      errors.name = 'Bill name is required'
+    }
+    if (isNaN(amount) || amount < 0) {
+      errors.amount = 'Please enter a valid amount'
+    }
+    if (!billForm.due_date) {
+      errors.due_date = 'Due date is required'
+    }
+
     if (needsPayment) {
       if (!billForm.payment_method) {
-        toast.error('Payment method is required')
-        return
+        errors.payment_method = 'Payment method is required'
       }
       if (billForm.payment_method === 'check' && !billForm.payment_ref.trim()) {
-        toast.error('Check number is required when paying by check')
-        return
+        errors.payment_ref = 'Check number is required when paying by check'
+      }
+      if (!billForm.paid_date) {
+        errors.paid_date = 'Payment date is required'
       }
       if (billForm.status === 'partial') {
         const amtPaid = parseFloat(billForm.amount_paid)
         if (isNaN(amtPaid) || amtPaid <= 0) {
-          toast.error('Amount paid must be greater than 0 for a partial payment')
-          return
+          errors.amount_paid = 'Amount paid must be greater than 0'
+        } else if (!isNaN(amount) && amtPaid >= amount) {
+          errors.amount_paid = 'Amount paid must be less than the bill amount'
         }
-        if (amtPaid >= amount) {
-          toast.error('Amount paid must be less than the bill amount for a partial payment')
-          return
-        }
-        if (!billForm.paid_date) {
-          toast.error('Payment date is required')
-          return
-        }
-      }
-      if (billForm.status === 'paid' && !billForm.paid_date) {
-        toast.error('Payment date is required')
-        return
       }
     }
+
+    if (Object.keys(errors).length > 0) {
+      setBillFormErrors(errors)
+      toast.error('Please fix the highlighted fields')
+      return
+    }
+
+    setBillFormErrors({})
 
     setBillSaving(true)
     try {
@@ -1084,8 +1094,15 @@ export default function BillsPage() {
                 id="bill-name"
                 placeholder="e.g. Rent, Internet, Payroll"
                 value={billForm.name}
-                onChange={(e) => setBillForm((p) => ({ ...p, name: e.target.value }))}
+                onChange={(e) => {
+                  setBillForm((p) => ({ ...p, name: e.target.value }))
+                  if (billFormErrors.name) setBillFormErrors((p) => ({ ...p, name: undefined }))
+                }}
+                className={cn(billFormErrors.name && 'border-red-500')}
               />
+              {billFormErrors.name && (
+                <p className="text-red-500 text-xs mt-1">{billFormErrors.name}</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -1161,10 +1178,16 @@ export default function BillsPage() {
                   step="0.01"
                   placeholder="0.00"
                   value={billForm.amount}
-                  onChange={(e) => setBillForm((p) => ({ ...p, amount: e.target.value }))}
-                  className="pl-7"
+                  onChange={(e) => {
+                    setBillForm((p) => ({ ...p, amount: e.target.value }))
+                    if (billFormErrors.amount) setBillFormErrors((p) => ({ ...p, amount: undefined }))
+                  }}
+                  className={cn('pl-7', billFormErrors.amount && 'border-red-500')}
                 />
               </div>
+              {billFormErrors.amount && (
+                <p className="text-red-500 text-xs mt-1">{billFormErrors.amount}</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -1173,8 +1196,15 @@ export default function BillsPage() {
                 id="bill-due"
                 type="date"
                 value={billForm.due_date}
-                onChange={(e) => setBillForm((p) => ({ ...p, due_date: e.target.value }))}
+                onChange={(e) => {
+                  setBillForm((p) => ({ ...p, due_date: e.target.value }))
+                  if (billFormErrors.due_date) setBillFormErrors((p) => ({ ...p, due_date: undefined }))
+                }}
+                className={cn(billFormErrors.due_date && 'border-red-500')}
               />
+              {billFormErrors.due_date && (
+                <p className="text-red-500 text-xs mt-1">{billFormErrors.due_date}</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -1192,6 +1222,13 @@ export default function BillsPage() {
                       payment_ref: '',
                       paid_date: new Date().toISOString().substring(0, 10),
                       amount_paid: '',
+                    }))
+                    setBillFormErrors((p) => ({
+                      ...p,
+                      payment_method: undefined,
+                      payment_ref: undefined,
+                      paid_date: undefined,
+                      amount_paid: undefined,
                     }))
                   } else {
                     setBillForm((p) => ({ ...p, status: newStatus }))
@@ -1218,9 +1255,17 @@ export default function BillsPage() {
                   <Label htmlFor="bill-payment-method">Payment Method *</Label>
                   <Select
                     value={billForm.payment_method || ''}
-                    onValueChange={(v) => setBillForm((p) => ({ ...p, payment_method: v }))}
+                    onValueChange={(v) => {
+                      setBillForm((p) => ({ ...p, payment_method: v }))
+                      if (billFormErrors.payment_method) setBillFormErrors((p) => ({ ...p, payment_method: undefined }))
+                      // Also clear check number error if switching away from check
+                      if (v !== 'check' && billFormErrors.payment_ref) setBillFormErrors((p) => ({ ...p, payment_ref: undefined }))
+                    }}
                   >
-                    <SelectTrigger id="bill-payment-method">
+                    <SelectTrigger
+                      id="bill-payment-method"
+                      className={cn(billFormErrors.payment_method && 'border-red-500')}
+                    >
                       <SelectValue placeholder="Select method (required)" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1231,6 +1276,9 @@ export default function BillsPage() {
                       ))}
                     </SelectContent>
                   </Select>
+                  {billFormErrors.payment_method && (
+                    <p className="text-red-500 text-xs mt-1">{billFormErrors.payment_method}</p>
+                  )}
                 </div>
 
                 {billForm.payment_method === 'check' && (
@@ -1240,8 +1288,15 @@ export default function BillsPage() {
                       id="bill-check-number"
                       placeholder="e.g. 1234"
                       value={billForm.payment_ref}
-                      onChange={(e) => setBillForm((p) => ({ ...p, payment_ref: e.target.value }))}
+                      onChange={(e) => {
+                        setBillForm((p) => ({ ...p, payment_ref: e.target.value }))
+                        if (billFormErrors.payment_ref) setBillFormErrors((p) => ({ ...p, payment_ref: undefined }))
+                      }}
+                      className={cn(billFormErrors.payment_ref && 'border-red-500')}
                     />
+                    {billFormErrors.payment_ref && (
+                      <p className="text-red-500 text-xs mt-1">{billFormErrors.payment_ref}</p>
+                    )}
                   </div>
                 )}
 
@@ -1263,8 +1318,15 @@ export default function BillsPage() {
                     id="bill-paid-date"
                     type="date"
                     value={billForm.paid_date}
-                    onChange={(e) => setBillForm((p) => ({ ...p, paid_date: e.target.value }))}
+                    onChange={(e) => {
+                      setBillForm((p) => ({ ...p, paid_date: e.target.value }))
+                      if (billFormErrors.paid_date) setBillFormErrors((p) => ({ ...p, paid_date: undefined }))
+                    }}
+                    className={cn(billFormErrors.paid_date && 'border-red-500')}
                   />
+                  {billFormErrors.paid_date && (
+                    <p className="text-red-500 text-xs mt-1">{billFormErrors.paid_date}</p>
+                  )}
                 </div>
 
                 {billForm.status === 'partial' && (
@@ -1279,14 +1341,21 @@ export default function BillsPage() {
                         step="0.01"
                         placeholder="0.00"
                         value={billForm.amount_paid}
-                        onChange={(e) => setBillForm((p) => ({ ...p, amount_paid: e.target.value }))}
-                        className="pl-7"
+                        onChange={(e) => {
+                          setBillForm((p) => ({ ...p, amount_paid: e.target.value }))
+                          if (billFormErrors.amount_paid) setBillFormErrors((p) => ({ ...p, amount_paid: undefined }))
+                        }}
+                        className={cn('pl-7', billFormErrors.amount_paid && 'border-red-500')}
                       />
                     </div>
-                    {billForm.amount && billForm.amount_paid && !isNaN(parseFloat(billForm.amount_paid)) && !isNaN(parseFloat(billForm.amount)) && parseFloat(billForm.amount_paid) < parseFloat(billForm.amount) && (
-                      <p className="text-xs text-muted-foreground">
-                        Balance remaining: {formatMoney(parseFloat(billForm.amount) - parseFloat(billForm.amount_paid))}
-                      </p>
+                    {billFormErrors.amount_paid ? (
+                      <p className="text-red-500 text-xs mt-1">{billFormErrors.amount_paid}</p>
+                    ) : (
+                      billForm.amount && billForm.amount_paid && !isNaN(parseFloat(billForm.amount_paid)) && !isNaN(parseFloat(billForm.amount)) && parseFloat(billForm.amount_paid) < parseFloat(billForm.amount) && (
+                        <p className="text-xs text-muted-foreground">
+                          Balance remaining: {formatMoney(parseFloat(billForm.amount) - parseFloat(billForm.amount_paid))}
+                        </p>
+                      )
                     )}
                   </div>
                 )}
