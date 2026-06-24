@@ -17,6 +17,19 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import {
   Sheet,
   SheetContent,
   SheetHeader,
@@ -64,6 +77,8 @@ import {
   FileStack,
   Edit2,
   Trash2,
+  Check,
+  ChevronsUpDown,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -72,6 +87,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { format, parseISO } from 'date-fns'
+import { cn } from '@/lib/utils'
 import {
   createBill,
   updateBill,
@@ -221,6 +237,7 @@ export default function BillsPage() {
     notes: '',
   })
   const [billSaving, setBillSaving] = useState(false)
+  const [vendorOpen, setVendorOpen] = useState(false)
 
   // Mark paid sheet
   const [paidSheetOpen, setPaidSheetOpen] = useState(false)
@@ -313,6 +330,7 @@ export default function BillsPage() {
       status: 'unpaid',
       notes: '',
     })
+    setVendorOpen(false)
     setBillSheetOpen(true)
   }
 
@@ -326,6 +344,7 @@ export default function BillsPage() {
       status: bill.status,
       notes: bill.notes ?? '',
     })
+    setVendorOpen(false)
     setBillSheetOpen(true)
   }
 
@@ -970,23 +989,65 @@ export default function BillsPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="bill-vendor">Vendor (optional)</Label>
-              <Select
-                value={billForm.vendor_id || 'none'}
-                onValueChange={(v) => setBillForm((p) => ({ ...p, vendor_id: v === 'none' ? '' : v }))}
-              >
-                <SelectTrigger id="bill-vendor">
-                  <SelectValue placeholder="Select vendor" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No vendor</SelectItem>
-                  {vendors.map((v) => (
-                    <SelectItem key={v.id} value={v.id}>
-                      {v.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>Vendor (optional)</Label>
+              <Popover open={vendorOpen} onOpenChange={setVendorOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={vendorOpen}
+                    className="w-full justify-between font-normal"
+                  >
+                    {billForm.vendor_id
+                      ? vendors.find((v) => v.id === billForm.vendor_id)?.name
+                      : 'No vendor'}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Search vendors..." />
+                    <CommandList>
+                      <CommandEmpty>No vendor found.</CommandEmpty>
+                      <CommandGroup>
+                        <CommandItem
+                          value="none"
+                          onSelect={() => {
+                            setBillForm((p) => ({ ...p, vendor_id: '' }))
+                            setVendorOpen(false)
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              'mr-2 h-4 w-4',
+                              !billForm.vendor_id ? 'opacity-100' : 'opacity-0'
+                            )}
+                          />
+                          No vendor
+                        </CommandItem>
+                        {vendors.map((v) => (
+                          <CommandItem
+                            key={v.id}
+                            value={v.name}
+                            onSelect={() => {
+                              setBillForm((p) => ({ ...p, vendor_id: v.id }))
+                              setVendorOpen(false)
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                'mr-2 h-4 w-4',
+                                billForm.vendor_id === v.id ? 'opacity-100' : 'opacity-0'
+                              )}
+                            />
+                            {v.name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
 
             <div className="space-y-2">
