@@ -431,14 +431,34 @@ export async function createBill(input: {
   amount: number
   due_date: string
   status?: BillStatus
+  payment_method?: string | null
+  payment_ref?: string | null
+  paid_date?: string | null
+  amount_paid?: number | null
   notes?: string
   created_by?: string
 }): Promise<{ success: boolean; data?: Bill; error?: string }> {
   const auth = await requireFinance()
   if (!auth.authorized) return { success: false, error: auth.reason }
 
+  const status = input.status || 'unpaid'
+
+  // Validate payment fields when status requires them
+  const paymentError = validatePaymentFields(status, {
+    payment_method: input.payment_method,
+    payment_ref: input.payment_ref,
+    amount_paid: input.amount_paid ?? undefined,
+    bill_amount: input.amount,
+  })
+  if (paymentError) return { success: false, error: paymentError }
+
   try {
     const supabase = await createServiceClient()
+
+    // Derive amount_paid: full amount for paid, provided value for partial, 0 otherwise
+    let amountPaid = 0
+    if (status === 'paid') amountPaid = input.amount
+    else if (status === 'partial') amountPaid = input.amount_paid ?? 0
 
     const { data, error } = await supabase
       .from('finance_bills')
@@ -449,8 +469,11 @@ export async function createBill(input: {
         period_month: input.period_month,
         amount: input.amount,
         due_date: input.due_date,
-        status: input.status || 'unpaid',
-        amount_paid: 0,
+        status,
+        amount_paid: amountPaid,
+        paid_date: (status === 'paid' || status === 'partial') ? (input.paid_date || new Date().toISOString().substring(0, 10)) : null,
+        payment_method: (status === 'paid' || status === 'partial') ? (input.payment_method?.trim() || null) : null,
+        payment_ref: (status === 'paid' || status === 'partial') ? (input.payment_ref?.trim() || null) : null,
         notes: input.notes?.trim() || null,
         created_by: input.created_by || null,
       })
@@ -487,9 +510,16 @@ export async function updateBill(
   const auth = await requireFinance()
   if (!auth.authorized) return { success: false, error: auth.reason }
 
-  // Two-path fix: Edit only allows unpaid/void. Paid/partial must go through markBillPaid.
-  if (input.status === 'paid' || input.status === 'partial') {
-    return { success: false, error: 'Use Mark Paid to record payments. Edit only sets unpaid or void.' }
+  // Validate payment fields when status requires them. We need bill_amount to
+  // validate partial payments — only validate if both status and amount are provided.
+  if (input.status) {
+    const paymentError = validatePaymentFields(input.status, {
+      payment_method: input.payment_method,
+      payment_ref: input.payment_ref,
+      amount_paid: input.amount_paid ?? undefined,
+      bill_amount: input.amount,
+    })
+    if (paymentError) return { success: false, error: paymentError }
   }
 
   try {
@@ -499,15 +529,38 @@ export async function updateBill(
       updated_at: new Date().toISOString(),
     }
     if (input.name !== undefined)           updateData.name = input.name.trim()
-    if (input.amount !== undefined)         updateData.amount = input.amount
     if (input.due_date !== undefined)       updateData.due_date = input.due_date
-    if (input.status !== undefined)         updateData.status = input.status
-    if (input.amount_paid !== undefined)    updateData.amount_paid = input.amount_paid
-    if (input.paid_date !== undefined)      updateData.paid_date = input.paid_date
-    if (input.payment_method !== undefined) updateData.payment_method = input.payment_method
-    if (input.payment_ref !== undefined)    updateData.payment_ref = input.payment_ref
     if (input.notes !== undefined)          updateData.notes = input.notes?.trim() || null
     if (input.vendor_id !== undefined)      updateData.vendor_id = input.vendor_id
+
+    if (input.amount !== undefined)         updateData.amount = input.amount
+
+    if (input.status !== undefined) {
+      updateData.status = input.status
+
+      if (input.status === 'paid' || input.status === 'partial') {
+        // Derive amount_paid: full amount for paid, provided value for partial
+        const billAmount = input.amount  // may be undefined if not changing amount
+        updateData.amount_paid = input.status === 'paid'
+          ? (billAmount ?? input.amount_paid)   // paid: full bill amount (caller should pass amount)
+          : (input.amount_paid ?? 0)
+        updateData.paid_date = input.paid_date || new Date().toISOString().substring(0, 10)
+        updateData.payment_method = input.payment_method?.trim() || null
+        updateData.payment_ref = input.payment_ref?.trim() || null
+      } else {
+        // Clearing back to unpaid/void — wipe payment fields
+        updateData.amount_paid = 0
+        updateData.paid_date = null
+        updateData.payment_method = null
+        updateData.payment_ref = null
+      }
+    } else {
+      // Status not changing — still allow individual payment field updates
+      if (input.amount_paid !== undefined)    updateData.amount_paid = input.amount_paid
+      if (input.paid_date !== undefined)      updateData.paid_date = input.paid_date
+      if (input.payment_method !== undefined) updateData.payment_method = input.payment_method
+      if (input.payment_ref !== undefined)    updateData.payment_ref = input.payment_ref
+    }
 
     const { data, error } = await supabase
       .from('finance_bills')
@@ -531,6 +584,42 @@ export async function updateBill(
 const VALID_PAYMENT_METHODS = ['card', 'ach', 'check', 'cash'] as const
 type PaymentMethod = typeof VALID_PAYMENT_METHODS[number]
 
+// -----------------------------------------------------------------------
+// Shared payment validation — used by createBill, updateBill, and
+// markBillPaid so the rules are defined once and enforced everywhere.
+// Returns an error string or null if valid.
+// -----------------------------------------------------------------------
+
+function validatePaymentFields(
+  status: BillStatus,
+  fields: {
+    payment_method?: string | null
+    payment_ref?: string | null
+    amount_paid?: number | null
+    bill_amount?: number
+  }
+): string | null {
+  if (status !== 'paid' && status !== 'partial') return null
+
+  const method = fields.payment_method?.trim() || null
+  if (!method || !(VALID_PAYMENT_METHODS as readonly string[]).includes(method)) {
+    return 'Payment method is required when status is paid or partial. Choose card, ach, check, or cash.'
+  }
+  if (method === 'check' && !fields.payment_ref?.trim()) {
+    return 'Check number is required when payment method is check.'
+  }
+  if (status === 'partial') {
+    const amtPaid = fields.amount_paid ?? null
+    if (amtPaid === null || isNaN(amtPaid) || amtPaid <= 0) {
+      return 'Amount paid must be greater than 0 for a partial payment.'
+    }
+    if (fields.bill_amount !== undefined && amtPaid >= fields.bill_amount) {
+      return 'Amount paid must be less than the bill amount for a partial payment. Use Paid for full payment.'
+    }
+  }
+  return null
+}
+
 export async function markBillPaid(
   billId: string,
   payment: {
@@ -543,42 +632,42 @@ export async function markBillPaid(
   const auth = await requireFinance()
   if (!auth.authorized) return { success: false, error: auth.reason }
 
-  // Validate payment_method ∈ {card,ach,check,cash}
-  const method = payment.payment_method?.trim() || null
-  if (!method || !(VALID_PAYMENT_METHODS as readonly string[]).includes(method)) {
-    return { success: false, error: 'Payment method is required. Choose card, ach, check, or cash.' }
+  // Determine final status to validate against (need bill amount for partial check)
+  // Fetch bill amount first so we can validate partial correctly
+  const supabaseForFetch = await createServiceClient()
+  const { data: billCheck, error: checkError } = await supabaseForFetch
+    .from('finance_bills')
+    .select('amount')
+    .eq('id', billId)
+    .single()
+  if (checkError || !billCheck) {
+    return { success: false, error: checkError?.message || 'Bill not found' }
   }
-  // Check number required when method=check
-  if (method === 'check' && !payment.payment_ref?.trim()) {
-    return { success: false, error: 'Check number is required when payment method is check.' }
-  }
+
+  const targetStatus: BillStatus = payment.amount_paid >= billCheck.amount ? 'paid' : 'partial'
+
+  // Use shared validator — same rules as create/update
+  const paymentError = validatePaymentFields(targetStatus, {
+    payment_method: payment.payment_method,
+    payment_ref: payment.payment_ref,
+    amount_paid: payment.amount_paid,
+    bill_amount: billCheck.amount,
+  })
+  if (paymentError) return { success: false, error: paymentError }
+
+  const method = payment.payment_method!.trim() as PaymentMethod
 
   try {
     const supabase = await createServiceClient()
-
-    // Fetch current bill to determine status
-    const { data: bill, error: fetchError } = await supabase
-      .from('finance_bills')
-      .select('amount')
-      .eq('id', billId)
-      .single()
-
-    if (fetchError || !bill) {
-      return { success: false, error: fetchError?.message || 'Bill not found' }
-    }
-
-    // Fully paid if amount_paid >= amount, otherwise partial
-    const status: BillStatus =
-      payment.amount_paid >= bill.amount ? 'paid' : 'partial'
 
     const { data, error } = await supabase
       .from('finance_bills')
       .update({
         amount_paid: payment.amount_paid,
         paid_date: payment.paid_date,   // always set per spec
-        payment_method: method as PaymentMethod,
+        payment_method: method,
         payment_ref: payment.payment_ref?.trim() || null,
-        status,
+        status: targetStatus,
         updated_at: new Date().toISOString(),
       })
       .eq('id', billId)

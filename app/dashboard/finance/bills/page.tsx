@@ -93,7 +93,6 @@ import {
   createBill,
   updateBill,
   deleteBill,
-  markBillPaid,
   instantiateBillsFromTemplates,
   getBillsForMonth,
   getTemplatesWithVendors,
@@ -174,14 +173,11 @@ interface BillFormData {
   amount: string
   due_date: string
   status: BillStatus
-  notes: string
-}
-
-interface MarkPaidFormData {
-  amount_paid: string
-  paid_date: string
   payment_method: string
   payment_ref: string
+  paid_date: string
+  amount_paid: string
+  notes: string
 }
 
 const PAYMENT_METHODS = [
@@ -191,9 +187,10 @@ const PAYMENT_METHODS = [
   { value: 'cash', label: 'Cash' },
 ]
 
-// Edit form only allows unpaid/void — paid/partial go through Mark Paid
 const BILL_STATUSES: { value: BillStatus; label: string }[] = [
   { value: 'unpaid', label: 'Unpaid' },
+  { value: 'partial', label: 'Partial' },
+  { value: 'paid', label: 'Paid' },
   { value: 'void', label: 'Void' },
 ]
 
@@ -227,21 +224,14 @@ export default function BillsPage() {
     amount: '',
     due_date: '',
     status: 'unpaid',
+    payment_method: '',
+    payment_ref: '',
+    paid_date: new Date().toISOString().substring(0, 10),
+    amount_paid: '',
     notes: '',
   })
   const [billSaving, setBillSaving] = useState(false)
   const [vendorOpen, setVendorOpen] = useState(false)
-
-  // Mark paid sheet
-  const [paidSheetOpen, setPaidSheetOpen] = useState(false)
-  const [payingBill, setPayingBill] = useState<Bill | null>(null)
-  const [paidForm, setPaidForm] = useState<MarkPaidFormData>({
-    amount_paid: '',
-    paid_date: new Date().toISOString().substring(0, 10),
-    payment_method: '',
-    payment_ref: '',
-  })
-  const [paidSaving, setPaidSaving] = useState(false)
 
   // Delete confirmation
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -336,6 +326,10 @@ export default function BillsPage() {
       amount: '',
       due_date: '',
       status: 'unpaid',
+      payment_method: '',
+      payment_ref: '',
+      paid_date: new Date().toISOString().substring(0, 10),
+      amount_paid: '',
       notes: '',
     })
     setVendorOpen(false)
@@ -350,6 +344,10 @@ export default function BillsPage() {
       amount: String(bill.amount),
       due_date: bill.due_date,
       status: bill.status,
+      payment_method: bill.payment_method ?? '',
+      payment_ref: bill.payment_ref ?? '',
+      paid_date: bill.paid_date ?? new Date().toISOString().substring(0, 10),
+      amount_paid: bill.amount_paid > 0 ? String(bill.amount_paid) : '',
       notes: bill.notes ?? '',
     })
     setVendorOpen(false)
@@ -371,6 +369,39 @@ export default function BillsPage() {
       return
     }
 
+    const needsPayment = billForm.status === 'paid' || billForm.status === 'partial'
+
+    // Client-side payment field validation
+    if (needsPayment) {
+      if (!billForm.payment_method) {
+        toast.error('Payment method is required')
+        return
+      }
+      if (billForm.payment_method === 'check' && !billForm.payment_ref.trim()) {
+        toast.error('Check number is required when paying by check')
+        return
+      }
+      if (billForm.status === 'partial') {
+        const amtPaid = parseFloat(billForm.amount_paid)
+        if (isNaN(amtPaid) || amtPaid <= 0) {
+          toast.error('Amount paid must be greater than 0 for a partial payment')
+          return
+        }
+        if (amtPaid >= amount) {
+          toast.error('Amount paid must be less than the bill amount for a partial payment')
+          return
+        }
+        if (!billForm.paid_date) {
+          toast.error('Payment date is required')
+          return
+        }
+      }
+      if (billForm.status === 'paid' && !billForm.paid_date) {
+        toast.error('Payment date is required')
+        return
+      }
+    }
+
     setBillSaving(true)
     try {
       if (editingBill) {
@@ -380,6 +411,14 @@ export default function BillsPage() {
           amount,
           due_date: billForm.due_date,
           status: billForm.status,
+          payment_method: needsPayment ? billForm.payment_method || null : null,
+          payment_ref: needsPayment ? billForm.payment_ref.trim() || null : null,
+          paid_date: needsPayment ? billForm.paid_date || null : null,
+          amount_paid: needsPayment && billForm.status === 'partial'
+            ? parseFloat(billForm.amount_paid)
+            : needsPayment && billForm.status === 'paid'
+              ? amount
+              : undefined,
           notes: billForm.notes.trim() || null,
         })
         if (!result.success) {
@@ -395,6 +434,12 @@ export default function BillsPage() {
           period_month: month,
           due_date: billForm.due_date,
           status: billForm.status,
+          payment_method: needsPayment ? billForm.payment_method || null : undefined,
+          payment_ref: needsPayment ? billForm.payment_ref.trim() || undefined : undefined,
+          paid_date: needsPayment ? billForm.paid_date || null : undefined,
+          amount_paid: needsPayment && billForm.status === 'partial'
+            ? parseFloat(billForm.amount_paid)
+            : undefined,
           notes: billForm.notes.trim() || undefined,
           created_by: user?.id,
         })
@@ -411,64 +456,6 @@ export default function BillsPage() {
       toast.error('Failed to save bill')
     } finally {
       setBillSaving(false)
-    }
-  }
-
-  // -----------------------------------------------------------------------
-  // Mark paid
-  // -----------------------------------------------------------------------
-
-  const openMarkPaidSheet = (bill: Bill) => {
-    setPayingBill(bill)
-    setPaidForm({
-      amount_paid: String(bill.amount - bill.amount_paid > 0 ? bill.amount - bill.amount_paid : bill.amount),
-      paid_date: new Date().toISOString().substring(0, 10),
-      payment_method: bill.payment_method ?? '',
-      payment_ref: bill.payment_ref ?? '',
-    })
-    setPaidSheetOpen(true)
-  }
-
-  const handleMarkPaid = async () => {
-    if (!payingBill) return
-    const amount = parseFloat(paidForm.amount_paid)
-    if (isNaN(amount) || amount <= 0) {
-      toast.error('Please enter a valid payment amount')
-      return
-    }
-    if (!paidForm.paid_date) {
-      toast.error('Payment date is required')
-      return
-    }
-    if (!paidForm.payment_method) {
-      toast.error('Payment method is required')
-      return
-    }
-    if (paidForm.payment_method === 'check' && !paidForm.payment_ref.trim()) {
-      toast.error('Check number is required when paying by check')
-      return
-    }
-
-    setPaidSaving(true)
-    try {
-      const result = await markBillPaid(payingBill.id, {
-        amount_paid: amount,
-        paid_date: paidForm.paid_date,
-        payment_method: paidForm.payment_method,
-        payment_ref: paidForm.payment_ref || undefined,
-      })
-      if (!result.success) {
-        toast.error(result.error || 'Failed to record payment')
-        return
-      }
-      toast.success(amount >= payingBill.amount ? 'Bill marked as paid' : 'Partial payment recorded')
-      setPaidSheetOpen(false)
-      fetchData()
-    } catch (err) {
-      console.error('Error marking bill paid:', err)
-      toast.error('Failed to record payment')
-    } finally {
-      setPaidSaving(false)
     }
   }
 
@@ -905,12 +892,6 @@ export default function BillsPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            {bill.status !== 'paid' && bill.status !== 'void' && (
-                              <DropdownMenuItem onClick={() => openMarkPaidSheet(bill)}>
-                                <Banknote className="h-4 w-4 mr-2" />
-                                Mark Paid
-                              </DropdownMenuItem>
-                            )}
                             <DropdownMenuItem onClick={() => openEditBillSheet(bill)}>
                               <Edit2 className="h-4 w-4 mr-2" />
                               Edit
@@ -965,12 +946,6 @@ export default function BillsPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      {bill.status !== 'paid' && bill.status !== 'void' && (
-                        <DropdownMenuItem onClick={() => openMarkPaidSheet(bill)}>
-                          <Banknote className="h-4 w-4 mr-2" />
-                          Mark Paid
-                        </DropdownMenuItem>
-                      )}
                       <DropdownMenuItem onClick={() => openEditBillSheet(bill)}>
                         <Edit2 className="h-4 w-4 mr-2" />
                         Edit
@@ -1206,7 +1181,22 @@ export default function BillsPage() {
               <Label htmlFor="bill-status">Status</Label>
               <Select
                 value={billForm.status}
-                onValueChange={(v) => setBillForm((p) => ({ ...p, status: v as BillStatus }))}
+                onValueChange={(v) => {
+                  const newStatus = v as BillStatus
+                  // Clear payment fields when switching away from paid/partial
+                  if (newStatus !== 'paid' && newStatus !== 'partial') {
+                    setBillForm((p) => ({
+                      ...p,
+                      status: newStatus,
+                      payment_method: '',
+                      payment_ref: '',
+                      paid_date: new Date().toISOString().substring(0, 10),
+                      amount_paid: '',
+                    }))
+                  } else {
+                    setBillForm((p) => ({ ...p, status: newStatus }))
+                  }
+                }}
               >
                 <SelectTrigger id="bill-status">
                   <SelectValue />
@@ -1220,6 +1210,94 @@ export default function BillsPage() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Payment fields — shown only when status = paid or partial */}
+            {(billForm.status === 'paid' || billForm.status === 'partial') && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="bill-payment-method">Payment Method *</Label>
+                  <Select
+                    value={billForm.payment_method || ''}
+                    onValueChange={(v) => setBillForm((p) => ({ ...p, payment_method: v }))}
+                  >
+                    <SelectTrigger id="bill-payment-method">
+                      <SelectValue placeholder="Select method (required)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PAYMENT_METHODS.map((m) => (
+                        <SelectItem key={m.value} value={m.value}>
+                          {m.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {billForm.payment_method === 'check' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="bill-check-number">Check Number *</Label>
+                    <Input
+                      id="bill-check-number"
+                      placeholder="e.g. 1234"
+                      value={billForm.payment_ref}
+                      onChange={(e) => setBillForm((p) => ({ ...p, payment_ref: e.target.value }))}
+                    />
+                  </div>
+                )}
+
+                {billForm.payment_method && billForm.payment_method !== 'check' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="bill-payment-ref">Reference (optional)</Label>
+                    <Input
+                      id="bill-payment-ref"
+                      placeholder="e.g. ACH ref, last 4..."
+                      value={billForm.payment_ref}
+                      onChange={(e) => setBillForm((p) => ({ ...p, payment_ref: e.target.value }))}
+                    />
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <Label htmlFor="bill-paid-date">Payment Date *</Label>
+                  <Input
+                    id="bill-paid-date"
+                    type="date"
+                    value={billForm.paid_date}
+                    onChange={(e) => setBillForm((p) => ({ ...p, paid_date: e.target.value }))}
+                  />
+                </div>
+
+                {billForm.status === 'partial' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="bill-amount-paid">Amount Paid *</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                      <Input
+                        id="bill-amount-paid"
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={billForm.amount_paid}
+                        onChange={(e) => setBillForm((p) => ({ ...p, amount_paid: e.target.value }))}
+                        className="pl-7"
+                      />
+                    </div>
+                    {billForm.amount && billForm.amount_paid && !isNaN(parseFloat(billForm.amount_paid)) && !isNaN(parseFloat(billForm.amount)) && parseFloat(billForm.amount_paid) < parseFloat(billForm.amount) && (
+                      <p className="text-xs text-muted-foreground">
+                        Balance remaining: {formatMoney(parseFloat(billForm.amount) - parseFloat(billForm.amount_paid))}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {billForm.status === 'paid' && billForm.amount && (
+                  <p className="text-xs text-muted-foreground">
+                    Full amount {formatMoney(parseFloat(billForm.amount) || 0)} will be recorded as paid.
+                  </p>
+                )}
+              </>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="bill-notes">Notes (optional)</Label>
@@ -1254,106 +1332,6 @@ export default function BillsPage() {
                 </Button>
               </div>
             )}
-          </div>
-        </SheetContent>
-      </Sheet>
-
-      {/* Mark Paid Sheet */}
-      <Sheet open={paidSheetOpen} onOpenChange={setPaidSheetOpen}>
-        <SheetContent className="w-full sm:max-w-md overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>Record Payment</SheetTitle>
-            <SheetDescription>
-              {payingBill && (
-                <>
-                  {payingBill.name} — {formatMoney(payingBill.amount)} due{' '}
-                  {format(parseISO(payingBill.due_date), 'MMM d, yyyy')}
-                </>
-              )}
-            </SheetDescription>
-          </SheetHeader>
-
-          <div className="space-y-4 pt-6">
-            <div className="space-y-2">
-              <Label htmlFor="paid-amount">Amount Paid</Label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
-                <Input
-                  id="paid-amount"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={paidForm.amount_paid}
-                  onChange={(e) => setPaidForm((p) => ({ ...p, amount_paid: e.target.value }))}
-                  className="pl-7"
-                />
-              </div>
-              {payingBill && (
-                <p className="text-xs text-muted-foreground">
-                  Full amount: {formatMoney(payingBill.amount)}.
-                  {payingBill.amount_paid > 0 && ` Previously paid: ${formatMoney(payingBill.amount_paid)}.`}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="paid-date">Payment Date</Label>
-              <Input
-                id="paid-date"
-                type="date"
-                value={paidForm.paid_date}
-                onChange={(e) => setPaidForm((p) => ({ ...p, paid_date: e.target.value }))}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="payment-method">Payment Method *</Label>
-              <Select
-                value={paidForm.payment_method || ''}
-                onValueChange={(v) => setPaidForm((p) => ({ ...p, payment_method: v }))}
-              >
-                <SelectTrigger id="payment-method">
-                  <SelectValue placeholder="Select method (required)" />
-                </SelectTrigger>
-                <SelectContent>
-                  {PAYMENT_METHODS.map((m) => (
-                    <SelectItem key={m.value} value={m.value}>
-                      {m.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="payment-ref">
-                {paidForm.payment_method === 'check' ? 'Check Number *' : 'Reference (optional)'}
-              </Label>
-              <Input
-                id="payment-ref"
-                placeholder={paidForm.payment_method === 'check' ? 'e.g. 1234' : 'e.g. ACH ref...'}
-                value={paidForm.payment_ref}
-                onChange={(e) => setPaidForm((p) => ({ ...p, payment_ref: e.target.value }))}
-              />
-            </div>
-
-            <div className="flex gap-2 pt-2">
-              <Button
-                className="flex-1"
-                onClick={handleMarkPaid}
-                disabled={
-                  paidSaving ||
-                  !paidForm.payment_method ||
-                  (paidForm.payment_method === 'check' && !paidForm.payment_ref.trim())
-                }
-              >
-                {paidSaving ? 'Recording...' : 'Record Payment'}
-              </Button>
-              <Button variant="outline" onClick={() => setPaidSheetOpen(false)} disabled={paidSaving}>
-                Cancel
-              </Button>
-            </div>
           </div>
         </SheetContent>
       </Sheet>
