@@ -58,6 +58,8 @@ export interface OrderInput {
   status: string
   delivered_at: string | null          // ISO timestamp or date
   requested_delivery_date: string | null
+  payment_terms?: boolean              // terms-aware adapter fields (ignored by engine)
+  is_terms_paid?: boolean
 }
 
 export interface SnapshotInput {

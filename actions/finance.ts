@@ -692,19 +692,26 @@ export async function getMonthSummary(month: string): Promise<{
         .order('snapshot_date', { ascending: false })
         .limit(1),
 
-      // Month-scoped: delivered orders attributed by delivered_at; pipeline by requested_delivery_date.
-      // Joins order_items so we can use the HYBRID revenue rule (line items when present,
+      // Month-scoped: terms-aware 4-branch filter.
+      // Branch 1: non-terms delivered — realized by delivered_at
+      // Branch 2: terms delivered + paid — realized by terms_paid_at
+      // Branch 3: non-terms confirmed/packed — pipeline by requested_delivery_date
+      // Branch 4: terms delivered + unpaid — pipeline by terms_payment_date (expected)
+      // Joins order_items for HYBRID revenue rule (line items when present,
       // else fall back to orders.total_price for legacy header-only orders).
       supabase
         .from('orders')
         .select(`
           id, order_number, status, total_price, delivered_at, requested_delivery_date,
+          payment_terms, terms_payment_date, terms_paid_at,
           customers(business_name),
           order_items(line_total)
         `)
         .or(
-          `and(status.eq.delivered,delivered_at.gte.${month},delivered_at.lt.${nextMonth}),` +
-          `and(status.in.(confirmed,packed),requested_delivery_date.gte.${month},requested_delivery_date.lt.${nextMonth})`
+          `and(status.eq.delivered,payment_terms.eq.false,delivered_at.gte.${month},delivered_at.lt.${nextMonth}),` +
+          `and(status.eq.delivered,payment_terms.eq.true,terms_paid_at.gte.${month},terms_paid_at.lt.${nextMonth}),` +
+          `and(status.in.(confirmed,packed),payment_terms.eq.false,requested_delivery_date.gte.${month},requested_delivery_date.lt.${nextMonth}),` +
+          `and(status.eq.delivered,payment_terms.eq.true,terms_paid_at.is.null,terms_payment_date.gte.${month},terms_payment_date.lt.${nextMonth})`
         )
         .order('requested_delivery_date', { ascending: true })
         .range(0, 4999),
@@ -752,6 +759,7 @@ export async function getMonthSummary(month: string): Promise<{
     // Compute realized and pipeline revenue — HYBRID rule:
     // use SUM(order_items.line_total) when the order has items, else fall back
     // to orders.total_price (preserves $176,940 of legacy header-only orders).
+    // Terms orders: realized on terms_paid_at; pipeline on terms_payment_date until paid.
     let realizedRevenue = 0
     let pipelineRevenue = 0
 
@@ -769,20 +777,29 @@ export async function getMonthSummary(month: string): Promise<{
       // HYBRID: line items when present, else legacy header total
       const orderRevenue = items.length > 0 ? itemsTotal : (order.total_price ?? 0)
 
+      // Terms-aware revenue attribution
+      const isTerms = order.payment_terms === true
+      const isRealized = isTerms ? !!order.terms_paid_at : (order.status === 'delivered' && !!order.delivered_at)
+      const revenueDate = isTerms ? (order.terms_paid_at ?? null) : (order.delivered_at ?? null)
+      const pipelineDate = isTerms ? (order.terms_payment_date ?? null) : (order.requested_delivery_date ?? null)
+
       orderInputs.push({
         id: order.id,
         order_number: String(order.order_number),
         customer_name: customerName,
         total_price: orderRevenue,            // item-accurate, legacy-safe
         status: order.status,
-        delivered_at: order.delivered_at ?? null,
-        requested_delivery_date: order.requested_delivery_date ?? null,
+        // Adapter: feed the cash-flow engine generically via existing fields
+        delivered_at: revenueDate,
+        requested_delivery_date: pipelineDate,
+        payment_terms: isTerms,
+        is_terms_paid: !!order.terms_paid_at,
       })
 
-      if (order.status === 'delivered' && order.delivered_at) {
-        const deliveredDate = order.delivered_at.substring(0, 10)
-        if (deliveredDate >= month && deliveredDate < nextMonth) realizedRevenue += orderRevenue
-      } else if (['confirmed', 'packed'].includes(order.status)) {
+      if (isRealized && revenueDate) {
+        const d = revenueDate.substring(0, 10)
+        if (d >= month && d < nextMonth) realizedRevenue += orderRevenue
+      } else if (!isRealized) {
         pipelineRevenue += orderRevenue
       }
     }

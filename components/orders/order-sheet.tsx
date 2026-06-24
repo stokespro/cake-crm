@@ -80,6 +80,8 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
   const [orderNotes, setOrderNotes] = useState(order?.order_notes || '')
   const [requestedDeliveryDate, setRequestedDeliveryDate] = useState(order?.requested_delivery_date || '')
   const [deliveredAt, setDeliveredAt] = useState(order?.delivered_at?.split('T')[0] || '')
+  const [paymentTerms, setPaymentTerms] = useState(order?.payment_terms ?? false)
+  const [termsPaymentDate, setTermsPaymentDate] = useState(order?.terms_payment_date || '')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [customerOpen, setCustomerOpen] = useState(false)
@@ -136,6 +138,8 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
         setOrderNotes(order.order_notes || '')
         setRequestedDeliveryDate(order.requested_delivery_date || '')
         setDeliveredAt(order.delivered_at?.split('T')[0] || '')
+        setPaymentTerms(order.payment_terms ?? false)
+        setTermsPaymentDate(order.terms_payment_date || '')
         fetchCustomerPricing(order.customer_id)
 
         // Order items will be loaded in separate useEffect after skus are loaded
@@ -209,6 +213,8 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
       setOrderItems([])
       setOrderNotes('')
       setDeliveredAt('')
+      setPaymentTerms(false)
+      setTermsPaymentDate('')
       setError(null)
       setCustomerPricing([])
       const defaultDate = new Date()
@@ -321,6 +327,11 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
       return false
     }
 
+    if (paymentTerms && !termsPaymentDate) {
+      setError('Payment expected date is required for terms orders')
+      return false
+    }
+
     // Validate each order item
     for (let i = 0; i < orderItems.length; i++) {
       const item = orderItems[i]
@@ -383,6 +394,8 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
           delivered_at: deliveredAt || null,
           total_price: orderTotal,
           items,
+          payment_terms: paymentTerms,
+          terms_payment_date: paymentTerms ? (termsPaymentDate || null) : null,
         })
       } else {
         result = await createOrderFromSheet({
@@ -391,6 +404,8 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
           requested_delivery_date: requestedDeliveryDate,
           total_price: orderTotal,
           items,
+          payment_terms: paymentTerms,
+          terms_payment_date: paymentTerms ? (termsPaymentDate || null) : null,
         })
       }
 
@@ -522,6 +537,39 @@ export function OrderSheet({ open, onClose, customerId, onSuccess, order }: Orde
                   disabled={loading}
                 />
               </div>
+
+              {/* Payment Terms */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="paymentTerms">Payment Terms</Label>
+                  <Switch
+                    id="paymentTerms"
+                    checked={paymentTerms}
+                    onCheckedChange={(checked) => {
+                      setPaymentTerms(checked)
+                      if (!checked) setTermsPaymentDate('')
+                    }}
+                    disabled={loading}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Enable if this customer pays after delivery. Revenue defers to payment date.
+                </p>
+              </div>
+
+              {paymentTerms && (
+                <div className="space-y-2">
+                  <Label htmlFor="termsPaymentDate">Payment Expected *</Label>
+                  <Input
+                    id="termsPaymentDate"
+                    type="date"
+                    value={termsPaymentDate}
+                    onChange={(e) => setTermsPaymentDate(e.target.value)}
+                    required
+                    disabled={loading}
+                  />
+                </div>
+              )}
 
               {order && (
                 <div className="space-y-2">

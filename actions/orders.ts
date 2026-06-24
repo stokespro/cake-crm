@@ -52,6 +52,9 @@ export interface OrderRecord {
   updated_at: string
   last_edited_at?: string | null
   last_edited_by?: string | null
+  payment_terms?: boolean | null
+  terms_payment_date?: string | null
+  terms_paid_at?: string | null
   customer?: {
     business_name: string
     license_name?: string | null
@@ -392,6 +395,8 @@ export interface CreateOrderInput {
   requested_delivery_date: string
   total_price: number
   items: NewOrderItemInput[]
+  payment_terms?: boolean
+  terms_payment_date?: string | null
 }
 
 export async function createOrder(input: CreateOrderInput): Promise<
@@ -404,6 +409,7 @@ export async function createOrder(input: CreateOrderInput): Promise<
   if (!input.customer_id) return { error: 'Customer is required' }
   if (!input.items || input.items.length === 0) return { error: 'At least one order item is required' }
   if (!input.requested_delivery_date) return { error: 'Requested delivery date is required' }
+  if (input.payment_terms && !input.terms_payment_date) return { error: 'Payment expected date is required for terms orders' }
 
   const db = await createServiceClient()
 
@@ -417,6 +423,8 @@ export async function createOrder(input: CreateOrderInput): Promise<
       requested_delivery_date: input.requested_delivery_date,
       status: 'pending',
       total_price: input.total_price,
+      payment_terms: input.payment_terms ?? false,
+      terms_payment_date: (input.payment_terms && input.terms_payment_date) ? input.terms_payment_date : null,
     })
     .select('id')
     .single()
@@ -502,6 +510,8 @@ export interface SaveOrderInput {
   // Current delivered_at from the DB (to decide auto-set logic)
   existing_delivered_at?: string | null
   items: UpdateOrderItemInput[]
+  payment_terms: boolean
+  terms_payment_date: string | null
 }
 
 export async function saveOrder(
@@ -535,6 +545,8 @@ export async function saveOrder(
     !!input.existing_delivered_at &&
     !input.delivered_at_override
 
+  if (input.payment_terms && !input.terms_payment_date) return { error: 'Payment expected date is required for terms orders' }
+
   const updatePayload: Record<string, unknown> = {
     status: input.status,
     order_notes: input.order_notes,
@@ -542,6 +554,8 @@ export async function saveOrder(
     total_price: recomputedTotal,
     last_edited_by: auth.session.userId,
     last_edited_at: new Date().toISOString(),
+    payment_terms: input.payment_terms,
+    terms_payment_date: input.payment_terms ? (input.terms_payment_date || null) : null,
   }
 
   if (!keepExistingDeliveredAt) {
@@ -621,6 +635,8 @@ export interface UpsertOrderSheetInput {
   delivered_at?: string | null   // date string 'YYYY-MM-DD' or empty
   total_price: number
   items: NewOrderItemInput[]
+  payment_terms?: boolean
+  terms_payment_date?: string | null
 }
 
 export async function createOrderFromSheet(input: UpsertOrderSheetInput): Promise<
@@ -632,6 +648,7 @@ export async function createOrderFromSheet(input: UpsertOrderSheetInput): Promis
   if (!input.customer_id) return { error: 'Customer is required' }
   if (!input.items || input.items.length === 0) return { error: 'At least one order item is required' }
   if (!input.requested_delivery_date) return { error: 'Requested delivery date is required' }
+  if (input.payment_terms && !input.terms_payment_date) return { error: 'Payment expected date is required for terms orders' }
 
   const db = await createServiceClient()
 
@@ -645,6 +662,8 @@ export async function createOrderFromSheet(input: UpsertOrderSheetInput): Promis
       status: 'pending',
       total_price: input.total_price,
       order_date: new Date().toISOString().split('T')[0],
+      payment_terms: input.payment_terms ?? false,
+      terms_payment_date: (input.payment_terms && input.terms_payment_date) ? input.terms_payment_date : null,
     })
     .select('id')
     .single()
@@ -680,6 +699,8 @@ export async function updateOrderFromSheet(
   const auth = await requireRole([...EDIT_ROLES])
   if (!auth.authorized) return { error: auth.reason }
 
+  if (input.payment_terms && !input.terms_payment_date) return { error: 'Payment expected date is required for terms orders' }
+
   const db = await createServiceClient()
 
   const { error: orderError } = await db
@@ -693,6 +714,8 @@ export async function updateOrderFromSheet(
       updated_at: new Date().toISOString(),
       last_edited_by: auth.session.userId,
       last_edited_at: new Date().toISOString(),
+      payment_terms: input.payment_terms ?? false,
+      terms_payment_date: (input.payment_terms && input.terms_payment_date) ? input.terms_payment_date : null,
     })
     .eq('id', orderId)
 
@@ -725,6 +748,54 @@ export async function updateOrderFromSheet(
   if (itemsError) {
     console.error('[orders] updateOrderFromSheet items error:', itemsError)
     return { error: 'Failed to update order items' }
+  }
+
+  return {}
+}
+
+// ---------------------------------------------------------------------------
+// Update — mark a terms order as paid (the ONLY writer of terms_paid_at)
+// ---------------------------------------------------------------------------
+
+/**
+ * Records payment receipt for a terms order.
+ * Sets terms_paid_at, which fires Path B of the commission trigger.
+ * Gate: EDIT_ROLES (per Stokely amendment — not APPROVE gate).
+ */
+export async function markTermsOrderPaid(
+  orderId: string,
+  paidDate: string
+): Promise<{ error?: string }> {
+  const auth = await requireRole([...EDIT_ROLES])
+  if (!auth.authorized) return { error: auth.reason }
+
+  const db = await createServiceClient()
+
+  const { data: order, error: fe } = await db
+    .from('orders')
+    .select('id, payment_terms, status, terms_paid_at')
+    .eq('id', orderId)
+    .single()
+
+  if (fe || !order) return { error: 'Order not found' }
+  if (!order.payment_terms) return { error: 'Order is not a terms order' }
+  if (order.status !== 'delivered') return { error: 'Order must be delivered before marking payment received' }
+  if (order.terms_paid_at) return { error: 'Payment already recorded for this order' }
+
+  const paidAt = new Date(paidDate + 'T12:00:00Z').toISOString()   // midday UTC, no day-slip
+
+  const { error } = await db
+    .from('orders')
+    .update({
+      terms_paid_at: paidAt,
+      last_edited_by: auth.session.userId,
+      last_edited_at: new Date().toISOString(),
+    })
+    .eq('id', orderId)
+
+  if (error) {
+    console.error('[orders] markTermsOrderPaid:', error)
+    return { error: 'Failed to record payment' }
   }
 
   return {}

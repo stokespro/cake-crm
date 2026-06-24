@@ -1405,8 +1405,11 @@ export type Database = {
           order_notes: string | null
           order_number: string | null
           packed_at: string | null
+          payment_terms: boolean
           requested_delivery_date: string | null
           status: string
+          terms_paid_at: string | null
+          terms_payment_date: string | null
           total_price: number | null
           updated_at: string | null
         }
@@ -1427,8 +1430,11 @@ export type Database = {
           order_notes?: string | null
           order_number?: string | null
           packed_at?: string | null
+          payment_terms?: boolean
           requested_delivery_date?: string | null
           status?: string
+          terms_paid_at?: string | null
+          terms_payment_date?: string | null
           total_price?: number | null
           updated_at?: string | null
         }
@@ -1449,8 +1455,11 @@ export type Database = {
           order_notes?: string | null
           order_number?: string | null
           packed_at?: string | null
+          payment_terms?: boolean
           requested_delivery_date?: string | null
           status?: string
+          terms_paid_at?: string | null
+          terms_payment_date?: string | null
           total_price?: number | null
           updated_at?: string | null
         }
@@ -3152,6 +3161,9 @@ export interface Order {
   updated_at: string
   last_edited_at?: string
   last_edited_by?: string
+  payment_terms?: boolean | null
+  terms_payment_date?: string | null
+  terms_paid_at?: string | null
   customer?: Customer
   agent?: Profile
   order_items?: OrderItem[]

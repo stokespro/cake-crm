@@ -11,12 +11,15 @@ import {
   updateOrderStatus,
   saveOrder,
   deleteOrder,
+  markTermsOrderPaid,
 } from '@/actions/orders'
 import type { OrderSkuRecord, CommissionRecord } from '@/actions/orders'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
@@ -85,6 +88,9 @@ interface EditFormData {
   requested_delivery_date: string
   delivered_at_override: string
   order_items: EditOrderItem[]
+  payment_terms: boolean
+  terms_payment_date: string
+  terms_paid_at_display: string  // read-only display of actual payment receipt date
 }
 
 type SortField = 'order_number' | 'customer' | 'status' | 'order_date' | 'delivery_date' | 'total'
@@ -115,6 +121,9 @@ export default function OrdersPage() {
   const [sheetEditMode, setSheetEditMode] = useState(false)
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set())
   const [commissions, setCommissions] = useState<CommissionRecord[]>([])
+  const [markPaidOrderId, setMarkPaidOrderId] = useState<string | null>(null)
+  const [markPaidDate, setMarkPaidDate] = useState<string>('')
+  const [markingPaid, setMarkingPaid] = useState(false)
   const { user } = useAuth()
 
   // Get user role from auth context
@@ -379,6 +388,9 @@ export default function OrdersPage() {
       requested_delivery_date: order.requested_delivery_date ? order.requested_delivery_date.split('T')[0] : '',
       delivered_at_override: order.delivered_at ? order.delivered_at.split('T')[0] : '',
       order_items: editItems,
+      payment_terms: order.payment_terms ?? false,
+      terms_payment_date: order.terms_payment_date || '',
+      terms_paid_at_display: order.terms_paid_at ? order.terms_paid_at.substring(0, 10) : '',
     })
   }
 
@@ -411,6 +423,8 @@ export default function OrdersPage() {
           line_total: item.line_total,
           _deleted: item._deleted,
         })),
+        payment_terms: editForm.payment_terms ?? false,
+        terms_payment_date: editForm.payment_terms ? (editForm.terms_payment_date || null) : null,
       })
 
       if (result.error) throw new Error(result.error)
@@ -516,6 +530,33 @@ export default function OrdersPage() {
 
   const updateEditForm = <K extends keyof EditFormData>(field: K, value: EditFormData[K]) => {
     setEditForm((prev: EditFormData) => ({...prev, [field]: value}))
+  }
+
+  const handleMarkPaid = async () => {
+    if (!markPaidOrderId || !markPaidDate) return
+    setMarkingPaid(true)
+    try {
+      const result = await markTermsOrderPaid(markPaidOrderId, markPaidDate)
+      if (result.error) throw new Error(result.error)
+
+      toast.success('Payment recorded — revenue and commission updated')
+      setMarkPaidOrderId(null)
+      setMarkPaidDate('')
+      await fetchOrders()
+
+      // Refresh selected order in the sheet if it was the one paid
+      if (selectedOrder?.id === markPaidOrderId) {
+        const refreshed = await getOrder(markPaidOrderId)
+        if (!refreshed.error && refreshed.data) {
+          setSelectedOrder(refreshed.data as unknown as Order)
+        }
+      }
+    } catch (error) {
+      console.error('Error recording payment:', error)
+      toast.error(error instanceof Error ? error.message : 'Failed to record payment')
+    } finally {
+      setMarkingPaid(false)
+    }
   }
 
   const handleDeleteOrder = async () => {
@@ -1100,6 +1141,45 @@ export default function OrdersPage() {
                 </div>
               )}
 
+              {/* Payment Terms info */}
+              {selectedOrder.payment_terms && (
+                <div className="rounded-lg border p-3 space-y-2 bg-muted/30">
+                  <h3 className="text-sm font-medium flex items-center gap-2">
+                    <Banknote className="h-4 w-4" />
+                    Payment Terms
+                  </h3>
+                  {selectedOrder.terms_paid_at ? (
+                    <p className="text-sm text-green-600">
+                      Payment received: {format(parseLocalDate(selectedOrder.terms_paid_at.substring(0, 10)), 'MMM d, yyyy')}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      Expected: {selectedOrder.terms_payment_date
+                        ? format(parseLocalDate(selectedOrder.terms_payment_date), 'MMM d, yyyy')
+                        : '—'}
+                    </p>
+                  )}
+                  {/* Mark Payment Received button — EDIT_ROLES gate, Stokely amendment */}
+                  {selectedOrder.payment_terms &&
+                    selectedOrder.status === 'delivered' &&
+                    !selectedOrder.terms_paid_at &&
+                    canEditOrders && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full mt-1"
+                        onClick={() => {
+                          setMarkPaidOrderId(selectedOrder.id)
+                          setMarkPaidDate(new Date().toISOString().split('T')[0])
+                        }}
+                      >
+                        <Banknote className="h-4 w-4 mr-2" />
+                        Mark Payment Received
+                      </Button>
+                    )}
+                </div>
+              )}
+
               {/* Order Items */}
               <div>
                 <h3 className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
@@ -1237,6 +1317,41 @@ export default function OrdersPage() {
                     Date order was delivered — controls which month revenue is attributed to.
                   </p>
                 </div>
+
+                {/* Payment Terms */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">Payment Terms</Label>
+                    <Switch
+                      checked={editForm.payment_terms ?? false}
+                      onCheckedChange={(checked) => {
+                        updateEditForm('payment_terms', checked)
+                        if (!checked) updateEditForm('terms_payment_date', '')
+                      }}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Enable if this customer pays after delivery. Revenue defers to payment date.
+                  </p>
+                </div>
+
+                {editForm.payment_terms && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Payment Expected *</label>
+                    <Input
+                      type="date"
+                      value={editForm.terms_payment_date}
+                      onChange={(e) => updateEditForm('terms_payment_date', e.target.value)}
+                    />
+                  </div>
+                )}
+
+                {editForm.terms_paid_at_display && (
+                  <div className="text-sm text-green-600 flex items-center gap-2">
+                    <Banknote className="h-4 w-4" />
+                    Payment received: {format(parseLocalDate(editForm.terms_paid_at_display), 'MMM d, yyyy')}
+                  </div>
+                )}
               </div>
 
               {/* Order Items Edit */}
@@ -1387,6 +1502,39 @@ export default function OrdersPage() {
           )}
         </SheetContent>
       </Sheet>
+
+      {/* Mark Payment Received Dialog */}
+      <AlertDialog open={!!markPaidOrderId} onOpenChange={(open) => {
+        if (!open) { setMarkPaidOrderId(null); setMarkPaidDate('') }
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Mark Payment Received</AlertDialogTitle>
+            <AlertDialogDescription>
+              Record the date payment was received for this terms order. This realizes revenue and
+              fires the commission calculation dated to the payment date.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="px-1 pb-2">
+            <label className="text-sm font-medium">Payment Date</label>
+            <Input
+              type="date"
+              value={markPaidDate}
+              onChange={(e) => setMarkPaidDate(e.target.value)}
+              className="mt-2"
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={markingPaid}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleMarkPaid}
+              disabled={markingPaid || !markPaidDate}
+            >
+              {markingPaid ? 'Recording...' : 'Confirm Payment'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!deleteOrderId} onOpenChange={(open) => !open && setDeleteOrderId(null)}>
