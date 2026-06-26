@@ -60,8 +60,8 @@ export interface OrderInput {
   status: string
   delivered_at: string | null          // ISO timestamp or date
   requested_delivery_date: string | null
-  payment_terms?: boolean              // terms-aware adapter fields (ignored by engine)
-  is_terms_paid?: boolean
+  payment_terms?: boolean              // true for net-terms orders
+  is_terms_paid?: boolean              // true once terms_paid_at is set
 }
 
 export interface SnapshotInput {
@@ -158,12 +158,30 @@ export function buildCashFlow(
   }
 
   // ------------------------------------------------------------------
-  // INFLOWS: pipeline orders (confirmed/packed — not yet delivered)
+  // INFLOWS: pipeline orders
+  //
+  // An order is a pipeline event if it has NOT yet realized cash:
+  //   (a) Non-terms orders with status confirmed/packed (not yet delivered)
+  //   (b) Terms orders that are unpaid (is_terms_paid === false), regardless
+  //       of delivery status — these include delivered-but-awaiting-payment
+  //       orders whose terms_payment_date is the expected inflow date.
+  //       The adapter maps terms_payment_date → requested_delivery_date and
+  //       sets is_terms_paid=false, so we can key off that flag here.
+  //
+  // Guard: a terms order that IS paid lands in the realized loop (above) and
+  // must NOT appear here — the is_terms_paid check prevents double-counting.
   // ------------------------------------------------------------------
   for (const order of orders) {
-    if (!['confirmed', 'packed'].includes(order.status)) continue
+    const isUnpaidTerms =
+      order.payment_terms === true && order.is_terms_paid === false
 
-    // Position at requested_delivery_date if in the future, else "now"
+    const isPreDeliveryNonTerms =
+      !order.payment_terms && ['confirmed', 'packed'].includes(order.status)
+
+    if (!isUnpaidTerms && !isPreDeliveryNonTerms) continue
+
+    // Position at requested_delivery_date (= terms_payment_date for terms orders)
+    // if it's in the future; otherwise snap to today so the event stays visible.
     const deliveryDate = order.requested_delivery_date
       ? order.requested_delivery_date.substring(0, 10)
       : null
