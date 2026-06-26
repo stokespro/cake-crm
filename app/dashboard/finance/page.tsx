@@ -46,7 +46,7 @@ import {
   Link as LinkIcon,
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
-import { getMonthSummary } from '@/actions/finance'
+import { getMonthSummary, syncBankNow } from '@/actions/finance'
 import { upsertCashSnapshot } from './_actions/snapshot'
 import {
   runDailyReconciliation,
@@ -233,12 +233,16 @@ function BankBalancePanel({
   setSnapshotAmount,
   snapshotSaving,
   onSaveSnapshot,
+  syncing,
+  onSyncNow,
 }: {
   summary: MonthSummary
   snapshotAmount: string
   setSnapshotAmount: (v: string) => void
   snapshotSaving: boolean
   onSaveSnapshot: () => void
+  syncing: boolean
+  onSyncNow: () => void
 }) {
   const [manualOpen, setManualOpen] = useState(false)
   const snap = summary.latestSnapshot
@@ -253,18 +257,30 @@ function BankBalancePanel({
             <Building2 className="h-4 w-4" />
             Cash on Hand
           </CardTitle>
-          {snap && (
-            <Badge
+          <div className="flex items-center gap-2">
+            {snap && (
+              <Badge
+                variant="outline"
+                className={
+                  isBankSource
+                    ? 'text-xs text-blue-600 border-blue-300'
+                    : 'text-xs text-muted-foreground'
+                }
+              >
+                {isBankSource ? 'Synced from bank' : 'Manual entry'}
+              </Badge>
+            )}
+            <Button
               variant="outline"
-              className={
-                isBankSource
-                  ? 'text-xs text-blue-600 border-blue-300'
-                  : 'text-xs text-muted-foreground'
-              }
+              size="sm"
+              onClick={onSyncNow}
+              disabled={syncing}
+              className="h-7 text-xs"
             >
-              {isBankSource ? 'Synced from bank' : 'Manual entry'}
-            </Badge>
-          )}
+              <RefreshCw className={`h-3 w-3 mr-1.5 ${syncing ? 'animate-spin' : ''}`} />
+              {syncing ? 'Syncing...' : 'Sync now'}
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -874,6 +890,9 @@ export default function FinanceOverviewPage() {
   const [snapshotAmount, setSnapshotAmount] = useState('')
   const [snapshotSaving, setSavingSnapshot] = useState(false)
 
+  // Manual bank sync
+  const [syncing, setSyncing] = useState(false)
+
   // Create-bill prefill state (triggered from UntrackedExpensesPanel)
   const [billPrefill, setBillPrefill] = useState<{
     name: string
@@ -944,6 +963,24 @@ export default function FinanceOverviewPage() {
       toast.error('Failed to save snapshot')
     } finally {
       setSavingSnapshot(false)
+    }
+  }
+
+  const handleSyncNow = async () => {
+    setSyncing(true)
+    try {
+      const result = await syncBankNow()
+      if (!result.success) {
+        toast.error(result.error ?? 'Sync failed')
+        return
+      }
+      toast.success('Bank synced — refreshing data...')
+      await fetchSummary()
+    } catch (err) {
+      console.error('Error syncing bank:', err)
+      toast.error('Sync failed')
+    } finally {
+      setSyncing(false)
     }
   }
 
@@ -1132,6 +1169,8 @@ export default function FinanceOverviewPage() {
           setSnapshotAmount={setSnapshotAmount}
           snapshotSaving={snapshotSaving}
           onSaveSnapshot={handleSaveSnapshot}
+          syncing={syncing}
+          onSyncNow={handleSyncNow}
         />
       )}
 

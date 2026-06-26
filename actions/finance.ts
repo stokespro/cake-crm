@@ -1117,6 +1117,49 @@ export async function getVendors(activeOnly = false): Promise<{
 }
 
 // ============================================================
+// BANK SYNC
+// ============================================================
+
+/**
+ * Manual "Sync now" — runs the same work the daily cron does:
+ *   1. sync_bank_snapshot_to_finance()  (writes today's cash snapshot from the bank feed)
+ *   2. run_daily_reconciliation()        (auto-applies checks, proposes non-check matches)
+ *
+ * Does NOT apply the Chicago-hour gate — that gate is cron-only.
+ * Restricted to admin / management (same as all other finance mutations).
+ */
+export async function syncBankNow(): Promise<{
+  success: boolean
+  error?: string
+}> {
+  const auth = await requireFinance()
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
+  try {
+    const supabase = await createServiceClient()
+
+    // Step 1 — snapshot
+    const { error: snapError } = await supabase.rpc('sync_bank_snapshot_to_finance')
+    if (snapError) {
+      console.error('syncBankNow: sync_bank_snapshot_to_finance error:', snapError)
+      return { success: false, error: snapError.message }
+    }
+
+    // Step 2 — reconciliation
+    const { error: reconError } = await supabase.rpc('run_daily_reconciliation')
+    if (reconError) {
+      console.error('syncBankNow: run_daily_reconciliation error:', reconError)
+      return { success: false, error: reconError.message }
+    }
+
+    return { success: true }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    return { success: false, error: errorMessage }
+  }
+}
+
+// ============================================================
 // HELPERS
 // ============================================================
 
