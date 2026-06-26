@@ -441,7 +441,6 @@ export default function BillsPage() {
           name: billForm.name.trim(),
           vendor_id: billForm.vendor_id || undefined,
           amount,
-          period_month: month,
           due_date: billForm.due_date,
           status: billForm.status,
           payment_method: needsPayment ? billForm.payment_method || null : undefined,

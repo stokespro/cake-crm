@@ -407,6 +407,15 @@ export async function instantiateBillsFromTemplates(month: string): Promise<{
 }
 
 /**
+ * Derive period_month ('YYYY-MM-01') from a due_date string ('YYYY-MM-DD').
+ * Uses string slicing — not new Date() — to avoid timezone shift bugs.
+ */
+function derivePeriodMonth(dueDate: string): string {
+  // dueDate is 'YYYY-MM-DD'; take the first 7 chars and append '-01'
+  return dueDate.substring(0, 7) + '-01'
+}
+
+/**
  * Compute a due date within the given month from a day-of-month integer.
  * Clamps to the last day of the month if due_day_of_month exceeds it (e.g. 31 in Feb).
  * Falls back to the last day of the month when due_day_of_month is null.
@@ -427,7 +436,8 @@ export async function createBill(input: {
   template_id?: string
   vendor_id?: string
   name: string
-  period_month: string
+  /** @deprecated period_month is now derived from due_date server-side and ignored */
+  period_month?: string
   amount: number
   due_date: string
   status?: BillStatus
@@ -460,13 +470,17 @@ export async function createBill(input: {
     if (status === 'paid') amountPaid = input.amount
     else if (status === 'partial') amountPaid = input.amount_paid ?? 0
 
+    // Always derive period_month from due_date so it tracks the correct calendar
+    // month regardless of which UI month tab was active when the bill was created.
+    const periodMonth = derivePeriodMonth(input.due_date)
+
     const { data, error } = await supabase
       .from('finance_bills')
       .insert({
         template_id: input.template_id || null,
         vendor_id: input.vendor_id || null,
         name: input.name.trim(),
-        period_month: input.period_month,
+        period_month: periodMonth,
         amount: input.amount,
         due_date: input.due_date,
         status,
@@ -529,7 +543,11 @@ export async function updateBill(
       updated_at: new Date().toISOString(),
     }
     if (input.name !== undefined)           updateData.name = input.name.trim()
-    if (input.due_date !== undefined)       updateData.due_date = input.due_date
+    if (input.due_date !== undefined) {
+      updateData.due_date = input.due_date
+      // Keep period_month in sync: a changed due_date moves the bill to the correct month bucket.
+      updateData.period_month = derivePeriodMonth(input.due_date)
+    }
     if (input.notes !== undefined)          updateData.notes = input.notes?.trim() || null
     if (input.vendor_id !== undefined)      updateData.vendor_id = input.vendor_id
 
