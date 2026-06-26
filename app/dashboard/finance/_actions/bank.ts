@@ -263,7 +263,19 @@ export async function confirmReconciliationMatch(
 
     const bankAmount = Math.abs(logRow.bank_amount ?? 0)
     const bankDate   = logRow.bank_date ?? new Date().toISOString().substring(0, 10)
-    const payMethod  = logRow.suggested_payment_method ?? 'other'
+    // Normalize suggested_payment_method to a value accepted by validatePaymentFields
+    // (card | ach | check | cash). Reconciliation keyword detection can yield 'transfer',
+    // 'wire', 'ach_transfer', or null — none of which are valid bill payment methods.
+    // Map transfer/wire variants → 'ach'; anything else not in the valid set → 'ach'.
+    const VALID_BILL_METHODS = ['card', 'ach', 'check', 'cash'] as const
+    const rawMethod = logRow.suggested_payment_method ?? ''
+    const normalizedMethod: string =
+      rawMethod === 'transfer' || rawMethod === 'wire' || rawMethod === 'ach_transfer'
+        ? 'ach'
+        : (VALID_BILL_METHODS as readonly string[]).includes(rawMethod)
+          ? rawMethod
+          : 'ach'
+    const payMethod = normalizedMethod
 
     if (logRow.bill_id) {
       // Amendment F: key off the bill's CURRENT status, not the stored match_type
