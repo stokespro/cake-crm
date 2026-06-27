@@ -99,18 +99,21 @@ export function buildCashFlow(
   for (const bill of bills) {
     if (bill.status === 'void') continue
 
-    if (bill.status === 'paid') {
-      // STOKELY-REFINED Option B: reserve ONLY uncleared checks.
-      // cash/card/ach/bank-confirmed checks are already out of the bank — drop from projection.
-      const isUnclearedCheck = bill.payment_method === 'check' && !bill.bank_confirmed
-      if (!isUnclearedCheck) continue
-      // Uncleared check → stays RESERVED as a future outflow (fall through to event creation below)
-    }
+    // Uncleared check = recorded paid by check but not yet cleared/reconciled at the bank.
+    // Its cash is STILL sitting in the bank balance (snapshot), so it must always remain
+    // a pending outflow — it bypasses both the paid-skip and the snapshot-skip below.
+    const isUnclearedCheck = bill.payment_method === 'check' && !bill.bank_confirmed
+
+    // Paid bills whose cash already left the bank are dropped — except uncleared checks,
+    // which are marked paid in the system but the funds haven't cleared the bank yet.
+    if (bill.status === 'paid' && !isUnclearedCheck) continue
 
     const remaining = bill.amount - bill.amount_paid
-    if (remaining <= 0) {
+    if (remaining <= 0 && !isUnclearedCheck) {
       // Fully covered — but was it paid before/on snapshot_date?
       // Only skip if paid on/before snapshot (cash already counted in snapshot).
+      // NOTE: isUnclearedCheck is false here (guarded above), so this only fires
+      // for non-check or cleared-check bills — those are correctly excluded.
       if (
         bill.status === 'paid' &&
         bill.paid_date !== null &&
@@ -129,6 +132,8 @@ export function buildCashFlow(
     events.push({
       date: eventDate,
       kind: 'BILL',
+      // For uncleared checks: remaining is 0 (fully paid), so this yields -bill.amount (full check value).
+      // For unpaid/partial: yields the outstanding balance.
       amount: -(remaining > 0 ? remaining : bill.amount), // outflow
       label: bill.name,
       id: bill.id,
