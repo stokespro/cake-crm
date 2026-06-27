@@ -23,6 +23,7 @@ export interface CashFlowEvent {
   label: string           // human-readable description
   id: string              // bill id or order id
   isPipeline: boolean     // true for confirmed/packed orders (toggle-able in UI)
+  vendor: string | null   // vendor name for BILL events; null for order events
   runningBalance?: number // filled in after reduction
 }
 
@@ -50,6 +51,7 @@ export interface BillInput {
   paid_date: string | null  // ISO date, may be null
   payment_method: string | null
   bank_confirmed: boolean
+  vendor: string | null     // vendor name from finance_vendors join; null if no vendor
 }
 
 export interface OrderInput {
@@ -138,6 +140,7 @@ export function buildCashFlow(
       label: bill.name,
       id: bill.id,
       isPipeline: false,
+      vendor: bill.vendor ?? null,
     })
   }
 
@@ -159,6 +162,7 @@ export function buildCashFlow(
       label: `Order #${order.order_number} — ${order.customer_name}`,
       id: order.id,
       isPipeline: false,
+      vendor: null,
     })
   }
 
@@ -202,6 +206,7 @@ export function buildCashFlow(
       label: `[Pipeline] Order #${order.order_number} — ${order.customer_name}`,
       id: order.id,
       isPipeline: true,
+      vendor: null,
     })
   }
 

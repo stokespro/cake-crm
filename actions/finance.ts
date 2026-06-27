@@ -969,6 +969,7 @@ export async function getMonthSummary(month: string): Promise<{
         paid_date: b.paid_date ?? null,
         payment_method: b.payment_method ?? null,
         bank_confirmed: confirmedBillIds.has(b.id),
+        vendor: b.vendor?.name ?? null,
       }))
 
       const snapshotInput: SnapshotInput = {

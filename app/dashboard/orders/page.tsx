@@ -1356,6 +1356,25 @@ export default function OrdersPage() {
                   </div>
                 )}
 
+                {editForm.payment_terms &&
+                  selectedOrder.status === 'delivered' &&
+                  !editForm.terms_paid_at_display &&
+                  canEditOrders && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="w-full mt-1"
+                      onClick={() => {
+                        setMarkPaidOrderId(selectedOrder.id)
+                        setMarkPaidDate(new Date().toISOString().split('T')[0])
+                      }}
+                    >
+                      <Banknote className="h-4 w-4 mr-2" />
+                      Mark Payment Received
+                    </Button>
+                  )}
+
                 {editForm.terms_paid_at_display && (
                   <div className="text-sm text-green-600 flex items-center gap-2">
                     <Banknote className="h-4 w-4" />

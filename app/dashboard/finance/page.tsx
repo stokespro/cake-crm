@@ -143,10 +143,17 @@ function CashFlowEventRow({
             </Badge>
           )}
         </div>
-        {/* Mobile: show date as sub-text */}
+        {/* Mobile: show date and vendor as sub-text */}
         <div className="sm:hidden text-xs text-muted-foreground mt-0.5">
           {format(parseISO(event.date), 'MMM d')}
+          {event.vendor && (
+            <span className="ml-1">&middot; {event.vendor}</span>
+          )}
         </div>
+      </TableCell>
+      {/* Vendor — hidden on mobile (surfaced as sub-text above), visible sm+ */}
+      <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
+        {event.vendor ?? '—'}
       </TableCell>
       <TableCell className={`text-right text-sm ${amountClass}`}>
         {isExcluded ? '—' : `${isInflow ? '+' : ''}${formatMoney(event.amount)}`}
@@ -1224,6 +1231,7 @@ export default function FinanceOverviewPage() {
                     <TableRow>
                       <TableHead className="hidden sm:table-cell w-[90px]">Date</TableHead>
                       <TableHead>Description</TableHead>
+                      <TableHead className="hidden sm:table-cell">Vendor</TableHead>
                       <TableHead className="text-right w-[130px]">Amount</TableHead>
                       <TableHead className="text-right w-[140px]">Balance</TableHead>
                     </TableRow>
@@ -1240,6 +1248,7 @@ export default function FinanceOverviewPage() {
                           {format(parseISO(cashFlow.snapshotDate), 'MMM d')}
                         </div>
                       </TableCell>
+                      <TableCell className="hidden sm:table-cell" />
                       <TableCell />
                       <TableCell className="text-right text-sm font-mono font-semibold">
                         {formatMoney(cashFlow.openingBalance)}
