@@ -48,6 +48,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { toast } from 'sonner'
 import { FileText, MoreVertical, Plus, Edit2, Loader2, PowerOff } from 'lucide-react'
+import { VendorCombobox } from '@/components/finance/vendor-combobox'
 
 const TEMPLATE_CATEGORIES = [
   'utilities',
@@ -535,24 +536,14 @@ export default function BillTemplatesPage() {
 
             {/* Vendor */}
             <div className="space-y-2">
-              <Label htmlFor="tmpl-vendor">Vendor</Label>
-              <Select
-                value={form.vendor_id || '_none'}
-                onValueChange={(v) => updateForm({ vendor_id: v === '_none' ? '' : v })}
+              <Label>Vendor</Label>
+              <VendorCombobox
+                vendors={vendors}
+                value={form.vendor_id}
+                onChange={(vendorId) => updateForm({ vendor_id: vendorId })}
                 disabled={saving}
-              >
-                <SelectTrigger id="tmpl-vendor">
-                  <SelectValue placeholder="Select vendor" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="_none">No vendor</SelectItem>
-                  {vendors.map((vendor) => (
-                    <SelectItem key={vendor.id} value={vendor.id}>
-                      {vendor.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                placeholder="No vendor"
+              />
             </div>
 
             {/* Fixed amount toggle */}

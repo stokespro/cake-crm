@@ -99,6 +99,7 @@ import {
   getVendors,
 } from '@/actions/finance'
 import type { Bill, BillStatus, BillTemplate, Vendor } from '@/actions/finance'
+import { VendorCombobox } from '@/components/finance/vendor-combobox'
 
 // -----------------------------------------------------------------------
 // Helpers
@@ -242,7 +243,6 @@ export default function BillsPage() {
   })
   const [billSaving, setBillSaving] = useState(false)
   const [billFormErrors, setBillFormErrors] = useState<BillFormErrors>({})
-  const [vendorOpen, setVendorOpen] = useState(false)
 
   // Delete confirmation
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -344,7 +344,6 @@ export default function BillsPage() {
       notes: '',
     })
     setBillFormErrors({})
-    setVendorOpen(false)
     setBillSheetOpen(true)
   }
 
@@ -363,7 +362,6 @@ export default function BillsPage() {
       notes: bill.notes ?? '',
     })
     setBillFormErrors({})
-    setVendorOpen(false)
     setBillSheetOpen(true)
   }
 
@@ -1106,64 +1104,13 @@ export default function BillsPage() {
 
             <div className="space-y-2">
               <Label>Vendor (optional)</Label>
-              <Popover open={vendorOpen} onOpenChange={setVendorOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    aria-expanded={vendorOpen}
-                    className="w-full justify-between font-normal"
-                  >
-                    {billForm.vendor_id
-                      ? vendors.find((v) => v.id === billForm.vendor_id)?.name
-                      : 'No vendor'}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                  <Command>
-                    <CommandInput placeholder="Search vendors..." />
-                    <CommandList>
-                      <CommandEmpty>No vendor found.</CommandEmpty>
-                      <CommandGroup>
-                        <CommandItem
-                          value="none"
-                          onSelect={() => {
-                            setBillForm((p) => ({ ...p, vendor_id: '' }))
-                            setVendorOpen(false)
-                          }}
-                        >
-                          <Check
-                            className={cn(
-                              'mr-2 h-4 w-4',
-                              !billForm.vendor_id ? 'opacity-100' : 'opacity-0'
-                            )}
-                          />
-                          No vendor
-                        </CommandItem>
-                        {vendors.map((v) => (
-                          <CommandItem
-                            key={v.id}
-                            value={v.name}
-                            onSelect={() => {
-                              setBillForm((p) => ({ ...p, vendor_id: v.id }))
-                              setVendorOpen(false)
-                            }}
-                          >
-                            <Check
-                              className={cn(
-                                'mr-2 h-4 w-4',
-                                billForm.vendor_id === v.id ? 'opacity-100' : 'opacity-0'
-                              )}
-                            />
-                            {v.name}
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
+              <VendorCombobox
+                vendors={vendors}
+                value={billForm.vendor_id}
+                onChange={(vendorId) => setBillForm((p) => ({ ...p, vendor_id: vendorId }))}
+                disabled={billSaving}
+                placeholder="No vendor"
+              />
             </div>
 
             <div className="space-y-2">
