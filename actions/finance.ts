@@ -4,6 +4,8 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { requireFinance } from '@/lib/auth/session'
 import { buildCashFlowBoth } from '@/lib/finance/cash-flow'
 import { buildWeeklyBudget, computeWeekBoundaries } from '@/lib/finance/weekly-budget'
+import { pullBankSync } from '@/lib/finance/banksync-pull'
+import type { PullResult } from '@/lib/finance/banksync-pull'
 import type {
   BillInput,
   OrderInput,
@@ -1351,12 +1353,17 @@ export async function getVendors(activeOnly = false): Promise<{
 // ============================================================
 
 /**
- * Manual "Sync now" — runs the same work the daily cron does:
+ * Manual "Sync now" (copy-only) — runs the same work the daily cron does:
  *   1. sync_bank_snapshot_to_finance()  (writes today's cash snapshot from the bank feed)
  *   2. run_daily_reconciliation()        (auto-applies checks, proposes non-check matches)
  *
+ * NOTE: This action only copies data that BankSync has already pushed to the DB.
+ * Use syncBankFromSource() for a true end-to-end pull that triggers BankSync first.
+ *
  * Does NOT apply the Chicago-hour gate — that gate is cron-only.
  * Restricted to admin / management (same as all other finance mutations).
+ *
+ * @deprecated Prefer syncBankFromSource() for the UI "Sync now" button.
  */
 export async function syncBankNow(): Promise<{
   success: boolean
@@ -1386,6 +1393,67 @@ export async function syncBankNow(): Promise<{
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     return { success: false, error: errorMessage }
+  }
+}
+
+/**
+ * True end-to-end bank pull — triggers BankSync feeds, polls to completion,
+ * then copies to finance and runs reconciliation.
+ *
+ * This replaces the old syncBankNow() as the primary "Sync now" action for the UI.
+ * It handles the case where BankSync's scheduled push failed (transient error, no retry)
+ * by proactively triggering the pull from the API.
+ *
+ * Steps:
+ *   1. Gate to admin / management.
+ *   2. Retrieve API key from Supabase Vault via get_banksync_api_key().
+ *   3. POST /v1/feeds/{balances}/sync and /v1/feeds/{transactions}/sync.
+ *   4. Poll each job until completed/failed or ~60s timeout.
+ *   5. Call sync_bank_snapshot_to_finance() then run_daily_reconciliation().
+ *   6. Return structured result.
+ */
+export async function syncBankFromSource(): Promise<PullResult> {
+  const auth = await requireFinance()
+  if (!auth.authorized) {
+    return {
+      success: false,
+      balancesStatus: null,
+      transactionsStatus: null,
+      freshDate: null,
+      cashOnHand: null,
+      errors: [auth.reason],
+    }
+  }
+
+  try {
+    const supabase = await createServiceClient()
+
+    // Retrieve the BankSync API key from Vault via the SECURITY DEFINER accessor.
+    // PostgREST does not expose the vault schema directly; this RPC is the bridge.
+    const { data: apiKey, error: keyError } = await supabase.rpc('get_banksync_api_key')
+    if (keyError || !apiKey) {
+      return {
+        success: false,
+        balancesStatus: null,
+        transactionsStatus: null,
+        freshDate: null,
+        cashOnHand: null,
+        errors: [keyError?.message ?? 'BankSync API key not found in Vault (banksync_api_key)'],
+      }
+    }
+
+    return await pullBankSync(apiKey as string)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('syncBankFromSource error:', msg)
+    return {
+      success: false,
+      balancesStatus: null,
+      transactionsStatus: null,
+      freshDate: null,
+      cashOnHand: null,
+      errors: [msg],
+    }
   }
 }
 

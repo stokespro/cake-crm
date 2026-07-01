@@ -46,7 +46,7 @@ import {
   Link as LinkIcon,
 } from 'lucide-react'
 import { format, parseISO, startOfWeek, addDays } from 'date-fns'
-import { getMonthSummary, getWeeklyBudget, syncBankNow, updateBill } from '@/actions/finance'
+import { getMonthSummary, getWeeklyBudget, syncBankFromSource, updateBill } from '@/actions/finance'
 import { upsertCashSnapshot } from './_actions/snapshot'
 import {
   runDailyReconciliation,
@@ -95,6 +95,20 @@ function currentMonthStr(): string {
 
 function last4(accountNumber: string): string {
   return accountNumber.slice(-4)
+}
+
+/**
+ * Returns today's date as 'YYYY-MM-DD' in America/Chicago timezone.
+ * Used for the staleness banner comparison so the cutoff is always midnight
+ * Central regardless of where the browser is running.
+ */
+function getCentralToday(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Chicago',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date())
 }
 
 // -----------------------------------------------------------------------
@@ -260,6 +274,15 @@ function BankBalancePanel({
   const bank = summary.bankBalance
   const isBankSource = snap?.source === 'bank'
 
+  // Staleness: compare bank as_of_date to today in America/Chicago.
+  // If the bank balance is older than today, show a prominent warning banner.
+  const centralToday = getCentralToday()
+  const bankAsOf = bank?.as_of_date ?? null
+  const isBankStale = bankAsOf ? bankAsOf < centralToday : false
+  const daysOld = isBankStale && bankAsOf
+    ? Math.round((Date.parse(centralToday) - Date.parse(bankAsOf)) / 86_400_000)
+    : 0
+
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -295,6 +318,32 @@ function BankBalancePanel({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Staleness banner — shown when bank as_of_date is before today (Central) */}
+        {isBankStale && bankAsOf && (
+          <div className="flex items-start gap-2.5 rounded-md border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/20 px-3 py-2.5">
+            <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+                Bank balance is from {format(parseISO(bankAsOf), 'MMM d')}
+                {' '}&mdash;{' '}
+                {daysOld} day{daysOld !== 1 ? 's' : ''} old
+              </p>
+              <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
+                The scheduled BankSync pull may have failed. Use Sync now to pull fresh data.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onSyncNow}
+              disabled={syncing}
+              className="h-7 text-xs border-amber-400 text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/30 shrink-0"
+            >
+              <RefreshCw className={`h-3 w-3 mr-1 ${syncing ? 'animate-spin' : ''}`} />
+              {syncing ? 'Syncing...' : 'Sync now'}
+            </Button>
+          </div>
+        )}
         {/* Primary display */}
         {snap ? (
           <div>
@@ -1019,12 +1068,18 @@ export default function FinanceOverviewPage() {
   const handleSyncNow = async () => {
     setSyncing(true)
     try {
-      const result = await syncBankNow()
+      const result = await syncBankFromSource()
       if (!result.success) {
-        toast.error(result.error ?? 'Sync failed')
+        const errMsg =
+          result.errors.length > 0 ? result.errors.join('; ') : 'Sync failed'
+        toast.error(errMsg)
+        // Still refresh summary — partial success may have written a snapshot
+        await fetchSummary()
         return
       }
-      toast.success('Bank synced — refreshing data...')
+      const cashStr =
+        result.cashOnHand != null ? ` — balance: ${formatMoney(result.cashOnHand)}` : ''
+      toast.success(`Bank synced${cashStr}`)
       await fetchSummary()
     } catch (err) {
       console.error('Error syncing bank:', err)

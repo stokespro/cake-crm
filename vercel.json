@@ -1,0 +1,16 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/banksync-recover",
+      "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/cron/banksync-recover",
+      "schedule": "30 12 * * *"
+    },
+    {
+      "path": "/api/cron/banksync-recover",
+      "schedule": "0 13 * * *"
+    }
+  ]
+}
