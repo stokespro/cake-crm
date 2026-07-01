@@ -13,6 +13,7 @@ import {
   startOfWeek,
   format,
   parseISO,
+  getDay,
 } from 'date-fns'
 import type { BillInput, OrderInput, SnapshotInput } from './cash-flow'
 
@@ -112,11 +113,12 @@ export function computeWeekBoundaries(today: string, numWeeks = 6): WeekBoundary
   const boundaries: WeekBoundary[] = []
   for (let i = 0; i < numWeeks; i++) {
     const wStart = addDays(week1Start, i * 7)
-    const wEnd   = addDays(wStart, 6)           // Sunday
+    const wEnd   = addDays(wStart, 6)           // Sunday — kept for bucketing comparisons
+    const wFri   = addDays(wStart, 4)           // Friday — display only (Mon–Fri work week)
     boundaries.push({
       weekStart: format(wStart, 'yyyy-MM-dd'),
       weekEnd:   format(wEnd,   'yyyy-MM-dd'),
-      label:     `${format(wStart, 'MMM d')} – ${format(wEnd, 'MMM d')}`,
+      label:     `${format(wStart, 'MMM d')} – ${format(wFri, 'MMM d')}`,
     })
   }
   return boundaries
@@ -177,10 +179,21 @@ export function buildWeeklyBudget(
     const rawBucketDate = bill.planned_pay_date ?? bill.due_date
     const isUnplanned   = bill.planned_pay_date === null
 
+    // Snap weekend dates forward to the following Monday so bills land in
+    // the next work week, not the one that just ended.
     let bucketDate = rawBucketDate
-    let isPastDue  = false
+    const dow = getDay(parseISO(rawBucketDate))
+    if (dow === 6) {
+      // Saturday → next Monday (+2 days)
+      bucketDate = format(addDays(parseISO(rawBucketDate), 2), 'yyyy-MM-dd')
+    } else if (dow === 0) {
+      // Sunday → next Monday (+1 day)
+      bucketDate = format(addDays(parseISO(rawBucketDate), 1), 'yyyy-MM-dd')
+    }
 
-    if (rawBucketDate < week1Start) {
+    // Past-due check: snap to week 1 start (applied after weekend snap)
+    let isPastDue  = false
+    if (bucketDate < week1Start) {
       bucketDate = week1Start
       isPastDue  = true
     }
