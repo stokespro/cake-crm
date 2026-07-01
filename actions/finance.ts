@@ -3,12 +3,19 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireFinance } from '@/lib/auth/session'
 import { buildCashFlowBoth } from '@/lib/finance/cash-flow'
+import { buildWeeklyBudget, computeWeekBoundaries } from '@/lib/finance/weekly-budget'
 import type {
   BillInput,
   OrderInput,
   SnapshotInput,
   CashFlowResult,
 } from '@/lib/finance/cash-flow'
+import type {
+  WeeklyBillInput,
+  WeekBucket,
+  WeeklyBillItem,
+  WeeklyBudgetResult,
+} from '@/lib/finance/weekly-budget'
 
 // ============================================================
 // TYPES
@@ -99,6 +106,17 @@ export interface MonthSummary {
   // Populated from get_bank_balance() RPC (service_role call).
   // null when bank sync has not run or RPC errors — UI degrades gracefully.
   bankBalance: BankBalanceSummary | null
+}
+
+export interface WeeklySummary {
+  weeks: WeekBucket[]
+  unbucketedBills: WeeklyBillItem[]
+  latestSnapshot: CashSnapshot | null
+  bankBalance: BankBalanceSummary | null
+  openingBalance: number
+  snapshotDate: string
+  conservativeTrough: number
+  optimisticTrough: number
 }
 
 // ============================================================
@@ -519,6 +537,7 @@ export async function updateBill(
     payment_ref?: string | null
     notes?: string | null
     vendor_id?: string | null
+    planned_pay_date?: string | null
   }
 ): Promise<{ success: boolean; data?: Bill; error?: string }> {
   const auth = await requireFinance()
@@ -550,6 +569,9 @@ export async function updateBill(
     }
     if (input.notes !== undefined)          updateData.notes = input.notes?.trim() || null
     if (input.vendor_id !== undefined)      updateData.vendor_id = input.vendor_id
+    // planned_pay_date: setting to null clears the planned date (marks as unplanned).
+    // No payment validation — this field is independent of the payment status fields.
+    if (input.planned_pay_date !== undefined) updateData.planned_pay_date = input.planned_pay_date
 
     if (input.amount !== undefined)         updateData.amount = input.amount
 
@@ -992,6 +1014,213 @@ export async function getMonthSummary(month: string): Promise<{
         pipelineTerms,
         cashFlow,
         bankBalance,
+      },
+    }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    return { success: false, error: errorMessage }
+  }
+}
+
+// ============================================================
+// WEEKLY BUDGET SUMMARY
+// ============================================================
+
+/**
+ * Returns all data needed to render the Weekly Budget view:
+ * a rolling N-week waterfall (default 6, max 12) anchored to today.
+ *
+ * Bills fetched: all non-void unpaid/partial bills (no period_month filter —
+ * weekly view crosses month boundaries), plus paid-but-uncleared checks.
+ * Orders fetched: bounded to [week1Start, week6End] range.
+ */
+export async function getWeeklyBudget(params?: { weeks?: number }): Promise<{
+  success: boolean
+  data?: WeeklySummary
+  error?: string
+}> {
+  const auth = await requireFinance()
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
+  const numWeeks = Math.min(params?.weeks ?? 6, 12)
+
+  try {
+    const supabase = await createServiceClient()
+    const today = new Date().toISOString().substring(0, 10)
+
+    // Compute week boundaries to determine order fetch range
+    const boundaries = computeWeekBoundaries(today, numWeeks)
+    const week1Start = boundaries[0].weekStart
+    const week6End   = boundaries[boundaries.length - 1].weekEnd
+
+    // Determine snapshotDate for revenue filtering (events before snapshot already in CoH)
+    // Fetch snapshot first to get the anchor date
+    const { data: snapRows, error: snapError } = await supabase
+      .from('finance_cash_snapshots')
+      .select('*')
+      .lte('snapshot_date', today)
+      .order('snapshot_date', { ascending: false })
+      .limit(1)
+
+    if (snapError) {
+      console.error('getWeeklyBudget: error fetching snapshot:', snapError)
+      return { success: false, error: snapError.message }
+    }
+
+    const latestSnapshot = (snapRows?.[0] ?? null) as CashSnapshot | null
+    const snapshotDate = latestSnapshot?.snapshot_date ?? today
+
+    // Determine next month beyond week6End for order query (use week6End directly with lte)
+    const nextMonthAfterRange = (() => {
+      // We don't need incrementMonth here — we bound by week6End directly
+      return week6End
+    })()
+
+    // Fetch bills: unpaid + partial + paid-uncleared-checks — no period_month filter
+    // We include paid bills where paid_date > snapshotDate (future outflows not yet in bank)
+    // The engine itself handles uncleared-check logic via bank_confirmed field.
+    const [billsRes, ordersRes, bankBalanceRes] = await Promise.all([
+      supabase
+        .from('finance_bills')
+        .select(`
+          *,
+          payment_method,
+          vendor:finance_vendors(id, name)
+        `)
+        .or('status.eq.unpaid,status.eq.partial,and(status.eq.paid,paid_date.gt.' + snapshotDate + ')')
+        .neq('status', 'void'),
+
+      supabase
+        .from('orders')
+        .select(`
+          id, order_number, status, total_price, delivered_at, requested_delivery_date,
+          payment_terms, terms_payment_date, terms_paid_at,
+          customers(business_name),
+          order_items(line_total)
+        `)
+        .or(
+          `and(status.eq.delivered,payment_terms.eq.false,delivered_at.gte.${week1Start},delivered_at.lte.${nextMonthAfterRange}),` +
+          `and(status.eq.delivered,payment_terms.eq.true,terms_paid_at.gte.${week1Start},terms_paid_at.lte.${nextMonthAfterRange}),` +
+          `and(status.in.(confirmed,packed),payment_terms.eq.false,requested_delivery_date.gte.${week1Start},requested_delivery_date.lte.${nextMonthAfterRange}),` +
+          `and(status.in.(confirmed,packed,delivered),payment_terms.eq.true,terms_paid_at.is.null,terms_payment_date.gte.${week1Start},terms_payment_date.lte.${nextMonthAfterRange})`
+        )
+        .order('requested_delivery_date', { ascending: true })
+        .range(0, 4999),
+
+      createServiceClient()
+        .then((svc) => svc.rpc('get_bank_balance'))
+        .catch(() => ({ data: null, error: null })),
+    ])
+
+    if (billsRes.error) {
+      console.error('getWeeklyBudget: error fetching bills:', billsRes.error)
+      return { success: false, error: billsRes.error.message }
+    }
+    if (ordersRes.error) {
+      console.error('getWeeklyBudget: error fetching orders:', ordersRes.error)
+      return { success: false, error: ordersRes.error.message }
+    }
+
+    // Build confirmed bill ids for uncleared-check bank_confirmed flag
+    let confirmedBillIds = new Set<string>()
+    try {
+      const { data: reconRows } = await supabase
+        .from('finance_reconciliation_log')
+        .select('bill_id')
+        .in('status', ['confirmed', 'auto_applied'])
+        .not('bill_id', 'is', null)
+      if (reconRows) {
+        confirmedBillIds = new Set(reconRows.map((r) => r.bill_id as string))
+      }
+    } catch {
+      // non-fatal
+    }
+
+    // Resolve bank balance
+    let bankBalance: BankBalanceSummary | null = null
+    if (bankBalanceRes.data && !bankBalanceRes.error) {
+      const row = Array.isArray(bankBalanceRes.data)
+        ? bankBalanceRes.data[0]
+        : bankBalanceRes.data
+      if (row) {
+        bankBalance = {
+          current:        Number(row.current_balance),
+          available:      Number(row.available_balance),
+          pending:        Number(row.pending_balance),
+          as_of_date:     String(row.as_of_date),
+          account_number: String(row.account_number),
+        }
+      }
+    }
+
+    // Map bills to WeeklyBillInput[]
+    const billInputs: WeeklyBillInput[] = (billsRes.data ?? []).map((b) => ({
+      id: b.id,
+      name: b.name,
+      amount: b.amount,
+      amount_paid: b.amount_paid,
+      due_date: b.due_date,
+      status: b.status as BillInput['status'],
+      paid_date: b.paid_date ?? null,
+      payment_method: b.payment_method ?? null,
+      bank_confirmed: confirmedBillIds.has(b.id),
+      vendor: (b.vendor as { name: string } | null)?.name ?? null,
+      planned_pay_date: (b as { planned_pay_date?: string | null }).planned_pay_date ?? null,
+    }))
+
+    // Map orders to OrderInput[] — HYBRID revenue rule (same as getMonthSummary)
+    const orderInputs: OrderInput[] = []
+    for (const order of ordersRes.data ?? []) {
+      const customer = Array.isArray(order.customers)
+        ? order.customers[0]
+        : order.customers
+      const customerName = (customer as { business_name?: string } | null)?.business_name ?? 'Unknown'
+
+      const items = (order.order_items ?? []) as { line_total: number | null }[]
+      const itemsTotal = items.reduce((s, i) => s + (i.line_total ?? 0), 0)
+      const orderRevenue = items.length > 0 ? itemsTotal : (order.total_price ?? 0)
+
+      const isTerms    = order.payment_terms === true
+      const revenueDate  = isTerms ? (order.terms_paid_at ?? null) : (order.delivered_at ?? null)
+      const pipelineDate = isTerms ? (order.terms_payment_date ?? null) : (order.requested_delivery_date ?? null)
+
+      orderInputs.push({
+        id: order.id,
+        order_number: String(order.order_number),
+        customer_name: customerName,
+        total_price: orderRevenue,
+        status: order.status,
+        delivered_at: revenueDate,
+        requested_delivery_date: pipelineDate,
+        payment_terms: isTerms,
+        is_terms_paid: !!order.terms_paid_at,
+      })
+    }
+
+    // Run the weekly budget engine
+    const snapshotInput = latestSnapshot
+      ? { id: latestSnapshot.id, snapshot_date: latestSnapshot.snapshot_date, cash_on_hand: latestSnapshot.cash_on_hand }
+      : null
+
+    const result: WeeklyBudgetResult = buildWeeklyBudget(
+      snapshotInput,
+      billInputs,
+      orderInputs,
+      today,
+      numWeeks
+    )
+
+    return {
+      success: true,
+      data: {
+        weeks: result.weeks,
+        unbucketedBills: result.unbucketedBills,
+        latestSnapshot,
+        bankBalance,
+        openingBalance: result.openingBalance,
+        snapshotDate: result.snapshotDate,
+        conservativeTrough: result.conservativeTrough,
+        optimisticTrough: result.optimisticTrough,
       },
     }
   } catch (error) {

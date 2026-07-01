@@ -919,6 +919,7 @@ export type Database = {
           payment_method: string | null
           payment_ref: string | null
           period_month: string
+          planned_pay_date: string | null
           status: string
           template_id: string | null
           updated_at: string
@@ -937,6 +938,7 @@ export type Database = {
           payment_method?: string | null
           payment_ref?: string | null
           period_month: string
+          planned_pay_date?: string | null
           status?: string
           template_id?: string | null
           updated_at?: string
@@ -955,6 +957,7 @@ export type Database = {
           payment_method?: string | null
           payment_ref?: string | null
           period_month?: string
+          planned_pay_date?: string | null
           status?: string
           template_id?: string | null
           updated_at?: string

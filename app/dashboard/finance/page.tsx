@@ -45,8 +45,8 @@ import {
   CreditCard,
   Link as LinkIcon,
 } from 'lucide-react'
-import { format, parseISO } from 'date-fns'
-import { getMonthSummary, syncBankNow } from '@/actions/finance'
+import { format, parseISO, startOfWeek, addDays } from 'date-fns'
+import { getMonthSummary, getWeeklyBudget, syncBankNow, updateBill } from '@/actions/finance'
 import { upsertCashSnapshot } from './_actions/snapshot'
 import {
   runDailyReconciliation,
@@ -56,9 +56,13 @@ import {
   getUntrackedBankTransactions,
   getProposedTransactions,
 } from './_actions/bank'
-import type { MonthSummary } from '@/actions/finance'
+import type { MonthSummary, WeeklySummary } from '@/actions/finance'
 import type { ReconciliationLogRow, BankTransaction, ProposedTransaction } from './_actions/bank'
 import type { CashFlowResult, CashFlowEvent } from '@/lib/finance/cash-flow'
+import {
+  WeeklyBudgetView,
+  WeeklyBudgetSkeleton,
+} from './_components/weekly-budget-view'
 
 // -----------------------------------------------------------------------
 // Helpers
@@ -888,10 +892,16 @@ export default function FinanceOverviewPage() {
   const router = useRouter()
   const { user, isLoading: authLoading } = useAuth()
 
+  const [viewMode, setViewMode] = useState<'month' | 'week'>('month')
   const [month, setMonth] = useState(currentMonthStr())
   const [summary, setSummary] = useState<MonthSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [showPipeline, setShowPipeline] = useState(false)
+
+  // Weekly budget state
+  const [weeklyData, setWeeklyData] = useState<WeeklySummary | null>(null)
+  const [weeklyLoading, setWeeklyLoading] = useState(false)
+  const [showPipelineWeekly, setShowPipelineWeekly] = useState(false)
 
   // Cash snapshot input
   const [snapshotAmount, setSnapshotAmount] = useState('')
@@ -922,6 +932,39 @@ export default function FinanceOverviewPage() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canManage, month])
+
+  useEffect(() => {
+    if (canManage && viewMode === 'week') {
+      fetchWeekly()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canManage, viewMode])
+
+  const fetchWeekly = async () => {
+    setWeeklyLoading(true)
+    try {
+      const result = await getWeeklyBudget({ weeks: 6 })
+      if (!result.success || !result.data) {
+        toast.error(result.error ?? 'Failed to load weekly budget data')
+        return
+      }
+      setWeeklyData(result.data)
+    } catch (err) {
+      console.error('Error fetching weekly budget:', err)
+      toast.error('Failed to load weekly budget data')
+    } finally {
+      setWeeklyLoading(false)
+    }
+  }
+
+  const handleMoveBill = async (billId: string, planned_pay_date: string | null) => {
+    const result = await updateBill(billId, { planned_pay_date })
+    if (!result.success) {
+      toast.error(result.error ?? 'Failed to move bill')
+      return
+    }
+    await fetchWeekly()
+  }
 
   const fetchSummary = async () => {
     setLoading(true)
@@ -1035,36 +1078,70 @@ export default function FinanceOverviewPage() {
   const totalPaid = nonVoidBills.reduce((s, b) => s + b.amount_paid, 0)
   const unpaidBills = totalBills - totalPaid
 
+  // Compute week1Start label for week mode header
+  const todayDate = new Date()
+  const week1StartDate = startOfWeek(todayDate, { weekStartsOn: 1 })
+  const week6EndDate = addDays(week1StartDate, 41) // 6 weeks - 1 day
+  const weekRangeLabel = `${format(week1StartDate, 'MMM d')} – ${format(week6EndDate, 'MMM d, yyyy')}`
+
   return (
     <div className="space-y-6">
-      {/* Header with month picker */}
+      {/* Header with month picker / week toggle */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold">Finance Overview</h1>
           <p className="text-muted-foreground mt-1">
-            Cash position, revenue, and bills for {getMonthLabel(month)}
+            {viewMode === 'week'
+              ? `Rolling 6 weeks from ${weekRangeLabel}`
+              : `Cash position, revenue, and bills for ${getMonthLabel(month)}`
+            }
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={() => setMonth(prevMonth(month))}>
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <span className="text-sm font-medium min-w-[140px] text-center">
-            {getMonthLabel(month)}
-          </span>
-          <Button variant="outline" size="icon" onClick={() => setMonth(nextMonth(month))}>
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-          {month !== currentMonthStr() && (
-            <Button variant="ghost" size="sm" onClick={() => setMonth(currentMonthStr())}>
-              Today
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Month | Week toggle */}
+          <div className="flex items-center rounded-md border border-border overflow-hidden">
+            <Button
+              variant={viewMode === 'month' ? 'default' : 'ghost'}
+              size="sm"
+              className="rounded-none border-0 h-8 px-3 text-xs"
+              onClick={() => setViewMode('month')}
+            >
+              Month
             </Button>
+            <Button
+              variant={viewMode === 'week' ? 'default' : 'ghost'}
+              size="sm"
+              className="rounded-none border-0 border-l h-8 px-3 text-xs"
+              onClick={() => setViewMode('week')}
+            >
+              Week
+            </Button>
+          </div>
+
+          {/* Month nav — only shown in month mode */}
+          {viewMode === 'month' && (
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="icon" onClick={() => setMonth(prevMonth(month))}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-sm font-medium min-w-[140px] text-center">
+                {getMonthLabel(month)}
+              </span>
+              <Button variant="outline" size="icon" onClick={() => setMonth(nextMonth(month))}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              {month !== currentMonthStr() && (
+                <Button variant="ghost" size="sm" onClick={() => setMonth(currentMonthStr())}>
+                  Today
+                </Button>
+              )}
+            </div>
           )}
         </div>
       </div>
 
-      {/* Headline cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {/* Headline cards — month mode only */}
+      {viewMode === 'month' && <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* Revenue */}
         <Card>
           <CardHeader className="pb-2">
@@ -1166,9 +1243,9 @@ export default function FinanceOverviewPage() {
             )}
           </CardContent>
         </Card>
-      </div>
+      </div>}
 
-      {/* Bank Balance / Cash on Hand panel */}
+      {/* Bank Balance / Cash on Hand panel — always visible */}
       {summary && (
         <BankBalancePanel
           summary={summary}
@@ -1186,8 +1263,45 @@ export default function FinanceOverviewPage() {
         <ReconciliationPanel />
       )}
 
-      {/* Cash-flow timeline */}
-      {cashFlow ? (
+      {/* Weekly budget view — week mode only */}
+      {viewMode === 'week' && (
+        <div className="space-y-4">
+          {/* Weekly pipeline toggle */}
+          <div className="flex items-center gap-2">
+            <Label
+              htmlFor="weekly-pipeline-toggle"
+              className="text-sm text-muted-foreground cursor-pointer select-none"
+            >
+              Show pipeline orders
+            </Label>
+            <Switch
+              id="weekly-pipeline-toggle"
+              checked={showPipelineWeekly}
+              onCheckedChange={setShowPipelineWeekly}
+            />
+          </div>
+
+          {weeklyLoading ? (
+            <WeeklyBudgetSkeleton />
+          ) : weeklyData ? (
+            <WeeklyBudgetView
+              data={weeklyData}
+              showPipeline={showPipelineWeekly}
+              onMoveBill={handleMoveBill}
+            />
+          ) : (
+            <Card>
+              <CardContent className="py-10 text-center text-muted-foreground">
+                <DollarSign className="h-10 w-10 mx-auto mb-3 opacity-40" />
+                <p>No weekly budget data available.</p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {/* Cash-flow timeline — month mode only */}
+      {viewMode === 'month' && (cashFlow ? (
         <Card>
           <CardHeader className="pb-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -1305,9 +1419,9 @@ export default function FinanceOverviewPage() {
             <p>Record a cash-on-hand snapshot above to enable cash-flow projections.</p>
           </CardContent>
         </Card>
-      ) : null}
+      ) : null)}
 
-      {/* Untracked expenses (collapsed by default) */}
+      {/* Untracked expenses (collapsed by default) — always visible */}
       <UntrackedExpensesPanel
         month={month}
         onCreateBill={handleCreateBillFromTransaction}
