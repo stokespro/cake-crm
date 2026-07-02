@@ -1458,6 +1458,128 @@ export async function syncBankFromSource(): Promise<PullResult> {
 }
 
 // ============================================================
+// BILL REVIEW DETAIL (for reconciliation side panel)
+// ============================================================
+
+export interface BillReviewDetail {
+  bill: Bill & {
+    vendor_name: string | null
+    template_name: string | null
+    from_quickbooks: boolean
+  }
+  /** Other bills with the same amount (excluding this bill) */
+  siblings: Array<{
+    id: string
+    name: string
+    vendor_name: string | null
+    status: BillStatus
+    due_date: string
+    amount: number
+  }>
+}
+
+/**
+ * Fetches full bill detail plus sibling bills at the same amount.
+ * Used by the reconciliation review Sheet panel.
+ * Gated to admin / management (same as all finance actions).
+ */
+export async function getBillReviewDetail(billId: string): Promise<{
+  success: boolean
+  data?: BillReviewDetail
+  error?: string
+}> {
+  const auth = await requireFinance()
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
+  try {
+    const supabase = await createServiceClient()
+
+    // Fetch the bill with joined vendor + template
+    const { data: raw, error: billError } = await supabase
+      .from('finance_bills')
+      .select(`
+        *,
+        vendor:finance_vendors(id, name),
+        template:finance_bill_templates(id, name, amount)
+      `)
+      .eq('id', billId)
+      .single()
+
+    if (billError || !raw) {
+      return { success: false, error: billError?.message ?? 'Bill not found' }
+    }
+
+    const vendorData = raw.vendor as { id: string; name: string } | { id: string; name: string }[] | null
+    const vendorName = Array.isArray(vendorData) ? (vendorData[0]?.name ?? null) : (vendorData?.name ?? null)
+
+    const templateData = raw.template as { id: string; name: string; amount: number | null } | null
+    const templateName = Array.isArray(templateData) ? (templateData[0]?.name ?? null) : (templateData?.name ?? null)
+
+    const bill: BillReviewDetail['bill'] = {
+      id: raw.id,
+      template_id: raw.template_id,
+      vendor_id: raw.vendor_id,
+      name: raw.name,
+      period_month: raw.period_month,
+      amount: Number(raw.amount),
+      due_date: raw.due_date,
+      status: raw.status as BillStatus,
+      amount_paid: Number(raw.amount_paid),
+      paid_date: raw.paid_date,
+      payment_method: raw.payment_method,
+      payment_ref: raw.payment_ref,
+      notes: raw.notes,
+      created_by: raw.created_by,
+      created_at: raw.created_at,
+      updated_at: raw.updated_at,
+      vendor_name: vendorName,
+      template_name: templateName,
+      from_quickbooks: typeof raw.notes === 'string' && raw.notes.toLowerCase().includes('quickbooks'),
+    }
+
+    // Find sibling bills at the same amount (excluding this one)
+    const { data: siblingRaw, error: siblingError } = await supabase
+      .from('finance_bills')
+      .select(`
+        id,
+        name,
+        status,
+        due_date,
+        amount,
+        vendor:finance_vendors(id, name)
+      `)
+      .eq('amount', raw.amount)
+      .neq('id', billId)
+      .neq('status', 'void')
+      .order('due_date', { ascending: false })
+      .limit(10)
+
+    if (siblingError) {
+      // Non-fatal: return bill without siblings
+      console.error('getBillReviewDetail siblings error:', siblingError)
+    }
+
+    const siblings: BillReviewDetail['siblings'] = (siblingRaw ?? []).map((s) => {
+      const sv = s.vendor as { id: string; name: string } | { id: string; name: string }[] | null
+      const svName = Array.isArray(sv) ? (sv[0]?.name ?? null) : (sv?.name ?? null)
+      return {
+        id: s.id,
+        name: s.name,
+        vendor_name: svName,
+        status: s.status as BillStatus,
+        due_date: s.due_date,
+        amount: Number(s.amount),
+      }
+    })
+
+    return { success: true, data: { bill, siblings } }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error'
+    return { success: false, error: msg }
+  }
+}
+
+// ============================================================
 // HELPERS
 // ============================================================
 
