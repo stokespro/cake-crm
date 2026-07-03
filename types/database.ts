@@ -2930,7 +2930,7 @@ export const Constants = {
 // server action return types, and local type safety.
 // =============================================================
 
-export type UserRole = 'agent' | 'management' | 'admin' | 'packaging' | 'vault'
+export type UserRole = 'agent' | 'management' | 'admin' | 'packaging' | 'vault' | 'grow'
 export type TaskStatus = 'pending' | 'complete'
 export type OrderStatus = 'pending' | 'confirmed' | 'packed' | 'delivered' | 'cancelled'
 export type ContactMethod = 'phone' | 'email' | 'in-person' | 'text'

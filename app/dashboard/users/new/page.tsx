@@ -156,6 +156,7 @@ export default function NewUserPage() {
                   <SelectItem value="vault">Vault</SelectItem>
                   <SelectItem value="packaging">Packaging</SelectItem>
                   <SelectItem value="standard">Standard</SelectItem>
+                  <SelectItem value="grow">Grow</SelectItem>
                 </SelectContent>
               </Select>
               <div className="text-sm text-muted-foreground space-y-1">
@@ -166,6 +167,7 @@ export default function NewUserPage() {
                 <p><strong>Vault:</strong> Access to Vault, Packaging, Inventory, Products</p>
                 <p><strong>Packaging:</strong> Access to Packaging, Materials, Inventory, Products</p>
                 <p><strong>Standard:</strong> Access to Vault, Packaging, Products</p>
+                <p><strong>Grow:</strong> Cultivation only — view and complete cultivation tasks, plus the cultivation wall-display monitor</p>
               </div>
             </div>
 

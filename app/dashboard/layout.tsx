@@ -96,14 +96,17 @@ const allNavigation: NavigationItem[] = [
   { name: 'Dashboard', href: '/dashboard', icon: CircleGauge, roles: [] },
 
   // 2. Operations group
+  // NOTE: 'grow' is included at the group level ONLY so the "Cultivation" child
+  // below is reachable — it is deliberately excluded from the "Packaging" and
+  // "Packaging (New)" children (grow role is cultivation-only, per policy).
   {
     name: 'Operations',
     icon: Factory,
-    roles: ['standard', 'packaging', 'vault', 'management', 'admin'],
+    roles: ['standard', 'packaging', 'vault', 'management', 'admin', 'grow'],
     children: [
       { name: 'Packaging', href: '/dashboard/packaging', icon: Package, roles: ['standard', 'packaging', 'vault', 'management', 'admin'] },
       { name: 'Packaging (New)', href: '/dashboard/packaging/board', icon: LayoutGrid, roles: ['packaging', 'vault', 'management', 'admin'] },
-      { name: 'Cultivation', href: '/dashboard/cultivation', icon: Sprout, roles: ['vault', 'packaging', 'standard', 'management', 'admin'] },
+      { name: 'Cultivation', href: '/dashboard/cultivation', icon: Sprout, roles: ['vault', 'packaging', 'standard', 'management', 'admin', 'grow'] },
     ],
   },
 

@@ -126,6 +126,7 @@ cake-crm started as a standalone CRM but has evolved into the unified CAKE Platf
 | `vault` | Vault, Packaging, Inventory, Products |
 | `packaging` | Packaging, Materials, Inventory, Products |
 | `standard` | Vault, Packaging, Products |
+| `grow` | Cultivation (view + complete tasks), Cultivation monitor |
 
 Permissions are enforced via helper functions in `lib/auth-context.tsx`: `canViewSection()`, `canCreateOrder()`, `canApproveOrder()`, `canEditOrder()`, `canDeleteOrder()`, `canManageUsers()`, `canAssignSales()`.
 

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
 import { getCultivationTasksForDisplay, completeTask } from '@/actions/cultivation'
+import { canCompleteCultivation, type UserRole } from '@/lib/auth-context'
 import { CheckCircle } from 'lucide-react'
 import {
   Table,
@@ -93,9 +94,10 @@ interface TaskRowProps {
   task: CultivationTask
   onRequestComplete: (task: CultivationTask) => void
   isOverdue: boolean
+  canComplete: boolean
 }
 
-function TaskRow({ task, onRequestComplete, isOverdue }: TaskRowProps) {
+function TaskRow({ task, onRequestComplete, isOverdue, canComplete }: TaskRowProps) {
   return (
     <TableRow
       className={`${isOverdue ? 'border-l-2 border-l-red-500' : ''} h-9`}
@@ -117,15 +119,20 @@ function TaskRow({ task, onRequestComplete, isOverdue }: TaskRowProps) {
         <span className="block truncate">{task.assigned_user?.name ?? 'Unassigned'}</span>
       </TableCell>
 
-      {/* Complete icon button — opens confirmation dialog */}
+      {/* Complete icon button — opens confirmation dialog.
+          Only rendered for roles that can actually complete cultivation tasks
+          server-side — otherwise a tap would optimistically hide the row and
+          then flicker back once the server rejects the completion. */}
       <TableCell className="px-1 py-1 text-center">
-        <button
-          onClick={() => onRequestComplete(task)}
-          aria-label="Mark complete"
-          className="inline-flex items-center justify-center text-zinc-400 hover:text-green-400 transition-colors"
-        >
-          <CheckCircle className="h-6 w-6" />
-        </button>
+        {canComplete && (
+          <button
+            onClick={() => onRequestComplete(task)}
+            aria-label="Mark complete"
+            className="inline-flex items-center justify-center text-zinc-400 hover:text-green-400 transition-colors"
+          >
+            <CheckCircle className="h-6 w-6" />
+          </button>
+        )}
       </TableCell>
     </TableRow>
   )
@@ -138,9 +145,10 @@ interface RoomGroupTableProps {
   completedIds: Set<string>
   onRequestComplete: (task: CultivationTask) => void
   isOverdue: boolean
+  canComplete: boolean
 }
 
-function RoomGroupTable({ group, completedIds, onRequestComplete, isOverdue }: RoomGroupTableProps) {
+function RoomGroupTable({ group, completedIds, onRequestComplete, isOverdue, canComplete }: RoomGroupTableProps) {
   const visibleTasks = group.tasks.filter((t) => !completedIds.has(t.id))
   if (visibleTasks.length === 0) return null
 
@@ -172,6 +180,7 @@ function RoomGroupTable({ group, completedIds, onRequestComplete, isOverdue }: R
                 task={task}
                 onRequestComplete={onRequestComplete}
                 isOverdue={isOverdue}
+                canComplete={canComplete}
               />
             ))}
           </TableBody>
@@ -193,6 +202,7 @@ interface ColumnProps {
   completedIds: Set<string>
   onRequestComplete: (task: CultivationTask) => void
   isOverdue: boolean
+  canComplete: boolean
 }
 
 function TaskColumn({
@@ -205,6 +215,7 @@ function TaskColumn({
   completedIds,
   onRequestComplete,
   isOverdue,
+  canComplete,
 }: ColumnProps) {
   const allTaskCount = groups.reduce((n, g) => {
     return n + g.tasks.filter((t) => !completedIds.has(t.id)).length
@@ -231,6 +242,7 @@ function TaskColumn({
               completedIds={completedIds}
               onRequestComplete={onRequestComplete}
               isOverdue={isOverdue}
+              canComplete={canComplete}
             />
           ))
         )}
@@ -248,6 +260,7 @@ export default function CultivationTasksDisplayPage() {
   const [loading, setLoading] = useState(true)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [userId, setUserId] = useState<string>('')
+  const [userRole, setUserRole] = useState<UserRole | ''>('')
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set())
   const [confirmTask, setConfirmTask] = useState<CultivationTask | null>(null)
   const [confirming, setConfirming] = useState(false)
@@ -263,10 +276,15 @@ export default function CultivationTasksDisplayPage() {
     try {
       const parsed = JSON.parse(stored)
       setUserId(parsed.id ?? '')
+      setUserRole(parsed.role ?? '')
     } catch {
-      // malformed — ignore, completeTask will fail server-side
+      // malformed — ignore; canComplete defaults to false (fail closed) and
+      // completeTask will also fail server-side if somehow reached
     }
   }, [router])
+
+  // Fail-closed default: no role loaded yet (or malformed) means no complete button
+  const canComplete = userRole ? canCompleteCultivation(userRole) : false
 
   const fetchTasks = useCallback(async () => {
     try {
@@ -329,19 +347,34 @@ export default function CultivationTasksDisplayPage() {
   async function handleConfirmComplete() {
     if (!confirmTask || confirming) return
     setConfirming(true)
+    const taskTitle = confirmTask.title
     // Optimistic removal
     handleCompleted(confirmTask.id)
     setConfirmTask(null)
-    const result = await completeTask({
-      taskId: confirmTask.id,
-      completedBy: userId,
-      notes: null,
-    })
-    if (result.error) {
-      toast.error(`Failed to complete task: ${result.error}`)
+    try {
+      const result = await completeTask({
+        taskId: confirmTask.id,
+        completedBy: userId,
+        notes: null,
+      })
+      if (result.error) {
+        toast.error(`Could not complete "${taskTitle}" — it will reappear on the board. (${result.error})`, {
+          duration: 8000,
+        })
+        window.dispatchEvent(new CustomEvent('cultivation-task-revert'))
+      }
+    } catch (err) {
+      // Thrown/rejected promise (network error, stale deployment, etc.) — treat
+      // the same as a returned error so the optimistic hide always gets reverted
+      // and `confirming` never gets stuck true.
+      console.error('[cultivation-display/tasks] completeTask threw:', err)
+      toast.error(`Could not complete "${taskTitle}" — connection or server error. It will reappear on the board.`, {
+        duration: 8000,
+      })
       window.dispatchEvent(new CustomEvent('cultivation-task-revert'))
+    } finally {
+      setConfirming(false)
     }
-    setConfirming(false)
   }
 
   const overdueGroups = groupByRoom(overdueTasks)
@@ -379,6 +412,7 @@ export default function CultivationTasksDisplayPage() {
           completedIds={completedIds}
           onRequestComplete={handleRequestComplete}
           isOverdue={true}
+          canComplete={canComplete}
         />
         <TaskColumn
           title="Today"
@@ -390,6 +424,7 @@ export default function CultivationTasksDisplayPage() {
           completedIds={completedIds}
           onRequestComplete={handleRequestComplete}
           isOverdue={false}
+          canComplete={canComplete}
         />
       </div>
 
