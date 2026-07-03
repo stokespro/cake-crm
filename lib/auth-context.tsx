@@ -4,7 +4,7 @@ import { createContext, useContext, useState, useEffect, useCallback, ReactNode 
 import { createClient } from '@/lib/supabase/client';
 import { logoutAction } from '@/actions/auth';
 
-export type UserRole = 'admin' | 'management' | 'sales' | 'standard' | 'vault' | 'packaging' | 'agent';
+export type UserRole = 'admin' | 'management' | 'sales' | 'standard' | 'vault' | 'packaging' | 'agent' | 'grow';
 
 export interface SessionUser {
   id: string;
@@ -23,7 +23,7 @@ export function canViewSection(role: UserRole, section: string): boolean {
     products: ['admin', 'management', 'vault', 'packaging', 'standard'],
     communications: ['admin', 'management', 'sales', 'agent'],
     compliance: ['admin', 'management', 'vault', 'packaging'],
-    cultivation: ['admin', 'management', 'vault', 'packaging', 'standard'],
+    cultivation: ['admin', 'management', 'vault', 'packaging', 'standard', 'grow'],
     tasks: ['admin', 'management', 'sales', 'agent'],
     inventory: ['admin', 'management', 'vault', 'packaging', 'standard', 'sales', 'agent'],
     users: ['admin'],
@@ -61,7 +61,7 @@ export function canManageCultivation(role: UserRole): boolean {
 }
 
 export function canCompleteCultivation(role: UserRole): boolean {
-  return ['admin', 'management', 'vault', 'packaging'].includes(role);
+  return ['admin', 'management', 'vault', 'packaging', 'grow'].includes(role);
 }
 
 interface AuthContextType {

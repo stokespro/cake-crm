@@ -16,10 +16,10 @@ import type {
 // ---------------------------------------------------------------------------
 
 // All roles that can view cultivation (mirrors canViewSection('cultivation'))
-const VIEW_ROLES = ['admin', 'management', 'vault', 'packaging', 'standard']
+const VIEW_ROLES = ['admin', 'management', 'vault', 'packaging', 'standard', 'grow']
 
 // Roles that can complete/start tasks (mirrors canCompleteCultivation)
-const COMPLETE_ROLES = ['admin', 'management', 'vault', 'packaging']
+const COMPLETE_ROLES = ['admin', 'management', 'vault', 'packaging', 'grow']
 
 // Roles that can manage (create/edit/delete) cultivation data (mirrors canManageCultivation)
 const MANAGE_ROLES = ['admin', 'management']
@@ -200,7 +200,7 @@ export async function getCultivationUsers(): Promise<
   const { data, error } = await db
     .from('users')
     .select('id, name, role')
-    .in('role', ['admin', 'management', 'vault', 'packaging', 'standard'])
+    .in('role', ['admin', 'management', 'vault', 'packaging', 'standard', 'grow'])
     .order('name')
 
   if (error) {

@@ -208,6 +208,7 @@ export default function EditUserPage() {
                   <SelectItem value="agent">Agent</SelectItem>
                   <SelectItem value="vault">Vault</SelectItem>
                   <SelectItem value="packaging">Packaging</SelectItem>
+                  <SelectItem value="grow">Grow</SelectItem>
                   <SelectItem value="management">Management</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
                 </SelectContent>
@@ -217,6 +218,7 @@ export default function EditUserPage() {
                 <p><strong>Sales/Agent:</strong> Access to Dispensaries and Orders</p>
                 <p><strong>Vault:</strong> Vault, Packaging, Inventory, Products</p>
                 <p><strong>Packaging:</strong> Packaging, Materials, Inventory, Products</p>
+                <p><strong>Grow:</strong> Cultivation only — view and complete cultivation tasks, plus the cultivation wall-display monitor</p>
                 <p><strong>Management:</strong> Full access to all sections</p>
                 <p><strong>Admin:</strong> Full system access including user management</p>
               </div>
