@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
 import { getCultivationTasksForDisplay, completeTask } from '@/actions/cultivation'
+import { getCurrentSession } from '@/actions/auth'
 import { canCompleteCultivation, type UserRole } from '@/lib/auth-context'
 import { CheckCircle } from 'lucide-react'
 import {
@@ -283,6 +284,46 @@ export default function CultivationTasksDisplayPage() {
     }
   }, [router])
 
+  // Reconcile the cached role against the server. localStorage['crm-user'] is
+  // only ever written at PIN-login time — if an admin changes this user's
+  // role in the DB while they're still logged in (the normal case for a
+  // kiosk/wall-display tab left running for days), the cached role goes
+  // stale and canComplete below would keep evaluating against the OLD role
+  // forever, hiding the Mark Complete button even after the role gains
+  // permission. Re-check on mount and on every scheduled poll tick (below)
+  // so a long-running kiosk tab self-heals within one refresh cycle instead
+  // of requiring a manual log-out/log-in.
+  const syncSession = useCallback(async () => {
+    try {
+      const fresh = await getCurrentSession()
+      if (!fresh) return // no valid session cookie — fail soft, keep cached user as-is
+      setUserId((prev) => (prev !== fresh.id ? fresh.id : prev))
+      setUserRole((prev) => (prev !== fresh.role ? (fresh.role as UserRole) : prev))
+      try {
+        const stored = localStorage.getItem('crm-user')
+        const parsed = stored ? JSON.parse(stored) : {}
+        if (parsed.role !== fresh.role || parsed.id !== fresh.id || parsed.name !== fresh.name) {
+          localStorage.setItem(
+            'crm-user',
+            JSON.stringify({ id: fresh.id, name: fresh.name, role: fresh.role })
+          )
+        }
+      } catch {
+        // malformed existing value — overwrite with the known-good server copy
+        localStorage.setItem(
+          'crm-user',
+          JSON.stringify({ id: fresh.id, name: fresh.name, role: fresh.role })
+        )
+      }
+    } catch (err) {
+      console.error('[cultivation-display/tasks] session sync failed:', err)
+    }
+  }, [])
+
+  useEffect(() => {
+    syncSession()
+  }, [syncSession])
+
   // Fail-closed default: no role loaded yet (or malformed) means no complete button
   const canComplete = userRole ? canCompleteCultivation(userRole) : false
 
@@ -310,18 +351,20 @@ export default function CultivationTasksDisplayPage() {
     fetchTasks()
   }, [fetchTasks])
 
-  // Auto-refresh via chained setTimeout (mirrors packaging board pattern)
+  // Auto-refresh via chained setTimeout (mirrors packaging board pattern).
+  // Session sync rides along on the same cadence so a kiosk tab left running
+  // for days picks up role changes without needing a manual reload.
   useEffect(() => {
     function schedule() {
       refreshTimerRef.current = setTimeout(() => {
-        fetchTasks().then(schedule)
+        Promise.all([fetchTasks(), syncSession()]).then(schedule)
       }, REFRESH_INTERVAL)
     }
     schedule()
     return () => {
       if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current)
     }
-  }, [fetchTasks])
+  }, [fetchTasks, syncSession])
 
   // Listen for revert events (action failure) — trigger immediate refetch
   useEffect(() => {

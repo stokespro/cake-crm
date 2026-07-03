@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { logoutAction } from '@/actions/auth';
+import { logoutAction, getCurrentSession } from '@/actions/auth';
 
 export type UserRole = 'admin' | 'management' | 'sales' | 'standard' | 'vault' | 'packaging' | 'agent' | 'grow';
 
@@ -91,6 +91,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       // Ignore errors
     }
+
+    // Reconcile the cached role against the server. localStorage is only
+    // ever written at login time — if a user's role changes server-side
+    // (e.g. an admin edits it) while they're still logged in, the cached
+    // copy goes stale and role-gated UI (buttons, nav) can be wrong until
+    // they explicitly log out and back in. `getCurrentSession()` re-reads
+    // the role fresh via the signed session cookie; if it disagrees with
+    // what's cached, resync both state and localStorage. Fail-soft: if the
+    // server call errors or returns no session, keep the existing cached
+    // user as-is (don't force a logout over a transient network blip).
+    getCurrentSession()
+      .then((fresh) => {
+        if (!fresh) return;
+        setUser((prev) => {
+          if (prev && prev.id === fresh.id && prev.role === fresh.role && prev.name === fresh.name) {
+            return prev;
+          }
+          const next = { id: fresh.id, name: fresh.name, role: fresh.role as UserRole };
+          localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(next));
+          return next;
+        });
+      })
+      .catch((err) => console.error('[auth] getCurrentSession reconciliation failed:', err));
 
     supabase.auth.getSession().then(() => {
       setIsLoading(false);
