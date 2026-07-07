@@ -133,7 +133,7 @@ export function RoomCard({
                   )}
                   {hasMilestones && (
                     <div
-                      className={`flex flex-wrap gap-x-4 pt-1 ${tv ? 'text-sm text-zinc-400' : 'text-[11px] text-muted-foreground'}`}
+                      className={`flex flex-wrap justify-between gap-x-4 pt-1 ${tv ? 'text-sm text-zinc-400' : 'text-[11px] text-muted-foreground'}`}
                     >
                       <div className="flex flex-col leading-relaxed">
                         {cycle.dome_start && (
@@ -148,7 +148,7 @@ export function RoomCard({
                           </span>
                         )}
                       </div>
-                      <div className="flex flex-col leading-relaxed">
+                      <div className="flex flex-col leading-relaxed text-right">
                         {cycle.harvest_date && (
                           <span>
                             Harvest: {format(parseLocalDate(cycle.harvest_date), 'MMM d')}
