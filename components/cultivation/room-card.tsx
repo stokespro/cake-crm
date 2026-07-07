@@ -133,35 +133,31 @@ export function RoomCard({
                   )}
                   {hasMilestones && (
                     <div
-                      className={`leading-relaxed pt-1 ${tv ? 'text-sm text-zinc-400' : 'text-[11px] text-muted-foreground'}`}
+                      className={`flex flex-wrap gap-x-4 pt-1 ${tv ? 'text-sm text-zinc-400' : 'text-[11px] text-muted-foreground'}`}
                     >
-                      {cycle.dome_start && (
-                        <span>Dome: {format(parseLocalDate(cycle.dome_start), 'MMM d')}</span>
-                      )}
-                      {cycle.veg_start && (
-                        <span>
-                          {' '}
-                          &rarr; Veg: {format(parseLocalDate(cycle.veg_start), 'MMM d')}
-                        </span>
-                      )}
-                      {cycle.flower_start && (
-                        <span>
-                          {' '}
-                          &rarr; Flower: {format(parseLocalDate(cycle.flower_start), 'MMM d')}
-                        </span>
-                      )}
-                      {cycle.harvest_date && (
-                        <span>
-                          {' '}
-                          &rarr; Harvest: {format(parseLocalDate(cycle.harvest_date), 'MMM d')}
-                        </span>
-                      )}
-                      {cycle.trim_start && (
-                        <span>
-                          {' '}
-                          &rarr; Trim: {format(parseLocalDate(cycle.trim_start), 'MMM d')}
-                        </span>
-                      )}
+                      <div className="flex flex-col leading-relaxed">
+                        {cycle.dome_start && (
+                          <span>Dome: {format(parseLocalDate(cycle.dome_start), 'MMM d')}</span>
+                        )}
+                        {cycle.veg_start && (
+                          <span>Veg: {format(parseLocalDate(cycle.veg_start), 'MMM d')}</span>
+                        )}
+                        {cycle.flower_start && (
+                          <span>
+                            Flower: {format(parseLocalDate(cycle.flower_start), 'MMM d')}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex flex-col leading-relaxed">
+                        {cycle.harvest_date && (
+                          <span>
+                            Harvest: {format(parseLocalDate(cycle.harvest_date), 'MMM d')}
+                          </span>
+                        )}
+                        {cycle.trim_start && (
+                          <span>Trim: {format(parseLocalDate(cycle.trim_start), 'MMM d')}</span>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
