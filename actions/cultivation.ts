@@ -94,6 +94,32 @@ export async function getRoomCycleHistory(roomId: string): Promise<
 // Cultivation Tasks — reads
 // ---------------------------------------------------------------------------
 
+// Embed used to pull the full multi-assignee list onto a cultivation_tasks row.
+// FK hint disambiguates against cultivation_task_assignees_assigned_by_fkey,
+// which also targets users.
+const ASSIGNEES_EMBED =
+  'assignees:cultivation_task_assignees(user:users!cultivation_task_assignees_user_id_fkey(id, name))'
+
+interface AssigneesEmbedRow {
+  assignees?: { user: { id: string; name: string } | null }[] | null
+}
+
+/**
+ * Flatten the `{ user: {...} }[]` shape PostgREST returns for the
+ * cultivation_task_assignees embed into a plain `{ id, name }[]` on
+ * `assignees`, for easier consumption in the UI.
+ */
+function flattenAssignees<T extends AssigneesEmbedRow>(
+  rows: T[]
+): (T & { assignees: { id: string; name: string }[] })[] {
+  return rows.map((row) => ({
+    ...row,
+    assignees: (row.assignees ?? [])
+      .map((a) => a.user)
+      .filter((u): u is { id: string; name: string } => u != null),
+  }))
+}
+
 export async function getCultivationTasks(): Promise<
   { data: unknown[]; error?: never } | { data?: never; error: string }
 > {
@@ -104,7 +130,7 @@ export async function getCultivationTasks(): Promise<
   const { data, error } = await db
     .from('cultivation_tasks')
     .select(
-      '*, room:grow_rooms(id, room_name, room_number), assigned_user:users!cultivation_tasks_assigned_to_fkey(id, name), completed_by_user:users!cultivation_tasks_completed_by_fkey(id, name)'
+      `*, room:grow_rooms(id, room_name, room_number), assigned_user:users!cultivation_tasks_assigned_to_fkey(id, name), completed_by_user:users!cultivation_tasks_completed_by_fkey(id, name), ${ASSIGNEES_EMBED}`
     )
     .or('frequency.is.null,recurring_parent_id.not.is.null')
     .order('due_date')
@@ -113,7 +139,8 @@ export async function getCultivationTasks(): Promise<
     console.error('[cultivation] getCultivationTasks error:', error)
     return { error: 'Failed to load tasks' }
   }
-  return { data: data ?? [] }
+
+  return { data: flattenAssignees(data ?? []) }
 }
 
 export async function getCultivationTaskSummary(): Promise<
@@ -145,13 +172,19 @@ export async function getMyTodayTasks(todayStr: string): Promise<
   if (!auth.authorized) return { error: auth.reason }
 
   const db = await createServiceClient()
+  // Inner-join on cultivation_task_assignees so a task shows for EVERY
+  // assignee, not just the (deprecated) single assigned_to column. Filtering
+  // on an !inner-embedded resource restricts BOTH the parent rows (only
+  // tasks where this user is an assignee) AND narrows the embedded rows
+  // themselves to the matching assignee — that's fine here since this
+  // endpoint doesn't render the full assignee list (see dashboard page).
+  // Use server-side verified userId from session — never trust a client-passed id
   const { data, error } = await db
     .from('cultivation_tasks')
     .select(
-      '*, room:grow_rooms(id, room_name, room_number), assigned_user:users!cultivation_tasks_assigned_to_fkey(id, name)'
+      `*, room:grow_rooms(id, room_name, room_number), assigned_user:users!cultivation_tasks_assigned_to_fkey(id, name), cultivation_task_assignees!inner(user_id)`
     )
-    // Use server-side verified userId from session — never trust a client-passed id
-    .eq('assigned_to', auth.session.userId)
+    .eq('cultivation_task_assignees.user_id', auth.session.userId)
     .in('status', ['pending', 'in_progress'])
     .or('frequency.is.null,recurring_parent_id.not.is.null')
     .lte('due_date', todayStr)
@@ -162,6 +195,7 @@ export async function getMyTodayTasks(todayStr: string): Promise<
     console.error('[cultivation] getMyTodayTasks error:', error)
     return { error: 'Failed to load your tasks' }
   }
+
   return { data: data ?? [] }
 }
 
@@ -175,7 +209,7 @@ export async function getCultivationTasksForDisplay(todayStr: string): Promise<
   const { data, error } = await db
     .from('cultivation_tasks')
     .select(
-      '*, room:grow_rooms(id, room_name, room_number), assigned_user:users!cultivation_tasks_assigned_to_fkey(id, name)'
+      `*, room:grow_rooms(id, room_name, room_number), assigned_user:users!cultivation_tasks_assigned_to_fkey(id, name), ${ASSIGNEES_EMBED}`
     )
     .in('status', ['pending', 'in_progress'])
     .lte('due_date', todayStr)
@@ -187,8 +221,15 @@ export async function getCultivationTasksForDisplay(todayStr: string): Promise<
     console.error('[cultivation] getCultivationTasksForDisplay error:', error)
     return { error: 'Failed to load tasks for display' }
   }
-  return { data: data ?? [] }
+
+  return { data: flattenAssignees(data ?? []) }
 }
+
+// Eligible pool for the cultivation task assignee picker. Deliberately
+// narrower than VIEW_ROLES (which also covers read-only visibility for
+// vault/packaging/standard) — only roles that actually do grow work or
+// manage the cultivation program should be assignable.
+const ASSIGNABLE_ROLES = ['grow', 'management', 'admin']
 
 export async function getCultivationUsers(): Promise<
   { data: { id: string; name: string; role: string }[]; error?: never } | { data?: never; error: string }
@@ -200,7 +241,7 @@ export async function getCultivationUsers(): Promise<
   const { data, error } = await db
     .from('users')
     .select('id, name, role')
-    .in('role', ['admin', 'management', 'vault', 'packaging', 'standard', 'grow'])
+    .in('role', ASSIGNABLE_ROLES)
     .order('name')
 
   if (error) {
@@ -286,7 +327,7 @@ export interface CreateTaskInput {
   room_id: string | null
   due_date: string
   priority: TaskPriority
-  assigned_to: string | null
+  assignee_ids: string[]
   estimated_minutes: number | null
   task_type: string
   frequency: string | null
@@ -300,16 +341,38 @@ export async function createTask(input: CreateTaskInput): Promise<
   const auth = await requireRole(MANAGE_ROLES)
   if (!auth.authorized) return { error: auth.reason }
 
+  const { assignee_ids, ...taskFields } = input
   const db = await createServiceClient()
-  const { error } = await db.from('cultivation_tasks').insert({
-    ...input,
-    status: 'pending',
-  })
+  const { data: newTask, error } = await db
+    .from('cultivation_tasks')
+    .insert({
+      ...taskFields,
+      // Legacy compat — Bud Slack agent still reads assigned_to directly.
+      assigned_to: assignee_ids[0] ?? null,
+      status: 'pending',
+    })
+    .select('id')
+    .single()
 
-  if (error) {
+  if (error || !newTask) {
     console.error('[cultivation] createTask error:', error)
     return { error: 'Failed to create task' }
   }
+
+  if (assignee_ids.length > 0) {
+    const { error: assigneeErr } = await db.from('cultivation_task_assignees').insert(
+      assignee_ids.map((userId) => ({
+        task_id: newTask.id,
+        user_id: userId,
+        assigned_by: input.created_by,
+      }))
+    )
+    if (assigneeErr) {
+      console.error('[cultivation] createTask assignee insert error:', assigneeErr)
+      return { error: 'Task created, but failed to save assignees' }
+    }
+  }
+
   return {}
 }
 
@@ -319,7 +382,7 @@ export interface UpdateTaskInput {
   room_id: string | null
   due_date: string
   priority: TaskPriority
-  assigned_to: string | null
+  assignee_ids: string[]
   estimated_minutes: number | null
   task_type: string
   frequency: string | null
@@ -331,17 +394,51 @@ export async function updateTask(taskId: string, input: UpdateTaskInput): Promis
 > {
   const auth = await requireRole(MANAGE_ROLES)
   if (!auth.authorized) return { error: auth.reason }
+  // Use server-side verified userId from session — never trust a client-passed id
+  const actingUserId = auth.session.userId
 
+  const { assignee_ids, ...taskFields } = input
   const db = await createServiceClient()
   const { error } = await db
     .from('cultivation_tasks')
-    .update({ ...input, updated_at: new Date().toISOString() })
+    .update({
+      ...taskFields,
+      // Legacy compat — Bud Slack agent still reads assigned_to directly.
+      assigned_to: assignee_ids[0] ?? null,
+      updated_at: new Date().toISOString(),
+    })
     .eq('id', taskId)
 
   if (error) {
     console.error('[cultivation] updateTask error:', error)
     return { error: 'Failed to update task' }
   }
+
+  // Full-replace semantics: clear existing assignees, then re-insert.
+  const { error: deleteErr } = await db
+    .from('cultivation_task_assignees')
+    .delete()
+    .eq('task_id', taskId)
+
+  if (deleteErr) {
+    console.error('[cultivation] updateTask assignee clear error:', deleteErr)
+    return { error: 'Task updated, but failed to clear previous assignees' }
+  }
+
+  if (assignee_ids.length > 0) {
+    const { error: assigneeErr } = await db.from('cultivation_task_assignees').insert(
+      assignee_ids.map((userId) => ({
+        task_id: taskId,
+        user_id: userId,
+        assigned_by: actingUserId,
+      }))
+    )
+    if (assigneeErr) {
+      console.error('[cultivation] updateTask assignee insert error:', assigneeErr)
+      return { error: 'Task updated, but failed to save assignees' }
+    }
+  }
+
   return {}
 }
 
@@ -968,6 +1065,7 @@ export async function generateRecurringTasksAction(): Promise<
           due_date: dueDate,
           priority: def.priority,
           estimated_minutes: def.estimated_minutes,
+          // Legacy compat — Bud Slack agent still reads assigned_to directly.
           assigned_to: def.assigned_to,
           status: 'pending',
           recurring_parent_id: def.id,
@@ -977,15 +1075,45 @@ export async function generateRecurringTasksAction(): Promise<
 
       if (toInsert.length === 0) continue
 
-      const { error: insertError } = await db.from('cultivation_tasks').insert(toInsert)
+      // Read the parent recurring definition's full assignee set once, so
+      // every generated child inherits the same multi-assignee list (not
+      // just the legacy single assigned_to column).
+      const { data: parentAssignees } = await db
+        .from('cultivation_task_assignees')
+        .select('user_id, assigned_by')
+        .eq('task_id', def.id)
 
-      if (!insertError) {
+      const { data: insertedTasks, error: insertError } = await db
+        .from('cultivation_tasks')
+        .insert(toInsert)
+        .select('id')
+
+      if (!insertError && insertedTasks) {
         generated += toInsert.length
         const maxDate = toInsert[toInsert.length - 1].due_date
         await db
           .from('cultivation_tasks')
           .update({ last_generated_date: maxDate })
           .eq('id', def.id)
+
+        if (parentAssignees && parentAssignees.length > 0) {
+          const assigneeRows = insertedTasks.flatMap((child: { id: string }) =>
+            parentAssignees.map((pa: { user_id: string; assigned_by: string | null }) => ({
+              task_id: child.id,
+              user_id: pa.user_id,
+              assigned_by: pa.assigned_by,
+            }))
+          )
+          const { error: assigneeErr } = await db
+            .from('cultivation_task_assignees')
+            .insert(assigneeRows)
+          if (assigneeErr) {
+            console.error(
+              '[cultivation] generateRecurringTasksAction assignee copy error:',
+              assigneeErr
+            )
+          }
+        }
       }
     }
 

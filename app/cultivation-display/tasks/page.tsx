@@ -70,6 +70,25 @@ function groupByRoom(tasks: CultivationTask[]): Array<{ roomName: string; tasks:
   return groups
 }
 
+/**
+ * First-name-only, comma-joined assignee label for the narrow, single-line
+ * "Assigned To" column on the wall-monitor display. Falls back to the
+ * legacy single assignee for pre-migration tasks. Truncates to 2 names with
+ * a "+N" suffix to keep the column readable at a glance on a TV.
+ */
+function assigneeDisplayLabel(task: CultivationTask): string {
+  const names =
+    task.assignees && task.assignees.length > 0
+      ? task.assignees.map((a) => a.name.split(' ')[0])
+      : task.assigned_user
+        ? [task.assigned_user.name.split(' ')[0]]
+        : []
+
+  if (names.length === 0) return 'Unassigned'
+  if (names.length <= 2) return names.join(', ')
+  return `${names.slice(0, 2).join(', ')} +${names.length - 2}`
+}
+
 function phaseDayLabel(task: CultivationTask): string {
   if (task.phase && task.day_number != null) {
     const label =
@@ -115,9 +134,15 @@ function TaskRow({ task, onRequestComplete, isOverdue, canComplete }: TaskRowPro
         {phaseDayLabel(task)}
       </TableCell>
 
-      {/* Assigned To */}
+      {/* Assigned To — comma-joined first names, "+N" fallback for 3+ */}
       <TableCell className="px-1 py-1 text-base text-zinc-400 whitespace-nowrap overflow-hidden">
-        <span className="block truncate">{task.assigned_user?.name ?? 'Unassigned'}</span>
+        <span className="block truncate" title={
+          task.assignees && task.assignees.length > 0
+            ? task.assignees.map((a) => a.name).join(', ')
+            : task.assigned_user?.name ?? 'Unassigned'
+        }>
+          {assigneeDisplayLabel(task)}
+        </span>
       </TableCell>
 
       {/* Complete icon button — opens confirmation dialog.

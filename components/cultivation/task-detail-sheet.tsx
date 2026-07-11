@@ -136,11 +136,21 @@ export function TaskDetailSheet({
 
             <div className="flex items-start gap-2">
               <User className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
-              <div>
+              <div className="min-w-0">
                 <span className="text-muted-foreground">Assigned to: </span>
-                <span className="font-medium">
-                  {task.assigned_user?.name || 'Unassigned'}
-                </span>
+                {task.assignees && task.assignees.length > 0 ? (
+                  <span className="inline-flex flex-wrap gap-1 align-middle">
+                    {task.assignees.map((a) => (
+                      <Badge key={a.id} variant="outline" className="font-medium">
+                        {a.name}
+                      </Badge>
+                    ))}
+                  </span>
+                ) : (
+                  <span className="font-medium">
+                    {task.assigned_user?.name || 'Unassigned'}
+                  </span>
+                )}
               </div>
             </div>
 
