@@ -100,6 +100,14 @@ interface UserOption {
   role: string
 }
 
+/** Comma-joined assignee names, falling back to the legacy single assignee. */
+function assigneeNames(task: CultivationTask): string {
+  if (task.assignees && task.assignees.length > 0) {
+    return task.assignees.map((a) => a.name).join(', ')
+  }
+  return task.assigned_user?.name || 'Unassigned'
+}
+
 export default function CultivationTasksPage() {
   const { user } = useAuth()
   const [tasks, setTasks] = useState<CultivationTask[]>([])
@@ -205,9 +213,9 @@ export default function CultivationTasksPage() {
 
     // Assignee
     if (filterAssignee === 'unassigned') {
-      result = result.filter((t) => !t.assigned_to)
+      result = result.filter((t) => !t.assignees || t.assignees.length === 0)
     } else if (filterAssignee !== 'all') {
-      result = result.filter((t) => t.assigned_to === filterAssignee)
+      result = result.filter((t) => t.assignees?.some((a) => a.id === filterAssignee))
     }
 
     // Date range
@@ -220,7 +228,7 @@ export default function CultivationTasksPage() {
 
     // My Tasks filter
     if (viewMode === 'mine' && user) {
-      result = result.filter((t) => t.assigned_to === user.id)
+      result = result.filter((t) => t.assignees?.some((a) => a.id === user.id))
     }
 
     return result
@@ -629,7 +637,9 @@ export default function CultivationTasksPage() {
                         {format(parseLocalDate(task.due_date), 'MMM d, yyyy')}
                       </span>
                     </TableCell>
-                    <TableCell>{task.assigned_user?.name || 'Unassigned'}</TableCell>
+                    <TableCell className="max-w-[180px] truncate" title={assigneeNames(task)}>
+                      {assigneeNames(task)}
+                    </TableCell>
                     <TableCell>
                       <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
                         {canComplete &&
@@ -716,8 +726,8 @@ export default function CultivationTasksPage() {
                   <span className={taskOverdue ? 'text-red-600 font-medium' : 'text-muted-foreground'}>
                     Due: {format(parseLocalDate(task.due_date), 'MMM d, yyyy')}
                   </span>
-                  <span className="text-muted-foreground">
-                    {task.assigned_user?.name || 'Unassigned'}
+                  <span className="text-muted-foreground truncate max-w-[50%]" title={assigneeNames(task)}>
+                    {assigneeNames(task)}
                   </span>
                 </div>
 

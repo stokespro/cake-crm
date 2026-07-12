@@ -500,6 +500,63 @@ export type Database = {
           },
         ]
       }
+      cultivation_task_assignees: {
+        Row: {
+          assigned_at: string
+          assigned_by: string | null
+          task_id: string
+          user_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by?: string | null
+          task_id: string
+          user_id: string
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string | null
+          task_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cultivation_task_assignees_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cultivation_task_assignees_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cultivation_task_assignees_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "cultivation_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cultivation_task_assignees_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cultivation_task_assignees_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cultivation_tasks: {
         Row: {
           assigned_group: string | null
@@ -852,6 +909,45 @@ export type Database = {
           },
         ]
       }
+      finance_agent_write_log: {
+        Row: {
+          action: string
+          agent: string
+          created_at: string
+          id: string
+          payload: Json | null
+          platform: string | null
+          record_id: string | null
+          requester: string | null
+          summary: string
+          table_name: string
+        }
+        Insert: {
+          action: string
+          agent?: string
+          created_at?: string
+          id?: string
+          payload?: Json | null
+          platform?: string | null
+          record_id?: string | null
+          requester?: string | null
+          summary: string
+          table_name: string
+        }
+        Update: {
+          action?: string
+          agent?: string
+          created_at?: string
+          id?: string
+          payload?: Json | null
+          platform?: string | null
+          record_id?: string | null
+          requester?: string | null
+          summary?: string
+          table_name?: string
+        }
+        Relationships: []
+      }
       finance_bill_templates: {
         Row: {
           amount: number | null
@@ -1002,6 +1098,7 @@ export type Database = {
           notes: string | null
           recorded_by: string | null
           snapshot_date: string
+          source: string
         }
         Insert: {
           cash_on_hand: number
@@ -1010,6 +1107,7 @@ export type Database = {
           notes?: string | null
           recorded_by?: string | null
           snapshot_date: string
+          source?: string
         }
         Update: {
           cash_on_hand?: number
@@ -1018,6 +1116,7 @@ export type Database = {
           notes?: string | null
           recorded_by?: string | null
           snapshot_date?: string
+          source?: string
         }
         Relationships: [
           {
@@ -1036,8 +1135,79 @@ export type Database = {
           },
         ]
       }
+      finance_reconciliation_log: {
+        Row: {
+          applied_at: string | null
+          applied_by: string | null
+          bank_amount: number | null
+          bank_bs_id: number
+          bank_date: string | null
+          bank_description: string | null
+          bill_amount: number | null
+          bill_id: string | null
+          created_at: string
+          id: string
+          match_type: string
+          status: string
+          suggested_payment_method: string | null
+        }
+        Insert: {
+          applied_at?: string | null
+          applied_by?: string | null
+          bank_amount?: number | null
+          bank_bs_id: number
+          bank_date?: string | null
+          bank_description?: string | null
+          bill_amount?: number | null
+          bill_id?: string | null
+          created_at?: string
+          id?: string
+          match_type: string
+          status: string
+          suggested_payment_method?: string | null
+        }
+        Update: {
+          applied_at?: string | null
+          applied_by?: string | null
+          bank_amount?: number | null
+          bank_bs_id?: number
+          bank_date?: string | null
+          bank_description?: string | null
+          bill_amount?: number | null
+          bill_id?: string | null
+          created_at?: string
+          id?: string
+          match_type?: string
+          status?: string
+          suggested_payment_method?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_reconciliation_log_applied_by_fkey"
+            columns: ["applied_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_reconciliation_log_applied_by_fkey"
+            columns: ["applied_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_reconciliation_log_bill_id_fkey"
+            columns: ["bill_id"]
+            isOneToOne: false
+            referencedRelation: "finance_bills"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       finance_vendors: {
         Row: {
+          bank_keywords: string | null
           category: string | null
           contact_info: string | null
           created_at: string
@@ -1048,6 +1218,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          bank_keywords?: string | null
           category?: string | null
           contact_info?: string | null
           created_at?: string
@@ -1058,6 +1229,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          bank_keywords?: string | null
           category?: string | null
           contact_info?: string | null
           created_at?: string
@@ -2749,6 +2921,34 @@ export type Database = {
         Args: { p_order_id: string }
         Returns: number
       }
+      get_bank_balance: {
+        Args: never
+        Returns: {
+          account_id: string
+          account_name: string
+          account_number: string
+          as_of_date: string
+          available_balance: number
+          bank: string
+          current_balance: number
+          pending_balance: number
+        }[]
+      }
+      get_bank_transactions: {
+        Args: { since_date?: string }
+        Returns: {
+          amount: number
+          bs_id: number
+          category: string
+          description: string
+          id: string
+          merchant_name: string
+          original_description: string
+          txn_date: string
+          type: string
+        }[]
+      }
+      get_banksync_api_key: { Args: never; Returns: string }
       get_commission_rate:
         | {
             Args: {
@@ -2784,12 +2984,53 @@ export type Database = {
           units_per_case: number
         }[]
       }
+      get_untracked_bank_transactions: {
+        Args: never
+        Returns: {
+          amount: number
+          bs_id: number
+          category: string
+          description: string
+          id: string
+          merchant_name: string
+          original_description: string
+          txn_date: string
+          type: string
+        }[]
+      }
+      reconcile_cleared_checks: {
+        Args: never
+        Returns: {
+          already_paid_count: number
+          auto_applied_count: number
+          checked_count: number
+          mismatch_count: number
+          no_bill_match: number
+        }[]
+      }
+      reconcile_non_check_debits: {
+        Args: never
+        Returns: {
+          proposed_count: number
+          scanned_count: number
+          skipped_count: number
+        }[]
+      }
       refresh_sku_in_stock_by_id: {
         Args: { p_sku_id: string }
         Returns: undefined
       }
+      run_daily_reconciliation: {
+        Args: never
+        Returns: {
+          check_auto_applied: number
+          check_mismatch: number
+          noncheck_proposed: number
+        }[]
+      }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      sync_bank_snapshot_to_finance: { Args: never; Returns: undefined }
     }
     Enums: {
       [_ in never]: never
@@ -2922,13 +3163,6 @@ export const Constants = {
     Enums: {},
   },
 } as const
-
-
-// =============================================================
-// App-level types (hand-maintained — preserved from pre-generation)
-// These are used throughout the codebase for component props,
-// server action return types, and local type safety.
-// =============================================================
 
 export type UserRole = 'agent' | 'management' | 'admin' | 'packaging' | 'vault' | 'grow'
 export type TaskStatus = 'pending' | 'complete'

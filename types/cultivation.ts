@@ -103,6 +103,7 @@ export interface CultivationTask {
   due_date: string
   priority: TaskPriority
   estimated_minutes: number | null
+  /** @deprecated Use `assignees` instead. Kept for legacy compat — Bud Slack agent still reads this column. Server actions keep it in sync as assignees[0]. */
   assigned_to: string | null
   assigned_group: string | null
   status: CultivationTaskStatus
@@ -119,6 +120,9 @@ export interface CultivationTask {
   updated_at: string
   // Joined
   room?: GrowRoom
+  /** @deprecated Use `assignees` instead. Kept for legacy compat (single-assignee join). */
   assigned_user?: { id: string; name: string }
   completed_by_user?: { id: string; name: string }
+  /** Full multi-assignee list, via cultivation_task_assignees. */
+  assignees?: { id: string; name: string }[]
 }

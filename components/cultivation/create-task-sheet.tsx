@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Select,
   SelectContent,
@@ -54,7 +55,7 @@ export function CreateTaskSheet({
   const [roomId, setRoomId] = useState<string>('none')
   const [dueDate, setDueDate] = useState('')
   const [priority, setPriority] = useState<TaskPriority>('medium')
-  const [assignedTo, setAssignedTo] = useState<string>('unassigned')
+  const [assigneeIds, setAssigneeIds] = useState<string[]>([])
   const [estimatedMinutes, setEstimatedMinutes] = useState('')
   const [frequency, setFrequency] = useState<string>('')
   const [dayOfWeek, setDayOfWeek] = useState<string>('')
@@ -69,7 +70,15 @@ export function CreateTaskSheet({
       setRoomId(task.room_id || 'none')
       setDueDate(task.due_date)
       setPriority(task.priority)
-      setAssignedTo(task.assigned_to || 'unassigned')
+      // Prefer the full assignee list; fall back to the legacy single
+      // assigned_to for tasks created before this migration.
+      setAssigneeIds(
+        task.assignees && task.assignees.length > 0
+          ? task.assignees.map((a) => a.id)
+          : task.assigned_to
+            ? [task.assigned_to]
+            : []
+      )
       setEstimatedMinutes(task.estimated_minutes?.toString() || '')
       setFrequency(task.frequency || '')
       setDayOfWeek(task.day_of_week?.toString() || '')
@@ -79,12 +88,18 @@ export function CreateTaskSheet({
       setRoomId('none')
       setDueDate('')
       setPriority('medium')
-      setAssignedTo('unassigned')
+      setAssigneeIds([])
       setEstimatedMinutes('')
       setFrequency('')
       setDayOfWeek('')
     }
   }, [task, open])
+
+  function toggleAssignee(userId: string, checked: boolean) {
+    setAssigneeIds((prev) =>
+      checked ? [...prev, userId] : prev.filter((id) => id !== userId)
+    )
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -106,7 +121,7 @@ export function CreateTaskSheet({
       room_id: roomId === 'none' ? null : roomId,
       due_date: dueDate,
       priority,
-      assigned_to: assignedTo === 'unassigned' ? null : assignedTo,
+      assignee_ids: assigneeIds,
       estimated_minutes: estimatedMinutes ? parseInt(estimatedMinutes) : null,
       frequency: frequency && frequency !== 'none' ? frequency : null,
       day_of_week: dayOfWeek ? parseInt(dayOfWeek) : null,
@@ -257,20 +272,38 @@ export function CreateTaskSheet({
           )}
 
           <div className="space-y-2">
-            <Label htmlFor="task-assignee">Assigned To</Label>
-            <Select value={assignedTo} onValueChange={setAssignedTo}>
-              <SelectTrigger id="task-assignee">
-                <SelectValue placeholder="Select assignee" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="unassigned">Unassigned</SelectItem>
-                {users.map((u) => (
-                  <SelectItem key={u.id} value={u.id}>
-                    {u.name}{u.role ? <span className="text-muted-foreground text-xs ml-1">({u.role})</span> : null}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label>Assigned To</Label>
+            {users.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No eligible users found.</p>
+            ) : (
+              <div className="border rounded-md divide-y max-h-64 overflow-y-auto">
+                {users.map((u) => {
+                  const checked = assigneeIds.includes(u.id)
+                  return (
+                    <label
+                      key={u.id}
+                      htmlFor={`task-assignee-${u.id}`}
+                      className="flex items-center gap-3 px-3 py-2.5 cursor-pointer active:bg-muted/50"
+                    >
+                      <Checkbox
+                        id={`task-assignee-${u.id}`}
+                        checked={checked}
+                        onCheckedChange={(v) => toggleAssignee(u.id, v === true)}
+                      />
+                      <span className="text-sm">
+                        {u.name}
+                        {u.role ? (
+                          <span className="text-muted-foreground text-xs ml-1">({u.role})</span>
+                        ) : null}
+                      </span>
+                    </label>
+                  )
+                })}
+              </div>
+            )}
+            {assigneeIds.length === 0 && (
+              <p className="text-xs text-muted-foreground">No one selected — task will be unassigned.</p>
+            )}
           </div>
 
           <div className="space-y-2">
