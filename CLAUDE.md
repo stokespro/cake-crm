@@ -64,7 +64,7 @@ Always say "Delegating to [agent name]..." so Joshua can see the process.
 ## Project context
 
 **What this is:**
-cake-crm started as a standalone CRM but has evolved into the unified CAKE Platform — a single app covering vault inventory, packaging tasks, orders, dispensary management, communications, and sales commissions. It replaced three separate apps (vault-inventory, packaging dashboard, CRM) under one codebase pointed at a single Supabase project.
+cake-app started as a standalone CRM but has evolved into the unified CAKE Platform — a single app covering vault inventory, packaging tasks, orders, dispensary management, communications, and sales commissions. It replaced three separate apps (vault-inventory, packaging dashboard, CRM) under one codebase pointed at a single Supabase project.
 
 **What's built and working:**
 
