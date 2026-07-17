@@ -102,7 +102,7 @@ cake-app started as a standalone CRM but has evolved into the unified CAKE Platf
 
 4. **Vitest config missing** — The `npm test` script runs `vitest` but no `vitest.config.ts` or `vitest.config.js` exists in the repo. Testing infrastructure is incomplete.
 
-5. **Monorepo** — Phase 4 goal not complete. Packaging TV display (at process.cakeoklahoma.com) and cake-crm are still separate repos. No monorepo setup exists (no `pnpm-workspace.yaml`, no Turborepo config).
+5. **Monorepo** — Phase 4 goal not complete. Packaging TV display (at process.cakeoklahoma.com) and cake-app are still separate repos. No monorepo setup exists (no `pnpm-workspace.yaml`, no Turborepo config).
 
 6. **Deprecate cake-crm Supabase project** — Old Supabase project `jwsidjgsjohhrntxdljp` is still active (mentioned in todos.md Phase 3). Vault project (`spkimmrtaxwnysjqkxix`) is the live one. Old project should be archived/deleted.
 

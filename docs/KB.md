@@ -1,6 +1,6 @@
 # CAKE Platform Knowledge Base
 
-> Detailed technical reference for the unified CAKE Platform (cake-crm repo).
+> Detailed technical reference for the unified CAKE Platform (cake-app repo).
 > Complements `CLAUDE.md` -- read that first for project overview, conventions, and business context.
 > Last updated: 2026-03-31
 
@@ -508,7 +508,7 @@ All defined in `lib/auth-context.tsx`:
 | 4 | Build errors ignored | `next.config.ts` | TS/ESLint errors don't block deploys | Consider enabling once codebase stabilizes |
 | 5 | No `.env.example` | Project root | New developers must manually find env vars | Create `.env.example` |
 | 6 | Old Supabase project active | `jwsidjgsjohhrntxdljp` | Confusion, potential cost | Archive/delete old project |
-| 7 | Monorepo not implemented | Separate repos for packaging TV + cake-crm | Code duplication | Phase 4 goal |
+| 7 | Monorepo not implemented | Separate repos for packaging TV + cake-app | Code duplication | Phase 4 goal |
 | 8 | Sales "Assigned Accounts" dashboard | `/dashboard/users` | Sales can't see their assigned dispensaries in profile | Build assigned accounts section |
 | 9 | Commission system untested at scale | `commissions`, `commission_rates` | Edge cases with price tier logic | Production testing needed |
 | 10 | Production URL undocumented | N/A | No record of deployed URL | Document in CLAUDE.md |
