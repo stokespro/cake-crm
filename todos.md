@@ -23,7 +23,7 @@
 - [ ] Deprecate cake-crm Supabase project (still active)
 
 ### Phase 4: UI Unification (Partially Complete)
-- [ ] Set up monorepo (NOT done - packaging & cake-crm are separate projects)
+- [ ] Set up monorepo (NOT done - packaging & cake-app are separate projects)
 - [x] Extract shared components
 - [x] Upgrade all apps to shadcn (CRM has shadcn/ui components)
 

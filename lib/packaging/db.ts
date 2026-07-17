@@ -1,7 +1,7 @@
 /**
  * Supabase Database Layer for Packaging Dashboard
  *
- * Adapted for cake-crm using server-side Supabase client
+ * Adapted for cake-app using server-side Supabase client
  */
 
 import { createServiceClient } from '@/lib/supabase/server';
