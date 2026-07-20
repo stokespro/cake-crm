@@ -39,7 +39,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Plus, Pencil, Trash2, Loader2, ToggleLeft, ToggleRight } from 'lucide-react'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Plus, Pencil, Trash2, Loader2, ToggleLeft, ToggleRight, ArrowUp, ArrowDown, ChevronsUpDown } from 'lucide-react'
 import {
   getStrains,
   createStrain,
@@ -102,6 +103,15 @@ export default function VaultAdminPage() {
   const [packagesLoading, setPackagesLoading] = useState(true)
   const [togglingPackageId, setTogglingPackageId] = useState<string | null>(null)
   const [packageSearch, setPackageSearch] = useState('')
+  const [packageStatusFilter, setPackageStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
+  const [packageStrainFilter, setPackageStrainFilter] = useState('all')
+  const [packageTypeFilter, setPackageTypeFilter] = useState('all')
+  const [packageSortColumn, setPackageSortColumn] = useState<
+    'tag_id' | 'batch' | 'strain' | 'type' | 'weight' | null
+  >(null)
+  const [packageSortDirection, setPackageSortDirection] = useState<'asc' | 'desc'>('asc')
+  const [selectedPackageIds, setSelectedPackageIds] = useState<Set<string>>(new Set())
+  const [bulkPackageActionLoading, setBulkPackageActionLoading] = useState(false)
 
   // Load data
   useEffect(() => {
@@ -158,17 +168,110 @@ export default function VaultAdminPage() {
     setTogglingPackageId(null)
   }
 
-  // Filter packages by search
-  const filteredPackages = packages.filter(pkg => {
-    if (!packageSearch.trim()) return true
-    const search = packageSearch.toLowerCase()
-    return (
-      pkg.tag_id.toLowerCase().includes(search) ||
-      pkg.batch.toLowerCase().includes(search) ||
-      pkg.strain.toLowerCase().includes(search) ||
-      pkg.type?.name?.toLowerCase().includes(search)
+  function handlePackageSort(column: 'tag_id' | 'batch' | 'strain' | 'type' | 'weight') {
+    if (packageSortColumn === column) {
+      setPackageSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setPackageSortColumn(column)
+      setPackageSortDirection('asc')
+    }
+  }
+
+  function togglePackageSelected(tagId: string) {
+    setSelectedPackageIds(prev => {
+      const next = new Set(prev)
+      if (next.has(tagId)) {
+        next.delete(tagId)
+      } else {
+        next.add(tagId)
+      }
+      return next
+    })
+  }
+
+  function toggleSelectAllPackages() {
+    setSelectedPackageIds(prev => {
+      const allSelected = filteredPackages.length > 0 && filteredPackages.every(pkg => prev.has(pkg.tag_id))
+      if (allSelected) {
+        return new Set()
+      }
+      return new Set(filteredPackages.map(pkg => pkg.tag_id))
+    })
+  }
+
+  async function handleBulkTogglePackageActive(isActive: boolean) {
+    const ids = Array.from(selectedPackageIds)
+    if (ids.length === 0) return
+    setBulkPackageActionLoading(true)
+    const results = await Promise.all(
+      ids.map(async (tagId) => ({ tagId, result: await togglePackageActive(tagId, isActive) }))
     )
-  })
+    const failed = results.filter(r => !r.result.success)
+    loadPackages()
+    setSelectedPackageIds(new Set())
+    setBulkPackageActionLoading(false)
+    if (failed.length > 0) {
+      alert(`Failed to update ${failed.length} tag(s): ${failed.map(f => f.tagId).join(', ')}`)
+    }
+  }
+
+  // Distinct strain/type options present in the loaded packages
+  const packageStrainOptions = Array.from(new Set(packages.map(pkg => pkg.strain).filter(Boolean))).sort()
+  const packageTypeOptions = Array.from(
+    new Set(packages.map(pkg => pkg.type?.name).filter((name): name is string => !!name))
+  ).sort()
+
+  // Filter packages by search + status + strain + type
+  const filteredPackages = packages
+    .filter(pkg => {
+      if (packageStatusFilter === 'active' && !pkg.is_active) return false
+      if (packageStatusFilter === 'inactive' && pkg.is_active) return false
+      if (packageStrainFilter !== 'all' && pkg.strain !== packageStrainFilter) return false
+      if (packageTypeFilter !== 'all' && pkg.type?.name !== packageTypeFilter) return false
+      if (!packageSearch.trim()) return true
+      const search = packageSearch.toLowerCase()
+      return (
+        pkg.tag_id.toLowerCase().includes(search) ||
+        pkg.batch.toLowerCase().includes(search) ||
+        pkg.strain.toLowerCase().includes(search) ||
+        pkg.type?.name?.toLowerCase().includes(search)
+      )
+    })
+    .sort((a, b) => {
+      if (!packageSortColumn) return 0
+      const dir = packageSortDirection === 'asc' ? 1 : -1
+      let aVal: string | number
+      let bVal: string | number
+      switch (packageSortColumn) {
+        case 'tag_id':
+          aVal = a.tag_id
+          bVal = b.tag_id
+          break
+        case 'batch':
+          aVal = a.batch
+          bVal = b.batch
+          break
+        case 'strain':
+          aVal = a.strain
+          bVal = b.strain
+          break
+        case 'type':
+          aVal = a.type?.name || ''
+          bVal = b.type?.name || ''
+          break
+        case 'weight':
+          aVal = a.current_weight
+          bVal = b.current_weight
+          break
+      }
+      if (typeof aVal === 'number' && typeof bVal === 'number') {
+        return (aVal - bVal) * dir
+      }
+      return String(aVal).localeCompare(String(bVal)) * dir
+    })
+
+  const allFilteredPackagesSelected =
+    filteredPackages.length > 0 && filteredPackages.every(pkg => selectedPackageIds.has(pkg.tag_id))
 
   // Strain handlers
   function openStrainDialog(strain?: Strain) {
@@ -582,14 +685,82 @@ export default function VaultAdminPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="mb-4">
+              <div className="mb-4 flex flex-wrap items-center gap-3">
                 <Input
                   placeholder="Search by tag ID, batch, strain, or type..."
                   value={packageSearch}
                   onChange={(e) => setPackageSearch(e.target.value)}
                   className="max-w-sm"
                 />
+                <Select
+                  value={packageStatusFilter}
+                  onValueChange={(value) => setPackageStatusFilter(value as 'all' | 'active' | 'inactive')}
+                >
+                  <SelectTrigger className="w-[150px]">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={packageStrainFilter} onValueChange={setPackageStrainFilter}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Strain" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Strains</SelectItem>
+                    {packageStrainOptions.map((strainName) => (
+                      <SelectItem key={strainName} value={strainName}>
+                        {strainName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={packageTypeFilter} onValueChange={setPackageTypeFilter}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    {packageTypeOptions.map((typeName) => (
+                      <SelectItem key={typeName} value={typeName}>
+                        {typeName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
+
+              {selectedPackageIds.size > 0 && (
+                <div className="mb-4 flex items-center gap-3 rounded-md border bg-muted/50 px-4 py-2">
+                  <span className="text-sm text-muted-foreground">
+                    {selectedPackageIds.size} tag{selectedPackageIds.size === 1 ? '' : 's'} selected
+                  </span>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleBulkTogglePackageActive(true)}
+                      disabled={bulkPackageActionLoading}
+                    >
+                      {bulkPackageActionLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Activate selected
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleBulkTogglePackageActive(false)}
+                      disabled={bulkPackageActionLoading}
+                    >
+                      {bulkPackageActionLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Deactivate selected
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               {packagesLoading ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-6 w-6 animate-spin" />
@@ -598,11 +769,103 @@ export default function VaultAdminPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Tag ID</TableHead>
-                      <TableHead>Batch</TableHead>
-                      <TableHead>Strain</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Weight</TableHead>
+                      <TableHead className="w-[40px]">
+                        <Checkbox
+                          checked={allFilteredPackagesSelected}
+                          onCheckedChange={toggleSelectAllPackages}
+                          aria-label="Select all"
+                        />
+                      </TableHead>
+                      <TableHead>
+                        <button
+                          type="button"
+                          className="flex items-center gap-1 hover:text-foreground"
+                          onClick={() => handlePackageSort('tag_id')}
+                        >
+                          Tag ID
+                          {packageSortColumn === 'tag_id' ? (
+                            packageSortDirection === 'asc' ? (
+                              <ArrowUp className="h-3 w-3" />
+                            ) : (
+                              <ArrowDown className="h-3 w-3" />
+                            )
+                          ) : (
+                            <ChevronsUpDown className="h-3 w-3 opacity-40" />
+                          )}
+                        </button>
+                      </TableHead>
+                      <TableHead>
+                        <button
+                          type="button"
+                          className="flex items-center gap-1 hover:text-foreground"
+                          onClick={() => handlePackageSort('batch')}
+                        >
+                          Batch
+                          {packageSortColumn === 'batch' ? (
+                            packageSortDirection === 'asc' ? (
+                              <ArrowUp className="h-3 w-3" />
+                            ) : (
+                              <ArrowDown className="h-3 w-3" />
+                            )
+                          ) : (
+                            <ChevronsUpDown className="h-3 w-3 opacity-40" />
+                          )}
+                        </button>
+                      </TableHead>
+                      <TableHead>
+                        <button
+                          type="button"
+                          className="flex items-center gap-1 hover:text-foreground"
+                          onClick={() => handlePackageSort('strain')}
+                        >
+                          Strain
+                          {packageSortColumn === 'strain' ? (
+                            packageSortDirection === 'asc' ? (
+                              <ArrowUp className="h-3 w-3" />
+                            ) : (
+                              <ArrowDown className="h-3 w-3" />
+                            )
+                          ) : (
+                            <ChevronsUpDown className="h-3 w-3 opacity-40" />
+                          )}
+                        </button>
+                      </TableHead>
+                      <TableHead>
+                        <button
+                          type="button"
+                          className="flex items-center gap-1 hover:text-foreground"
+                          onClick={() => handlePackageSort('type')}
+                        >
+                          Type
+                          {packageSortColumn === 'type' ? (
+                            packageSortDirection === 'asc' ? (
+                              <ArrowUp className="h-3 w-3" />
+                            ) : (
+                              <ArrowDown className="h-3 w-3" />
+                            )
+                          ) : (
+                            <ChevronsUpDown className="h-3 w-3 opacity-40" />
+                          )}
+                        </button>
+                      </TableHead>
+                      <TableHead>
+                        <button
+                          type="button"
+                          className="flex items-center gap-1 hover:text-foreground"
+                          onClick={() => handlePackageSort('weight')}
+                        >
+                          Weight
+                          {packageSortColumn === 'weight' ? (
+                            packageSortDirection === 'asc' ? (
+                              <ArrowUp className="h-3 w-3" />
+                            ) : (
+                              <ArrowDown className="h-3 w-3" />
+                            )
+                          ) : (
+                            <ChevronsUpDown className="h-3 w-3 opacity-40" />
+                          )}
+                        </button>
+                      </TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="w-[80px]">Actions</TableHead>
                     </TableRow>
@@ -610,13 +873,20 @@ export default function VaultAdminPage() {
                   <TableBody>
                     {filteredPackages.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center text-muted-foreground">
+                        <TableCell colSpan={8} className="text-center text-muted-foreground">
                           {packageSearch ? 'No packages match your search' : 'No packages found'}
                         </TableCell>
                       </TableRow>
                     ) : (
                       filteredPackages.map((pkg) => (
                         <TableRow key={pkg.tag_id} className={!pkg.is_active ? 'opacity-60' : ''}>
+                          <TableCell>
+                            <Checkbox
+                              checked={selectedPackageIds.has(pkg.tag_id)}
+                              onCheckedChange={() => togglePackageSelected(pkg.tag_id)}
+                              aria-label={`Select ${pkg.tag_id}`}
+                            />
+                          </TableCell>
                           <TableCell className="font-mono text-sm">{pkg.tag_id}</TableCell>
                           <TableCell>{pkg.batch}</TableCell>
                           <TableCell>{pkg.strain}</TableCell>
