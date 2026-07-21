@@ -402,7 +402,7 @@ export default function DashboardLayout({
   return (
     <SidebarProvider>
       <AppSidebar />
-      <div className="flex flex-1 flex-col">
+      <div className="flex flex-1 flex-col min-w-0">
         {/* Header with sidebar trigger */}
         <header className="flex h-14 shrink-0 items-center gap-4 border-b bg-background px-4">
           <SidebarTrigger className="-ml-1" />
@@ -410,7 +410,7 @@ export default function DashboardLayout({
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-auto">
+        <main className="flex-1 min-w-0 overflow-auto">
           <div className="p-4 md:p-6 max-w-7xl mx-auto">
             {children}
           </div>
