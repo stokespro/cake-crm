@@ -218,7 +218,7 @@ export async function getSalesPeople(): Promise<
   const { data, error } = await db
     .from('profiles')
     .select('id, full_name')
-    .in('role', ['sales', 'agent'])
+    .in('role', ['sales', 'agent', 'management', 'admin'])
     .order('full_name')
 
   if (error) {
