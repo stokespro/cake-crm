@@ -434,7 +434,7 @@ export default function VaultAdminPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="flex-nowrap justify-start gap-1 overflow-x-auto scroll-smooth scrollbar-hide">
+        <TabsList className="flex-nowrap justify-start gap-1 overflow-x-auto scroll-smooth scrollbar-hide w-full">
           <TabsTrigger value="strains" className="shrink-0">Strains</TabsTrigger>
           <TabsTrigger value="batches" className="shrink-0">Batches</TabsTrigger>
           <TabsTrigger value="types" className="shrink-0">Product Types</TabsTrigger>
