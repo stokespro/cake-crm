@@ -434,7 +434,7 @@ export default function VaultAdminPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
+        <TabsList className="flex-wrap h-auto gap-1">
           <TabsTrigger value="strains">Strains</TabsTrigger>
           <TabsTrigger value="batches">Batches</TabsTrigger>
           <TabsTrigger value="types">Product Types</TabsTrigger>
@@ -444,12 +444,12 @@ export default function VaultAdminPage() {
         {/* Strains Tab */}
         <TabsContent value="strains" className="space-y-4">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between space-y-0 gap-3 pb-4">
               <div>
                 <CardTitle>Strains</CardTitle>
                 <CardDescription>Manage cannabis strains in the system</CardDescription>
               </div>
-              <Button onClick={() => openStrainDialog()}>
+              <Button onClick={() => openStrainDialog()} className="w-full sm:w-auto">
                 <Plus className="mr-2 h-4 w-4" />
                 Add Strain
               </Button>
@@ -460,51 +460,53 @@ export default function VaultAdminPage() {
                   <Loader2 className="h-6 w-6 animate-spin" />
                 </div>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Created</TableHead>
-                      <TableHead className="w-[100px]">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {strains.length === 0 ? (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
                       <TableRow>
-                        <TableCell colSpan={3} className="text-center text-muted-foreground">
-                          No strains found
-                        </TableCell>
+                        <TableHead>Name</TableHead>
+                        <TableHead className="hidden sm:table-cell">Created</TableHead>
+                        <TableHead className="w-[100px]">Actions</TableHead>
                       </TableRow>
-                    ) : (
-                      strains.map((strain) => (
-                        <TableRow key={strain.id}>
-                          <TableCell className="font-medium">{strain.name}</TableCell>
-                          <TableCell>
-                            {new Date(strain.created_at).toLocaleDateString()}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex gap-2">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => openStrainDialog(strain)}
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => setDeleteStrainId(strain.id)}
-                              >
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
-                            </div>
+                    </TableHeader>
+                    <TableBody>
+                      {strains.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={3} className="text-center text-muted-foreground">
+                            No strains found
                           </TableCell>
                         </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
+                      ) : (
+                        strains.map((strain) => (
+                          <TableRow key={strain.id}>
+                            <TableCell className="font-medium">{strain.name}</TableCell>
+                            <TableCell className="hidden sm:table-cell">
+                              {new Date(strain.created_at).toLocaleDateString()}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => openStrainDialog(strain)}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => setDeleteStrainId(strain.id)}
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -513,12 +515,12 @@ export default function VaultAdminPage() {
         {/* Batches Tab */}
         <TabsContent value="batches" className="space-y-4">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between space-y-0 gap-3 pb-4">
               <div>
                 <CardTitle>Batches</CardTitle>
                 <CardDescription>Manage product batches and their associated strains</CardDescription>
               </div>
-              <Button onClick={() => openBatchDialog()}>
+              <Button onClick={() => openBatchDialog()} className="w-full sm:w-auto">
                 <Plus className="mr-2 h-4 w-4" />
                 Add Batch
               </Button>
@@ -529,78 +531,80 @@ export default function VaultAdminPage() {
                   <Loader2 className="h-6 w-6 animate-spin" />
                 </div>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Strain</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Created</TableHead>
-                      <TableHead className="w-[120px]">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {batches.length === 0 ? (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center text-muted-foreground">
-                          No batches found
-                        </TableCell>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Strain</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="hidden sm:table-cell">Created</TableHead>
+                        <TableHead className="w-[120px]">Actions</TableHead>
                       </TableRow>
-                    ) : (
-                      batches.map((batch) => (
-                        <TableRow key={batch.id} className={!batch.is_active ? 'opacity-60' : ''}>
-                          <TableCell className="font-medium">{batch.name}</TableCell>
-                          <TableCell>{batch.strain?.name || '-'}</TableCell>
-                          <TableCell>
-                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                              batch.is_active
-                                ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                                : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
-                            }`}>
-                              {batch.is_active ? 'Active' : 'Inactive'}
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            {new Date(batch.created_at).toLocaleDateString()}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex gap-1">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleToggleBatchActive(batch)}
-                                disabled={togglingBatchId === batch.id}
-                                title={batch.is_active ? 'Deactivate batch' : 'Activate batch'}
-                              >
-                                {togglingBatchId === batch.id ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : batch.is_active ? (
-                                  <ToggleRight className="h-4 w-4 text-green-600" />
-                                ) : (
-                                  <ToggleLeft className="h-4 w-4 text-gray-400" />
-                                )}
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => openBatchDialog(batch)}
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => setDeleteBatchId(batch.id)}
-                              >
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
-                            </div>
+                    </TableHeader>
+                    <TableBody>
+                      {batches.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center text-muted-foreground">
+                            No batches found
                           </TableCell>
                         </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
+                      ) : (
+                        batches.map((batch) => (
+                          <TableRow key={batch.id} className={!batch.is_active ? 'opacity-60' : ''}>
+                            <TableCell className="font-medium">{batch.name}</TableCell>
+                            <TableCell>{batch.strain?.name || '-'}</TableCell>
+                            <TableCell>
+                              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                batch.is_active
+                                  ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                                  : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                              }`}>
+                                {batch.is_active ? 'Active' : 'Inactive'}
+                              </span>
+                            </TableCell>
+                            <TableCell className="hidden sm:table-cell">
+                              {new Date(batch.created_at).toLocaleDateString()}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleToggleBatchActive(batch)}
+                                  disabled={togglingBatchId === batch.id}
+                                  title={batch.is_active ? 'Deactivate batch' : 'Activate batch'}
+                                >
+                                  {togglingBatchId === batch.id ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : batch.is_active ? (
+                                    <ToggleRight className="h-4 w-4 text-green-600" />
+                                  ) : (
+                                    <ToggleLeft className="h-4 w-4 text-gray-400" />
+                                  )}
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => openBatchDialog(batch)}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => setDeleteBatchId(batch.id)}
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -609,12 +613,12 @@ export default function VaultAdminPage() {
         {/* Product Types Tab */}
         <TabsContent value="types" className="space-y-4">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between space-y-0 gap-3 pb-4">
               <div>
                 <CardTitle>Product Types</CardTitle>
                 <CardDescription>Manage product types (e.g., Flower, Concentrate)</CardDescription>
               </div>
-              <Button onClick={() => openTypeDialog()}>
+              <Button onClick={() => openTypeDialog()} className="w-full sm:w-auto">
                 <Plus className="mr-2 h-4 w-4" />
                 Add Type
               </Button>
@@ -625,51 +629,53 @@ export default function VaultAdminPage() {
                   <Loader2 className="h-6 w-6 animate-spin" />
                 </div>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Created</TableHead>
-                      <TableHead className="w-[100px]">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {productTypes.length === 0 ? (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
                       <TableRow>
-                        <TableCell colSpan={3} className="text-center text-muted-foreground">
-                          No product types found
-                        </TableCell>
+                        <TableHead>Name</TableHead>
+                        <TableHead className="hidden sm:table-cell">Created</TableHead>
+                        <TableHead className="w-[100px]">Actions</TableHead>
                       </TableRow>
-                    ) : (
-                      productTypes.map((type) => (
-                        <TableRow key={type.id}>
-                          <TableCell className="font-medium">{type.name}</TableCell>
-                          <TableCell>
-                            {new Date(type.created_at).toLocaleDateString()}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex gap-2">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => openTypeDialog(type)}
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => setDeleteTypeId(type.id)}
-                              >
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
-                            </div>
+                    </TableHeader>
+                    <TableBody>
+                      {productTypes.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={3} className="text-center text-muted-foreground">
+                            No product types found
                           </TableCell>
                         </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
+                      ) : (
+                        productTypes.map((type) => (
+                          <TableRow key={type.id}>
+                            <TableCell className="font-medium">{type.name}</TableCell>
+                            <TableCell className="hidden sm:table-cell">
+                              {new Date(type.created_at).toLocaleDateString()}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => openTypeDialog(type)}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => setDeleteTypeId(type.id)}
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -685,18 +691,18 @@ export default function VaultAdminPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="mb-4 flex flex-wrap items-center gap-3">
+              <div className="mb-4 flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-3">
                 <Input
                   placeholder="Search by tag ID, batch, strain, or type..."
                   value={packageSearch}
                   onChange={(e) => setPackageSearch(e.target.value)}
-                  className="max-w-sm"
+                  className="w-full sm:max-w-sm"
                 />
                 <Select
                   value={packageStatusFilter}
                   onValueChange={(value) => setPackageStatusFilter(value as 'all' | 'active' | 'inactive')}
                 >
-                  <SelectTrigger className="w-[150px]">
+                  <SelectTrigger className="w-full sm:w-[150px]">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -706,7 +712,7 @@ export default function VaultAdminPage() {
                   </SelectContent>
                 </Select>
                 <Select value={packageStrainFilter} onValueChange={setPackageStrainFilter}>
-                  <SelectTrigger className="w-[180px]">
+                  <SelectTrigger className="w-full sm:w-[180px]">
                     <SelectValue placeholder="Strain" />
                   </SelectTrigger>
                   <SelectContent>
@@ -719,7 +725,7 @@ export default function VaultAdminPage() {
                   </SelectContent>
                 </Select>
                 <Select value={packageTypeFilter} onValueChange={setPackageTypeFilter}>
-                  <SelectTrigger className="w-[180px]">
+                  <SelectTrigger className="w-full sm:w-[180px]">
                     <SelectValue placeholder="Type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -734,11 +740,11 @@ export default function VaultAdminPage() {
               </div>
 
               {selectedPackageIds.size > 0 && (
-                <div className="mb-4 flex items-center gap-3 rounded-md border bg-muted/50 px-4 py-2">
+                <div className="mb-4 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 rounded-md border bg-muted/50 px-4 py-3">
                   <span className="text-sm text-muted-foreground">
                     {selectedPackageIds.size} tag{selectedPackageIds.size === 1 ? '' : 's'} selected
                   </span>
-                  <div className="flex gap-2">
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <Button
                       variant="outline"
                       size="sm"
@@ -766,163 +772,165 @@ export default function VaultAdminPage() {
                   <Loader2 className="h-6 w-6 animate-spin" />
                 </div>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[40px]">
-                        <Checkbox
-                          checked={allFilteredPackagesSelected}
-                          onCheckedChange={toggleSelectAllPackages}
-                          aria-label="Select all"
-                        />
-                      </TableHead>
-                      <TableHead>
-                        <button
-                          type="button"
-                          className="flex items-center gap-1 hover:text-foreground"
-                          onClick={() => handlePackageSort('tag_id')}
-                        >
-                          Tag ID
-                          {packageSortColumn === 'tag_id' ? (
-                            packageSortDirection === 'asc' ? (
-                              <ArrowUp className="h-3 w-3" />
-                            ) : (
-                              <ArrowDown className="h-3 w-3" />
-                            )
-                          ) : (
-                            <ChevronsUpDown className="h-3 w-3 opacity-40" />
-                          )}
-                        </button>
-                      </TableHead>
-                      <TableHead>
-                        <button
-                          type="button"
-                          className="flex items-center gap-1 hover:text-foreground"
-                          onClick={() => handlePackageSort('batch')}
-                        >
-                          Batch
-                          {packageSortColumn === 'batch' ? (
-                            packageSortDirection === 'asc' ? (
-                              <ArrowUp className="h-3 w-3" />
-                            ) : (
-                              <ArrowDown className="h-3 w-3" />
-                            )
-                          ) : (
-                            <ChevronsUpDown className="h-3 w-3 opacity-40" />
-                          )}
-                        </button>
-                      </TableHead>
-                      <TableHead>
-                        <button
-                          type="button"
-                          className="flex items-center gap-1 hover:text-foreground"
-                          onClick={() => handlePackageSort('strain')}
-                        >
-                          Strain
-                          {packageSortColumn === 'strain' ? (
-                            packageSortDirection === 'asc' ? (
-                              <ArrowUp className="h-3 w-3" />
-                            ) : (
-                              <ArrowDown className="h-3 w-3" />
-                            )
-                          ) : (
-                            <ChevronsUpDown className="h-3 w-3 opacity-40" />
-                          )}
-                        </button>
-                      </TableHead>
-                      <TableHead>
-                        <button
-                          type="button"
-                          className="flex items-center gap-1 hover:text-foreground"
-                          onClick={() => handlePackageSort('type')}
-                        >
-                          Type
-                          {packageSortColumn === 'type' ? (
-                            packageSortDirection === 'asc' ? (
-                              <ArrowUp className="h-3 w-3" />
-                            ) : (
-                              <ArrowDown className="h-3 w-3" />
-                            )
-                          ) : (
-                            <ChevronsUpDown className="h-3 w-3 opacity-40" />
-                          )}
-                        </button>
-                      </TableHead>
-                      <TableHead>
-                        <button
-                          type="button"
-                          className="flex items-center gap-1 hover:text-foreground"
-                          onClick={() => handlePackageSort('weight')}
-                        >
-                          Weight
-                          {packageSortColumn === 'weight' ? (
-                            packageSortDirection === 'asc' ? (
-                              <ArrowUp className="h-3 w-3" />
-                            ) : (
-                              <ArrowDown className="h-3 w-3" />
-                            )
-                          ) : (
-                            <ChevronsUpDown className="h-3 w-3 opacity-40" />
-                          )}
-                        </button>
-                      </TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="w-[80px]">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredPackages.length === 0 ? (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center text-muted-foreground">
-                          {packageSearch ? 'No packages match your search' : 'No packages found'}
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      filteredPackages.map((pkg) => (
-                        <TableRow key={pkg.tag_id} className={!pkg.is_active ? 'opacity-60' : ''}>
-                          <TableCell>
-                            <Checkbox
-                              checked={selectedPackageIds.has(pkg.tag_id)}
-                              onCheckedChange={() => togglePackageSelected(pkg.tag_id)}
-                              aria-label={`Select ${pkg.tag_id}`}
-                            />
-                          </TableCell>
-                          <TableCell className="font-mono text-sm">{pkg.tag_id}</TableCell>
-                          <TableCell>{pkg.batch}</TableCell>
-                          <TableCell>{pkg.strain}</TableCell>
-                          <TableCell>{pkg.type?.name || '-'}</TableCell>
-                          <TableCell>{pkg.current_weight.toFixed(2)}g</TableCell>
-                          <TableCell>
-                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                              pkg.is_active
-                                ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                                : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
-                            }`}>
-                              {pkg.is_active ? 'Active' : 'Inactive'}
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleTogglePackageActive(pkg)}
-                              disabled={togglingPackageId === pkg.tag_id}
-                              title={pkg.is_active ? 'Deactivate tag' : 'Activate tag'}
-                            >
-                              {togglingPackageId === pkg.tag_id ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : pkg.is_active ? (
-                                <ToggleRight className="h-4 w-4 text-green-600" />
+                        <TableHead className="w-[40px]">
+                          <Checkbox
+                            checked={allFilteredPackagesSelected}
+                            onCheckedChange={toggleSelectAllPackages}
+                            aria-label="Select all"
+                          />
+                        </TableHead>
+                        <TableHead>
+                          <button
+                            type="button"
+                            className="flex items-center gap-1 hover:text-foreground"
+                            onClick={() => handlePackageSort('tag_id')}
+                          >
+                            Tag ID
+                            {packageSortColumn === 'tag_id' ? (
+                              packageSortDirection === 'asc' ? (
+                                <ArrowUp className="h-3 w-3" />
                               ) : (
-                                <ToggleLeft className="h-4 w-4 text-gray-400" />
-                              )}
-                            </Button>
+                                <ArrowDown className="h-3 w-3" />
+                              )
+                            ) : (
+                              <ChevronsUpDown className="h-3 w-3 opacity-40" />
+                            )}
+                          </button>
+                        </TableHead>
+                        <TableHead>
+                          <button
+                            type="button"
+                            className="flex items-center gap-1 hover:text-foreground"
+                            onClick={() => handlePackageSort('batch')}
+                          >
+                            Batch
+                            {packageSortColumn === 'batch' ? (
+                              packageSortDirection === 'asc' ? (
+                                <ArrowUp className="h-3 w-3" />
+                              ) : (
+                                <ArrowDown className="h-3 w-3" />
+                              )
+                            ) : (
+                              <ChevronsUpDown className="h-3 w-3 opacity-40" />
+                            )}
+                          </button>
+                        </TableHead>
+                        <TableHead>
+                          <button
+                            type="button"
+                            className="flex items-center gap-1 hover:text-foreground"
+                            onClick={() => handlePackageSort('strain')}
+                          >
+                            Strain
+                            {packageSortColumn === 'strain' ? (
+                              packageSortDirection === 'asc' ? (
+                                <ArrowUp className="h-3 w-3" />
+                              ) : (
+                                <ArrowDown className="h-3 w-3" />
+                              )
+                            ) : (
+                              <ChevronsUpDown className="h-3 w-3 opacity-40" />
+                            )}
+                          </button>
+                        </TableHead>
+                        <TableHead className="hidden sm:table-cell">
+                          <button
+                            type="button"
+                            className="flex items-center gap-1 hover:text-foreground"
+                            onClick={() => handlePackageSort('type')}
+                          >
+                            Type
+                            {packageSortColumn === 'type' ? (
+                              packageSortDirection === 'asc' ? (
+                                <ArrowUp className="h-3 w-3" />
+                              ) : (
+                                <ArrowDown className="h-3 w-3" />
+                              )
+                            ) : (
+                              <ChevronsUpDown className="h-3 w-3 opacity-40" />
+                            )}
+                          </button>
+                        </TableHead>
+                        <TableHead className="hidden md:table-cell">
+                          <button
+                            type="button"
+                            className="flex items-center gap-1 hover:text-foreground"
+                            onClick={() => handlePackageSort('weight')}
+                          >
+                            Weight
+                            {packageSortColumn === 'weight' ? (
+                              packageSortDirection === 'asc' ? (
+                                <ArrowUp className="h-3 w-3" />
+                              ) : (
+                                <ArrowDown className="h-3 w-3" />
+                              )
+                            ) : (
+                              <ChevronsUpDown className="h-3 w-3 opacity-40" />
+                            )}
+                          </button>
+                        </TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="w-[80px]">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredPackages.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={8} className="text-center text-muted-foreground">
+                            {packageSearch ? 'No packages match your search' : 'No packages found'}
                           </TableCell>
                         </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
+                      ) : (
+                        filteredPackages.map((pkg) => (
+                          <TableRow key={pkg.tag_id} className={!pkg.is_active ? 'opacity-60' : ''}>
+                            <TableCell>
+                              <Checkbox
+                                checked={selectedPackageIds.has(pkg.tag_id)}
+                                onCheckedChange={() => togglePackageSelected(pkg.tag_id)}
+                                aria-label={`Select ${pkg.tag_id}`}
+                              />
+                            </TableCell>
+                            <TableCell className="font-mono text-sm whitespace-nowrap">{pkg.tag_id}</TableCell>
+                            <TableCell>{pkg.batch}</TableCell>
+                            <TableCell>{pkg.strain}</TableCell>
+                            <TableCell className="hidden sm:table-cell">{pkg.type?.name || '-'}</TableCell>
+                            <TableCell className="hidden md:table-cell">{pkg.current_weight.toFixed(2)}g</TableCell>
+                            <TableCell>
+                              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                pkg.is_active
+                                  ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                                  : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                              }`}>
+                                {pkg.is_active ? 'Active' : 'Inactive'}
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleTogglePackageActive(pkg)}
+                                disabled={togglingPackageId === pkg.tag_id}
+                                title={pkg.is_active ? 'Deactivate tag' : 'Activate tag'}
+                              >
+                                {togglingPackageId === pkg.tag_id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : pkg.is_active ? (
+                                  <ToggleRight className="h-4 w-4 text-green-600" />
+                                ) : (
+                                  <ToggleLeft className="h-4 w-4 text-gray-400" />
+                                )}
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
               )}
             </CardContent>
           </Card>
