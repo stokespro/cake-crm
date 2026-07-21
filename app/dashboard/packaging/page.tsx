@@ -3,6 +3,7 @@
 import { format } from 'date-fns'
 import { parseLocalDate } from '@/lib/utils'
 import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -66,7 +67,31 @@ const PRIORITY_ARROW_STYLES: Record<PriorityTier, string> = {
   BACKFILL: 'text-green-400 hover:text-green-300',
 }
 
+/**
+ * /dashboard/packaging now redirects to the Packaging Board v2 at
+ * /dashboard/packaging/board — that board is the keeper (has the claims
+ * system + realtime live-updates). This route is kept reachable-but-
+ * redirecting rather than deleted so the consolidation is fully reversible:
+ * to restore the legacy board as the default route, swap this component's
+ * body back to `return <LegacyPackagingBoard />` (or export it directly).
+ */
 export default function PackagingPage() {
+  const router = useRouter()
+
+  useEffect(() => {
+    router.replace('/dashboard/packaging/board')
+  }, [router])
+
+  return null
+}
+
+/**
+ * Legacy Packaging board (pre-claims Kanban). Superseded by the Packaging
+ * Board v2 at /dashboard/packaging/board, which the route above redirects
+ * to. Kept intact (not deleted) and still exported so this consolidation
+ * stays fully reversible.
+ */
+export function LegacyPackagingBoard() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
