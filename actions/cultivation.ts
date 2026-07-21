@@ -9,6 +9,7 @@ import type {
   TemplateTask,
   TaskPriority,
   TemplateType,
+  CultivationTaskStatus,
 } from '@/types/cultivation'
 
 // ---------------------------------------------------------------------------
@@ -120,20 +121,65 @@ function flattenAssignees<T extends AssigneesEmbedRow>(
   }))
 }
 
-export async function getCultivationTasks(): Promise<
-  { data: unknown[]; error?: never } | { data?: never; error: string }
-> {
+// Statuses treated as "incomplete" — this is what loads by default, and
+// what backs the "Past Due & Today" preset. Completed/skipped rows are only
+// ever fetched when explicitly requested via the Status filter, scoped to a
+// window, so we don't drag the ever-growing history of finished tasks down
+// on every page load.
+const DEFAULT_STATUSES: CultivationTaskStatus[] = ['pending', 'in_progress']
+
+export interface GetCultivationTasksParams {
+  /**
+   * Lower bound (inclusive) on due_date, as a YYYY-MM-DD string. Omit or
+   * pass null/undefined for an unbounded start — this is what makes
+   * "Past Due & Today" (and the bare default call) always surface overdue
+   * tasks regardless of how far in the past they're due.
+   */
+  dateFrom?: string | null
+  /**
+   * Upper bound (inclusive) on due_date, as a YYYY-MM-DD string. Undefined
+   * defaults to today (matching the bare default call / "Past Due & Today").
+   * Pass null explicitly for an unbounded end (e.g. a Custom range with no
+   * "To" date entered).
+   */
+  dateTo?: string | null
+  /** Defaults to incomplete tasks only (pending, in_progress). */
+  statuses?: CultivationTaskStatus[]
+}
+
+export async function getCultivationTasks(
+  params: GetCultivationTasksParams = {}
+): Promise<{ data: unknown[]; error?: never } | { data?: never; error: string }> {
   const auth = await requireRole(VIEW_ROLES)
   if (!auth.authorized) return { error: auth.reason }
 
+  const statuses = params.statuses ?? DEFAULT_STATUSES
+  const dateFrom = params.dateFrom ?? null
+  const dateTo = params.dateTo === undefined ? new Date().toISOString().split('T')[0] : params.dateTo
+
   const db = await createServiceClient()
-  const { data, error } = await db
+  let query = db
     .from('cultivation_tasks')
     .select(
       `*, room:grow_rooms(id, room_name, room_number), assigned_user:users!cultivation_tasks_assigned_to_fkey(id, name), completed_by_user:users!cultivation_tasks_completed_by_fkey(id, name), ${ASSIGNEES_EMBED}`
     )
     .or('frequency.is.null,recurring_parent_id.not.is.null')
-    .order('due_date')
+
+  if (statuses.length > 0) {
+    query = query.in('status', statuses)
+  }
+  if (dateFrom) {
+    query = query.gte('due_date', dateFrom)
+  }
+  if (dateTo) {
+    query = query.lte('due_date', dateTo)
+  }
+
+  // due_date ASC puts past-due and today first; priority DESC (critical
+  // first) breaks ties within a day.
+  const { data, error } = await query
+    .order('due_date', { ascending: true })
+    .order('priority', { ascending: false })
 
   if (error) {
     console.error('[cultivation] getCultivationTasks error:', error)

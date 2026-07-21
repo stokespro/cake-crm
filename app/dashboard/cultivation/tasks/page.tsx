@@ -45,7 +45,7 @@ import {
   X,
   ArrowLeft,
 } from 'lucide-react'
-import { format, parseISO, isPast, isToday } from 'date-fns'
+import { format, parseISO, isPast, isToday, subDays, addDays, addWeeks, startOfWeek, endOfWeek } from 'date-fns'
 import { parseLocalDate } from '@/lib/utils'
 import Link from 'next/link'
 import { useAuth, canManageCultivation, canCompleteCultivation } from '@/lib/auth-context'
@@ -62,6 +62,7 @@ import { TaskCompletionSheet } from '@/components/cultivation/task-completion-sh
 import { CreateTaskSheet } from '@/components/cultivation/create-task-sheet'
 import {
   getCultivationTasks,
+  getCultivationTaskSummary,
   getGrowRooms,
   getCultivationUsers,
   startTask,
@@ -100,6 +101,43 @@ interface UserOption {
   role: string
 }
 
+interface TaskSummaryRow {
+  id: string
+  status: string
+  due_date: string
+  completed_at: string | null
+  room_id: string | null
+}
+
+type TimeframePreset =
+  | 'past_due_today'
+  | 'today'
+  | 'yesterday'
+  | 'this_week'
+  | 'next_week'
+  | 'next_14_days'
+  | 'custom'
+
+const TIMEFRAME_OPTIONS: { value: TimeframePreset; label: string }[] = [
+  { value: 'past_due_today', label: 'Past Due & Today' },
+  { value: 'today', label: 'Today' },
+  { value: 'yesterday', label: 'Yesterday' },
+  { value: 'this_week', label: 'This Week' },
+  { value: 'next_week', label: 'Next Week' },
+  { value: 'next_14_days', label: 'Next 14 Days' },
+  { value: 'custom', label: 'Custom' },
+]
+
+/** Maps the Status filter dropdown to the server-side statuses param. "All
+ * Status" intentionally resolves to the incomplete set (pending, in_progress)
+ * rather than every status — completed/skipped rows are only fetched when
+ * the user explicitly picks them, so we don't preload the ever-growing
+ * history of finished tasks. */
+function statusesForFilter(status: string): CultivationTaskStatus[] {
+  if (status === 'all') return ['pending', 'in_progress']
+  return [status as CultivationTaskStatus]
+}
+
 /** Comma-joined assignee names, falling back to the legacy single assignee. */
 function assigneeNames(task: CultivationTask): string {
   if (task.assignees && task.assignees.length > 0) {
@@ -111,6 +149,7 @@ function assigneeNames(task: CultivationTask): string {
 export default function CultivationTasksPage() {
   const { user } = useAuth()
   const [tasks, setTasks] = useState<CultivationTask[]>([])
+  const [summary, setSummary] = useState<TaskSummaryRow[]>([])
   const [rooms, setRooms] = useState<GrowRoom[]>([])
   const [users, setUsers] = useState<UserOption[]>([])
   const [loading, setLoading] = useState(true)
@@ -128,6 +167,7 @@ export default function CultivationTasksPage() {
   const [filterAssignee, setFilterAssignee] = useState('all')
   const [filterType, setFilterType] = useState('all')
   const [filterStage, setFilterStage] = useState('all')
+  const [timeframe, setTimeframe] = useState<TimeframePreset>('past_due_today')
   const [filterDateFrom, setFilterDateFrom] = useState('')
   const [filterDateTo, setFilterDateTo] = useState('')
 
@@ -143,21 +183,79 @@ export default function CultivationTasksPage() {
   const canManage = user ? canManageCultivation(user.role) : false
   const canComplete = user ? canCompleteCultivation(user.role) : false
 
+  /** Resolves the active Timeframe preset (or Custom dates) to a
+   * dateFrom/dateTo window to send to getCultivationTasks(). */
+  function computeTimeframeRange(): { dateFrom: string | null; dateTo: string | null } {
+    const today = new Date()
+    const todayStr = format(today, 'yyyy-MM-dd')
+
+    switch (timeframe) {
+      case 'today':
+        return { dateFrom: todayStr, dateTo: todayStr }
+      case 'yesterday': {
+        const yesterdayStr = format(subDays(today, 1), 'yyyy-MM-dd')
+        return { dateFrom: yesterdayStr, dateTo: yesterdayStr }
+      }
+      case 'this_week':
+        return {
+          dateFrom: format(startOfWeek(today, { weekStartsOn: 1 }), 'yyyy-MM-dd'),
+          dateTo: format(endOfWeek(today, { weekStartsOn: 1 }), 'yyyy-MM-dd'),
+        }
+      case 'next_week': {
+        const nextWeek = addWeeks(today, 1)
+        return {
+          dateFrom: format(startOfWeek(nextWeek, { weekStartsOn: 1 }), 'yyyy-MM-dd'),
+          dateTo: format(endOfWeek(nextWeek, { weekStartsOn: 1 }), 'yyyy-MM-dd'),
+        }
+      }
+      case 'next_14_days':
+        return { dateFrom: todayStr, dateTo: format(addDays(today, 14), 'yyyy-MM-dd') }
+      case 'custom':
+        return { dateFrom: filterDateFrom || null, dateTo: filterDateTo || null }
+      case 'past_due_today':
+      default:
+        // Unbounded start so overdue tasks always show, regardless of age.
+        return { dateFrom: null, dateTo: todayStr }
+    }
+  }
+
+  /** Switch the active Timeframe preset. Entering Custom seeds both dates to
+   * today (rather than leaving them unbounded) so we don't accidentally
+   * re-trigger the original full-table over-fetch. */
+  function handleTimeframeChange(value: TimeframePreset) {
+    setTimeframe(value)
+    if (value === 'custom') {
+      const todayStr = format(new Date(), 'yyyy-MM-dd')
+      setFilterDateFrom((prev) => prev || todayStr)
+      setFilterDateTo((prev) => prev || todayStr)
+    } else {
+      setFilterDateFrom('')
+      setFilterDateTo('')
+    }
+  }
+
   async function fetchData() {
     try {
       // Best-effort: generate any pending recurring task instances
       // Action is wrapped internally — failure here must not block data load.
       await generateRecurringTasksAction()
 
-      const [tasksRes, roomsRes, usersRes] = await Promise.all([
-        getCultivationTasks(),
+      const { dateFrom, dateTo } = computeTimeframeRange()
+      const statuses = statusesForFilter(filterStatus)
+
+      const [tasksRes, roomsRes, usersRes, summaryRes] = await Promise.all([
+        getCultivationTasks({ dateFrom, dateTo, statuses }),
         getGrowRooms(),
         getCultivationUsers(),
+        // Lightweight, unfiltered — backs the header stat cards so they stay
+        // accurate no matter what Timeframe/Status the table is scoped to.
+        getCultivationTaskSummary(),
       ])
 
       if (tasksRes.data) setTasks(tasksRes.data as CultivationTask[])
       if (roomsRes.data) setRooms(roomsRes.data as GrowRoom[])
       if (usersRes.data) setUsers(usersRes.data as UserOption[])
+      if (summaryRes.data) setSummary(summaryRes.data)
     } catch (err) {
       console.error('[cultivation/tasks] fetchData error:', err)
     } finally {
@@ -167,7 +265,8 @@ export default function CultivationTasksPage() {
 
   useEffect(() => {
     fetchData()
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeframe, filterStatus, filterDateFrom, filterDateTo])
 
   // --- Filtering ---
   const filteredTasks = useMemo(() => {
@@ -191,10 +290,9 @@ export default function CultivationTasksPage() {
       result = result.filter((t) => t.room_id === filterRoom)
     }
 
-    // Status
-    if (filterStatus !== 'all') {
-      result = result.filter((t) => t.status === filterStatus)
-    }
+    // Status and date-window filtering happen server-side (see fetchData /
+    // getCultivationTasks) — the fetched `tasks` array is already scoped, so
+    // there's no need to re-filter by status or date here.
 
     // Priority
     if (filterPriority !== 'all') {
@@ -218,21 +316,13 @@ export default function CultivationTasksPage() {
       result = result.filter((t) => t.assignees?.some((a) => a.id === filterAssignee))
     }
 
-    // Date range
-    if (filterDateFrom) {
-      result = result.filter((t) => t.due_date >= filterDateFrom)
-    }
-    if (filterDateTo) {
-      result = result.filter((t) => t.due_date <= filterDateTo)
-    }
-
     // My Tasks filter
     if (viewMode === 'mine' && user) {
       result = result.filter((t) => t.assignees?.some((a) => a.id === user.id))
     }
 
     return result
-  }, [tasks, search, filterRoom, filterStatus, filterPriority, filterType, filterStage, filterAssignee, filterDateFrom, filterDateTo, viewMode, user])
+  }, [tasks, search, filterRoom, filterPriority, filterType, filterStage, filterAssignee, viewMode, user])
 
   // --- Sorting ---
   const sortedTasks = useMemo(() => {
@@ -255,7 +345,11 @@ export default function CultivationTasksPage() {
     })
   }, [filteredTasks])
 
-  // --- Summary stats (from filtered tasks) ---
+  // --- Summary stats ---
+  // Derived from the lightweight, unfiltered getCultivationTaskSummary()
+  // fetch (not from `tasks`/`filteredTasks`) so the header cards stay
+  // globally accurate regardless of the Timeframe/Status/other filters
+  // currently scoping the table below.
   const stats = useMemo(() => {
     const todayStr = format(new Date(), 'yyyy-MM-dd')
     let overdue = 0
@@ -263,7 +357,7 @@ export default function CultivationTasksPage() {
     let inProgress = 0
     let completedToday = 0
 
-    for (const t of filteredTasks) {
+    for (const t of summary) {
       if ((t.status === 'pending' || t.status === 'in_progress') && t.due_date < todayStr) {
         overdue++
       }
@@ -279,7 +373,7 @@ export default function CultivationTasksPage() {
     }
 
     return { overdue, dueToday, inProgress, completedToday }
-  }, [filteredTasks])
+  }, [summary])
 
   // --- Actions ---
 
@@ -337,13 +431,14 @@ export default function CultivationTasksPage() {
     setFilterType('all')
     setFilterStage('all')
     setFilterAssignee('all')
+    setTimeframe('past_due_today')
     setFilterDateFrom('')
     setFilterDateTo('')
     setViewMode(user && canManageCultivation(user.role) ? 'all' : 'mine')
   }
 
   const hasFilters =
-    search || filterRoom !== 'all' || filterStatus !== 'all' || filterPriority !== 'all' || filterType !== 'all' || filterStage !== 'all' || filterAssignee !== 'all' || filterDateFrom || filterDateTo
+    search || filterRoom !== 'all' || filterStatus !== 'all' || filterPriority !== 'all' || filterType !== 'all' || filterStage !== 'all' || filterAssignee !== 'all' || timeframe !== 'past_due_today'
 
   // --- Helpers ---
 
@@ -552,21 +647,46 @@ export default function CultivationTasksPage() {
           </SelectContent>
         </Select>
 
-        <Input
-          type="date"
-          value={filterDateFrom}
-          onChange={(e) => setFilterDateFrom(e.target.value)}
-          className="w-full sm:w-[160px]"
-          placeholder="From"
-        />
+        <Select value={timeframe} onValueChange={(v) => handleTimeframeChange(v as TimeframePreset)}>
+          <SelectTrigger className="w-full sm:w-[170px]">
+            <SelectValue placeholder="Timeframe" />
+          </SelectTrigger>
+          <SelectContent>
+            {TIMEFRAME_OPTIONS.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-        <Input
-          type="date"
-          value={filterDateTo}
-          onChange={(e) => setFilterDateTo(e.target.value)}
-          className="w-full sm:w-[160px]"
-          placeholder="To"
-        />
+        <div className="flex flex-col gap-1 w-full sm:w-[150px]">
+          <label htmlFor="task-date-from" className="text-xs text-muted-foreground">
+            From
+          </label>
+          <Input
+            id="task-date-from"
+            type="date"
+            value={filterDateFrom}
+            onChange={(e) => setFilterDateFrom(e.target.value)}
+            disabled={timeframe !== 'custom'}
+            className="w-full"
+          />
+        </div>
+
+        <div className="flex flex-col gap-1 w-full sm:w-[150px]">
+          <label htmlFor="task-date-to" className="text-xs text-muted-foreground">
+            To
+          </label>
+          <Input
+            id="task-date-to"
+            type="date"
+            value={filterDateTo}
+            onChange={(e) => setFilterDateTo(e.target.value)}
+            disabled={timeframe !== 'custom'}
+            className="w-full"
+          />
+        </div>
 
         {hasFilters && (
           <Button variant="ghost" size="sm" onClick={clearFilters} className="h-9">
