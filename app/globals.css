@@ -123,3 +123,13 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+/* Hides scrollbars while keeping the element scrollable (mobile tab strips, etc.) */
+@utility scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
