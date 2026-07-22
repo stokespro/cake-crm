@@ -700,6 +700,33 @@ export async function toggleBatchActive(
   return { success: true, batch: data as Batch }
 }
 
+// Bulk toggle active status for a set of batches in a single query
+export async function bulkToggleBatchActive(
+  ids: string[],
+  isActive: boolean
+): Promise<{ success: boolean; updatedCount?: number; error?: string }> {
+  const auth = await requireRole(VAULT_ADMIN_ROLES)
+  if (!auth.authorized) return { success: false, error: auth.reason }
+
+  if (!ids || ids.length === 0) {
+    return { success: false, error: 'No batches selected' }
+  }
+
+  const db = await createServiceClient()
+
+  const { data, error } = await db
+    .from('batches')
+    .update({ is_active: isActive })
+    .in('id', ids)
+    .select('id')
+
+  if (error) {
+    return { success: false, error: error.message }
+  }
+
+  return { success: true, updatedCount: data?.length ?? 0 }
+}
+
 // Optional lab/COA testing values captured on a batch
 export interface BatchTestingFields {
   thcPercentage?: number | string | null

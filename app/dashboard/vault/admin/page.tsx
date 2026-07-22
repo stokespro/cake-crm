@@ -51,6 +51,7 @@ import {
   updateBatch,
   deleteBatch,
   toggleBatchActive,
+  bulkToggleBatchActive,
   getProductTypes,
   createProductType,
   updateProductType,
@@ -89,6 +90,14 @@ export default function VaultAdminPage() {
   const [deleteBatchId, setDeleteBatchId] = useState<string | null>(null)
   const [batchDeleting, setBatchDeleting] = useState(false)
   const [togglingBatchId, setTogglingBatchId] = useState<string | null>(null)
+  const [batchStatusFilter, setBatchStatusFilter] = useState<'all' | 'active' | 'inactive'>('all')
+  const [batchStrainFilter, setBatchStrainFilter] = useState('all')
+  const [batchSortColumn, setBatchSortColumn] = useState<
+    'name' | 'strain' | 'status' | 'created_at' | null
+  >(null)
+  const [batchSortDirection, setBatchSortDirection] = useState<'asc' | 'desc'>('asc')
+  const [selectedBatchIds, setSelectedBatchIds] = useState<Set<string>>(new Set())
+  const [bulkBatchActionLoading, setBulkBatchActionLoading] = useState(false)
 
   // Product Types state
   const [productTypes, setProductTypes] = useState<ProductType[]>([])
@@ -276,6 +285,51 @@ export default function VaultAdminPage() {
   const allFilteredPackagesSelected =
     filteredPackages.length > 0 && filteredPackages.every(pkg => selectedPackageIds.has(pkg.tag_id))
 
+  // Distinct strain options present in the loaded batches
+  const batchStrainOptions = Array.from(
+    new Set(batches.map(b => b.strain?.name).filter((name): name is string => !!name))
+  ).sort()
+
+  // Filter batches by status + strain
+  const filteredBatches = batches
+    .filter(b => {
+      if (batchStatusFilter === 'active' && !b.is_active) return false
+      if (batchStatusFilter === 'inactive' && b.is_active) return false
+      if (batchStrainFilter !== 'all' && b.strain?.name !== batchStrainFilter) return false
+      return true
+    })
+    .sort((a, b) => {
+      if (!batchSortColumn) return 0
+      const dir = batchSortDirection === 'asc' ? 1 : -1
+      let aVal: string | number
+      let bVal: string | number
+      switch (batchSortColumn) {
+        case 'name':
+          aVal = a.name
+          bVal = b.name
+          break
+        case 'strain':
+          aVal = a.strain?.name || ''
+          bVal = b.strain?.name || ''
+          break
+        case 'status':
+          aVal = a.is_active ? 1 : 0
+          bVal = b.is_active ? 1 : 0
+          break
+        case 'created_at':
+          aVal = new Date(a.created_at).getTime()
+          bVal = new Date(b.created_at).getTime()
+          break
+      }
+      if (typeof aVal === 'number' && typeof bVal === 'number') {
+        return (aVal - bVal) * dir
+      }
+      return String(aVal).localeCompare(String(bVal)) * dir
+    })
+
+  const allFilteredBatchesSelected =
+    filteredBatches.length > 0 && filteredBatches.every(b => selectedBatchIds.has(b.id))
+
   // Strain handlers
   function openStrainDialog(strain?: Strain) {
     if (strain) {
@@ -393,6 +447,50 @@ export default function VaultAdminPage() {
       alert(result.error || 'Failed to toggle batch status')
     }
     setTogglingBatchId(null)
+  }
+
+  function handleBatchSort(column: 'name' | 'strain' | 'status' | 'created_at') {
+    if (batchSortColumn === column) {
+      setBatchSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setBatchSortColumn(column)
+      setBatchSortDirection('asc')
+    }
+  }
+
+  function toggleBatchSelected(id: string) {
+    setSelectedBatchIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }
+
+  function toggleSelectAllBatches() {
+    setSelectedBatchIds(prev => {
+      const allSelected = filteredBatches.length > 0 && filteredBatches.every(b => prev.has(b.id))
+      if (allSelected) {
+        return new Set()
+      }
+      return new Set(filteredBatches.map(b => b.id))
+    })
+  }
+
+  async function handleBulkToggleBatchActive(isActive: boolean) {
+    const ids = Array.from(selectedBatchIds)
+    if (ids.length === 0) return
+    setBulkBatchActionLoading(true)
+    const result = await bulkToggleBatchActive(ids, isActive)
+    loadBatches()
+    setSelectedBatchIds(new Set())
+    setBulkBatchActionLoading(false)
+    if (!result.success) {
+      alert(result.error || 'Failed to update batches')
+    }
   }
 
   // Product Type handlers
@@ -543,6 +641,63 @@ export default function VaultAdminPage() {
               </Button>
             </CardHeader>
             <CardContent>
+              <div className="mb-4 flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-3">
+                <Select
+                  value={batchStatusFilter}
+                  onValueChange={(value) => setBatchStatusFilter(value as 'all' | 'active' | 'inactive')}
+                >
+                  <SelectTrigger className="w-full sm:w-[150px]">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={batchStrainFilter} onValueChange={setBatchStrainFilter}>
+                  <SelectTrigger className="w-full sm:w-[180px]">
+                    <SelectValue placeholder="Strain" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Strains</SelectItem>
+                    {batchStrainOptions.map((strainName) => (
+                      <SelectItem key={strainName} value={strainName}>
+                        {strainName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {selectedBatchIds.size > 0 && (
+                <div className="mb-4 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 rounded-md border bg-muted/50 px-4 py-3">
+                  <span className="text-sm text-muted-foreground">
+                    {selectedBatchIds.size} batch{selectedBatchIds.size === 1 ? '' : 'es'} selected
+                  </span>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleBulkToggleBatchActive(true)}
+                      disabled={bulkBatchActionLoading}
+                    >
+                      {bulkBatchActionLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Activate selected
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleBulkToggleBatchActive(false)}
+                      disabled={bulkBatchActionLoading}
+                    >
+                      {bulkBatchActionLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Deactivate selected
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               {batchesLoading ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-6 w-6 animate-spin" />
@@ -552,23 +707,105 @@ export default function VaultAdminPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Strain</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className="hidden sm:table-cell">Created</TableHead>
+                        <TableHead className="w-[40px]">
+                          <Checkbox
+                            checked={allFilteredBatchesSelected}
+                            onCheckedChange={toggleSelectAllBatches}
+                            aria-label="Select all"
+                          />
+                        </TableHead>
+                        <TableHead>
+                          <button
+                            type="button"
+                            className="flex items-center gap-1 hover:text-foreground"
+                            onClick={() => handleBatchSort('name')}
+                          >
+                            Name
+                            {batchSortColumn === 'name' ? (
+                              batchSortDirection === 'asc' ? (
+                                <ArrowUp className="h-3 w-3" />
+                              ) : (
+                                <ArrowDown className="h-3 w-3" />
+                              )
+                            ) : (
+                              <ChevronsUpDown className="h-3 w-3 opacity-40" />
+                            )}
+                          </button>
+                        </TableHead>
+                        <TableHead>
+                          <button
+                            type="button"
+                            className="flex items-center gap-1 hover:text-foreground"
+                            onClick={() => handleBatchSort('strain')}
+                          >
+                            Strain
+                            {batchSortColumn === 'strain' ? (
+                              batchSortDirection === 'asc' ? (
+                                <ArrowUp className="h-3 w-3" />
+                              ) : (
+                                <ArrowDown className="h-3 w-3" />
+                              )
+                            ) : (
+                              <ChevronsUpDown className="h-3 w-3 opacity-40" />
+                            )}
+                          </button>
+                        </TableHead>
+                        <TableHead>
+                          <button
+                            type="button"
+                            className="flex items-center gap-1 hover:text-foreground"
+                            onClick={() => handleBatchSort('status')}
+                          >
+                            Status
+                            {batchSortColumn === 'status' ? (
+                              batchSortDirection === 'asc' ? (
+                                <ArrowUp className="h-3 w-3" />
+                              ) : (
+                                <ArrowDown className="h-3 w-3" />
+                              )
+                            ) : (
+                              <ChevronsUpDown className="h-3 w-3 opacity-40" />
+                            )}
+                          </button>
+                        </TableHead>
+                        <TableHead className="hidden sm:table-cell">
+                          <button
+                            type="button"
+                            className="flex items-center gap-1 hover:text-foreground"
+                            onClick={() => handleBatchSort('created_at')}
+                          >
+                            Created
+                            {batchSortColumn === 'created_at' ? (
+                              batchSortDirection === 'asc' ? (
+                                <ArrowUp className="h-3 w-3" />
+                              ) : (
+                                <ArrowDown className="h-3 w-3" />
+                              )
+                            ) : (
+                              <ChevronsUpDown className="h-3 w-3 opacity-40" />
+                            )}
+                          </button>
+                        </TableHead>
                         <TableHead className="w-[120px]">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {batches.length === 0 ? (
+                      {filteredBatches.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={5} className="text-center text-muted-foreground">
-                            No batches found
+                          <TableCell colSpan={6} className="text-center text-muted-foreground">
+                            {batches.length === 0 ? 'No batches found' : 'No batches match your filters'}
                           </TableCell>
                         </TableRow>
                       ) : (
-                        batches.map((batch) => (
+                        filteredBatches.map((batch) => (
                           <TableRow key={batch.id} className={!batch.is_active ? 'opacity-60' : ''}>
+                            <TableCell>
+                              <Checkbox
+                                checked={selectedBatchIds.has(batch.id)}
+                                onCheckedChange={() => toggleBatchSelected(batch.id)}
+                                aria-label={`Select ${batch.name}`}
+                              />
+                            </TableCell>
                             <TableCell className="font-medium">{batch.name}</TableCell>
                             <TableCell>{batch.strain?.name || '-'}</TableCell>
                             <TableCell>
