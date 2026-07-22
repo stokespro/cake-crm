@@ -1,7 +1,7 @@
 {
-  "lastUpdated": "2026-07-21",
+  "lastUpdated": "2026-07-22",
   "deaRegistrationStatus": {
-    "lastVerified": "2026-07-21",
+    "lastVerified": "2026-07-22",
     "headline": "DEA Registration Status — Oklahoma Operators",
     "tracks": [
       {
@@ -26,7 +26,7 @@
       },
       {
         "audience": "Cultivators / Manufacturers / Labs / Distributors",
-        "status": "60-Day Expedited Window CLOSED June 29 — Form 225 with codes 7362/7353/7386 was the only available pathway (dedicated manufacturer/cultivator/lab/distributor portal never launched before the window closed). Operators who filed by June 29 hold safe-harbor operating authority during DEA's six-month review. Operators who did not file missed the expedited window — may still apply at deadiversion.usdoj.gov outside the window but WITHOUT safe-harbor. OBNDD enforcement grace period runs to January 1, 2027. D.C. Circuit: Stay motion FULLY BRIEFED as of July 17 — NDASA and MMJ International Holdings filed petitioners' reply brief; no stay ruling issued as of July 19; court can rule at any time. ALJ broader-rescheduling hearing CONCLUDED July 15, 2026; post-hearing briefs and transcript corrections due August 17, 2026.",
+        "status": "60-Day Expedited Window CLOSED June 29 — Form 225 with codes 7362/7353/7386 was the only available pathway (dedicated manufacturer/cultivator/lab/distributor portal never launched before the window closed). Operators who filed by June 29 hold safe-harbor operating authority during DEA's six-month review. Operators who did not file missed the expedited window — may still apply at deadiversion.usdoj.gov outside the window but WITHOUT safe-harbor. OBNDD enforcement grace period runs to January 1, 2027. D.C. Circuit: Stay motion FULLY BRIEFED as of July 17 — NDASA and MMJ International Holdings filed petitioners' reply brief; no stay ruling issued as of July 22; court can rule at any time. ALJ broader-rescheduling hearing CONCLUDED July 15, 2026; post-hearing briefs and transcript corrections due August 17, 2026.",
         "statusLevel": "pending",
         "detail": "The dedicated DEA application forms for Medical Marijuana Manufacturer, Bulk Manufacturer (cultivator/grower), Analytical Lab, and Distributor did NOT launch before the 60-day window closed. 60-DAY WINDOW NOW CLOSED (JUNE 29): The effective final day was June 29, 2026 — the Saturday-rule shift of the 60th calendar day (June 27), confirmed by Manatt, Phelps & Phillips. This was NOT a formal DEA extension; it was the standard federal procedural rule. Operators who filed Form 225 with medical-marijuana drug codes 7362/7353/7386 by June 29 hold safe-harbor operating authority during DEA's six-month review. Operators who did not file missed the expedited window — may still apply at deadiversion.usdoj.gov outside the window but without safe-harbor protection during review. DEA Form 225 with medical-marijuana drug codes 7362 / 7353 / 7386 is the ONLY viable pathway. Note that June 29 is also the first day of the broader-rescheduling ALJ hearing — file early Monday morning via deadiversion.usdoj.gov and retain timestamped confirmation. Fees under Form 225: $3,699/yr (Manufacturer), $1,850/yr (Distributor), $296/yr (Analytical Lab). DEA has confirmed that operators who apply via Form 225 before the dedicated portal launches do NOT need to reapply. OBNDD (May 8, 2026) states manufacturers and distributors are REQUIRED to obtain DEA registration; enforcement grace period runs to January 1, 2027.",
         "sources": [
@@ -740,28 +740,6 @@
       "pinned": false
     },
     {
-      "id": "ok-hb2837-employee-credential-training-jan2027",
-      "headline": "Oklahoma HB 2837 — All Medical Marijuana Employees Must Complete Annual OMMA Training Credential; Effective January 1, 2027",
-      "date": "2025-05-27",
-      "summary": "Oklahoma HB 2837 became law without Governor Stitt's signature on May 27, 2025. Beginning January 1, 2027, all employees of OMMA-licensed businesses must annually complete an educational training course provided or approved by OMMA and submit proof of completion in their OMMA employee credential application; employees must also pass a fingerprint-based background check through a third-party vendor contracted by OMMA. Training must cover state statutes and administrative rules, patient privacy requirements, and safe handling and storage of medical marijuana. Preliminary cost estimates range $250–$500 per employee per annual training cycle. OMMA is still promulgating implementing rules for the approved-training program.",
-      "whyItMatters": "All employees across every OMMA license type — cultivators, processors, dispensaries, laboratories, and distributors — must obtain the new OMMA-approved training credential by January 1, 2027, now less than seven months away. Dispensaries with high turnover and cultivators with seasonal labor face compounding training costs and ongoing credential tracking obligations. OMMA is expected to include training documentation as a checklist item during inspections and audits. Licensed businesses should identify or confirm OMMA-approved training programs now — implementing rules delays could create a compliance crunch close to the effective date. Failure to credential employees by January 1, 2027 exposes the business to OMMA enforcement action.",
-      "tags": [
-        "oklahoma",
-        "dispensary",
-        "cultivation",
-        "deadline"
-      ],
-      "source": {
-        "name": "The Marijuana Herald — Oklahoma Bill Mandating Annual Training Becomes Law Without Governor's Signature",
-        "url": "https://themarijuanaherald.com/2025/05/oklahoma-bill-mandating-annual-medical-marijuana-industry-training-becomes-law-without-governors-signature/"
-      },
-      "secondarySource": {
-        "name": "420.Law — HB 2837: Employer Updates",
-        "url": "https://www.oklahomamedicalmarijuana.attorney/OK-cannabis-law/hb-2837-employer-updates/"
-      },
-      "pinned": false
-    },
-    {
       "id": "dea-hearing-confirmed-proceeding-june29-no-stay-transcript-planned",
       "headline": "DEA ALJ Hearing Confirmed Proceeding Monday June 29 — No Stay Granted; DEA Will Release Transcript Post-Hearing; Advocates Excluded Hold Outside Press Conference",
       "date": "2026-06-28",
@@ -1357,64 +1335,51 @@
         "url": "https://ktul.com/news/local/ag-drummond-octf-crack-down-marijuana-illegal-sales-dispensaries"
       },
       "pinned": false
+    },
+    {
+      "id": "ag-blanche-dodges-broader-rescheduling-senate-july20",
+      "headline": "Acting AG Blanche Sidesteps Senate Questions on Broader Rescheduling — Says He'd Prosecute Simple Cannabis Possession in National Parks",
+      "date": "2026-07-20",
+      "summary": "Acting Attorney General Todd Blanche, in written answers submitted July 20 to the Senate Judiciary Committee as part of his permanent confirmation process, declined to commit to broader marijuana rescheduling beyond medical use. Blanche appeared before the committee July 15 for his confirmation hearing. On further rescheduling he said he 'will give the matter careful consideration after conferring with all relevant stakeholders, including DEA personnel' if confirmed. He also indicated he has no problem with federal prosecution of simple cannabis possession in national parks, signaling traditional DEA enforcement authority remains available to his DOJ.",
+      "whyItMatters": "For Oklahoma cultivators and dispensaries, Blanche's posture signals a DOJ unlikely to voluntarily expand Schedule III protections or issue further pro-cannabis enforcement guidance beyond the April 28 order. His comfort with national-park prosecutions confirms that Schedule III does not eliminate federal enforcement discretion over cannabis possession. Importantly, this does NOT reverse the April 28 rescheduling order — which Blanche himself signed — but it dampens expectations of additional executive action. OBNDD's January 2027 enforcement grace period and operators' DEA registration status are unaffected by Blanche's confirmation process.",
+      "tags": [
+        "federal",
+        "dispensary",
+        "cultivation"
+      ],
+      "source": {
+        "name": "Marijuana Moment — Trump AG Dodges Question About Further Rescheduling",
+        "url": "https://www.marijuanamoment.net/trump-ag-dodges-question-about-further-rescheduling-of-marijuana-beyond-medical-use"
+      },
+      "secondarySource": {
+        "name": "Cannabis Business Times — DOJ Head Sidesteps Questions on Schedule III Order",
+        "url": "https://www.cannabisbusinesstimes.com/cannabis-rescheduling/news/15830510/doj-head-sidesteps-questions-on-schedule-iii-order-adultuse-cannabis"
+      },
+      "pinned": false
+    },
+    {
+      "id": "oklahoma-lab-testing-shopping-investigation-july20",
+      "headline": "Oklahoma Watch Investigation: Cannabis Testing Lab Shopping Persists — Only 13 Labs Remain, OMMA Quality Assurance Lab Not Yet Fully Accredited",
+      "date": "2026-07-20",
+      "summary": "A July 20 investigation by Oklahoma Watch (also covered by KGOU and MJBizDaily) found that testing inconsistency and lab shopping remain serious problems in Oklahoma's medical marijuana market. OMMA has taken enforcement action against 29 of the state's testing labs since the program began. The number of licensed testing labs has fallen from 31 in 2022 to just 13 as of July 1, 2026. OMMA's own Quality Assurance Laboratory — authorized by SB 813 in 2023 — is still not fully accredited and has conducted only preliminary testing. Attorneys quoted in the investigation noted that sending one product to seven different labs can yield seven different potency results.",
+      "whyItMatters": "For Oklahoma cultivators and processors, fewer labs means less pricing competition, longer turnaround times, and ongoing potency inflation risk that could trigger mandatory recalls — similar to the Greenleaf Labs recall issued June 1, 2026. Inaccurate labeling also creates liability under OMMA's permanent rules effective July 11, 2026. For dispensaries, receiving products with inflated or inconsistent COAs creates label-compliance and recall exposure. The OMMA QA lab's delayed accreditation means no independent state backstop exists yet to catch lab-shopping violations systematically.",
+      "tags": [
+        "oklahoma",
+        "cultivation",
+        "dispensary"
+      ],
+      "source": {
+        "name": "Oklahoma Watch — Marijuana Testing Hampered by Lack of Consistency, Lab Shopping (July 20, 2026)",
+        "url": "https://oklahomawatch.org/2026/07/20/marijuana-testing-hampered-by-lack-of-consistency-lab-shopping/"
+      },
+      "secondarySource": {
+        "name": "MJBizDaily — Oklahoma Cannabis Lab Shopping Continues",
+        "url": "https://mjbizdaily.com/news/thc-potency-inflation-lab-shopping-continuing-in-oklahoma-cannabis/617023"
+      },
+      "pinned": false
     }
   ],
   "discourse": [
-    {
-      "id": "watch-consultants-paid-dea-registration",
-      "headline": "Consultants marketing paid 'DEA registration' services",
-      "claim": "Consulting firms and law practices are selling paid services to prepare/file DEA Schedule III registrations, framing the 7-section form as too complex to self-file; some imply a single SOP error will delay federal approval.",
-      "caution": "The portal is direct-to-applicant with a $794 fee paid to DEA; there is no official statement that paid representation is required. Counsel may be prudent for the Section 4 liability question, but be skeptical of vendors implying only they can navigate a self-registration process.",
-      "source": {
-        "name": "CannDelta",
-        "url": "https://canndelta.com/dea-reschedules-medical-marijuana-to-schedule-iii-a-guide-for-state-licensees-dea-registration-instructions/"
-      },
-      "date": "2026-05"
-    },
-    {
-      "id": "watch-section4-self-incrimination",
-      "headline": "Section 4 'have you distributed without DEA registration?' debate",
-      "claim": "The application asks whether owners/operators previously manufactured/distributed a controlled substance without DEA registration — which nearly every existing cannabis operator must answer 'yes' to. DEA publicly said the question is 'not intended as a categorical barrier.'",
-      "caution": "DEA's reassurance is informal — not published policy or rulemaking, not binding. Former federal prosecutors have warned against treating it as legal protection. Independent counsel before submitting is essential.",
-      "source": {
-        "name": "Cannabis Business Times",
-        "url": "https://www.cannabisbusinesstimes.com/top-stories/news/15825312/dea-says-redflag-question-on-schedule-iii-application-not-intended-as-a-categorical-barrier"
-      },
-      "date": "2026-05"
-    },
-    {
-      "id": "watch-framework-could-be-voided",
-      "headline": "Claims the whole rescheduling/registration framework could be voided",
-      "claim": "The SAM/NDASA D.C. Circuit petition, if it gets a stay, could void the Final Order and potentially unwind registrations filed under it; commentators warn operators are 'racing through a door that could be slammed shut.'",
-      "caution": "Active litigation — OMMA itself warned all information 'remains subject to change pending the lawsuit's outcome.' Factor this into any large federal-compliance capital spend.",
-      "source": {
-        "name": "OMMA — SAM lawsuit update",
-        "url": "https://oklahoma.gov/omma/about/news/2026/update-omma-monitors-dea-rescheduling-status-shares-recently-filed-lawsuit.html"
-      },
-      "date": "2026-05"
-    },
-    {
-      "id": "watch-guaranteed-expedited-approvals",
-      "headline": "Vendors implying guaranteed or expedited DEA approvals",
-      "claim": "Some marketing implies engaging a firm ensures approval or prevents delays; a Newswire PR item touts a vendor as having 'the answer' to DEA's registration questions.",
-      "caution": "DEA makes registration decisions; no third party can guarantee outcomes or speed DEA's stated six-month review. Guarantees of approval or 'special access' are red flags. Paid PR is not verified reporting.",
-      "source": {
-        "name": "Newswire (paid PR)",
-        "url": "https://www.newswire.com/news/deas-new-marijuana-registration-questions-redefining-the-cannabis-industry-and"
-      },
-      "date": "2026-05"
-    },
-    {
-      "id": "watch-interstate-commerce-claim",
-      "headline": "'DEA registration unlocks interstate commerce' — now being promoted by named companies via press release",
-      "claim": "Some consultants suggest DEA registration will enable interstate cannabis commerce. This claim escalated in May 2026 when LEEF Brands (a California cannabis company) issued a May 8, 2026 press release titled 'LEEF Brands Files Applications for DEA Registration, Positioning for Interstate and Global Export Opportunities,' framing registration as the gateway to selling across state lines and exporting internationally. The release was picked up by Cannabis Business Times.",
-      "caution": "Interstate cannabis commerce is not authorized by the Final Order, the Federal Register rules, or any federal guidance. The DOJ order explicitly states registered operators remain 'subject to the limitations of their state license.' The treaty conflict with the 1961 Single Convention further blocks export pathways. LEEF Brands' release uses future-conditional language ('as regulatory frameworks evolve'), but the headline framing has been treated as current fact in trade coverage. Do not make Oklahoma business decisions premised on interstate commerce unlocking via DEA registration.",
-      "source": {
-        "name": "LEEF Brands / GlobeNewswire (May 8, 2026)",
-        "url": "https://www.globenewswire.com/news-release/2026/05/08/3291058/0/en/LEEF-Brands-Files-Applications-for-DEA-Registration-Positioning-for-Interstate-and-Global-Export-Opportunities.html"
-      },
-      "date": "2026-05"
-    },
     {
       "id": "watch-oklahoma-operator-confusion",
       "headline": "Oklahoma operators confused over OMMA 'optional' vs OBNDD 'required'",
@@ -1427,127 +1392,6 @@
       "date": "2026-05"
     },
     {
-      "id": "watch-dea-registration-operational-exposure",
-      "headline": "Operators warn: DEA registration is 'giving DEA a roadmap' to your operation",
-      "claim": "Some industry veterans argue DEA registration creates permanent operational exposure beyond the Section 4 self-incrimination question — it documents facility location, scale, personnel with controlled-substance access, and supply-chain partners, and grants DEA on-demand unscheduled inspection authority. The concern is that previously extralegal operations are now fully mapped for federal enforcement.",
-      "caution": "DEA's on-demand inspection authority is a statutory consequence of Schedule III registration under 21 U.S.C. 880, not unique to cannabis. Operators who fear this 'roadmap' risk should weigh it against the concrete risks of non-registration: OBNDD sanctions, loss of expedited safe-harbor, and potential license jeopardy. This is a legitimate risk factor for counsel to evaluate — not a verified basis for refusing to register.",
-      "source": {
-        "name": "Beard Bros Pharms — Oklahoma registration concerns",
-        "url": "https://beardbrospharms.com/articles/lawmakers-now-requiring-oklahoma-medical-marijuana-businesses-to-register-with-the-dea/"
-      },
-      "date": "2026-06"
-    },
-    {
-      "id": "watch-alj-constitutional-challenge-june-hearing",
-      "headline": "MMJ International press campaign claims June 29 hearing unconstitutional — 'DELAYED AGAIN!'; hearing remains on schedule with all-opponent participant list released",
-      "claim": "Since May 18, 2026, MMJ International Holdings has run an escalating public press campaign with alarming headlines: 'DELAYED AGAIN! Will Marijuana Rescheduling Survive Constitutional Challenges?' (May 26); 'DEA's Last Marijuana Gamble: Unconstitutional ALJ System Collapses'; and others via AccessNewswire and pressrelease.com. MMJ formally joined the D.C. Circuit challenge (cases 26-1106/1130/1136) on May 29, and on June 9 co-filed the stay motion. MMJ has also announced plans to seek emergency injunctive relief against the June 29 hearing itself on constitutional grounds (DOJ admitted DEA ALJs' removal protections are unconstitutional in MMJ BioPharma v. Bondi, Feb. 27, 2025). UPDATE June 18–19: DEA released the June 29 hearing participant list — all 7 selected participants oppose rescheduling; NORML and cannabis industry excluded. No court has granted any injunction or stay, and the hearing remains on schedule as of June 19, 2026.",
-      "caution": "MMJ International is an interested litigation party — a pharmaceutical company that spent 7+ years pursuing FDA/DEA approval channels and now competes against newly-Schedule-III state-licensed operators. Its press campaign is advocacy, not journalism. The constitutional issue over DEA ALJ removal protections is real (DOJ conceded it), but it primarily affects the broader rescheduling hearing, not the April 28 state-medical-marijuana Schedule III order already in effect. Treat any claim that the June 29 hearing 'has been cancelled' or 'will definitely not proceed' as unverified until confirmed by the DEA or a federal court order. The risk of Oklahoma cultivators/processors not registering before June 26–27 due to MMJ's 'framework may be voided' narrative is concrete and immediate; the stay risk, while real, has not materialized.",
-      "source": {
-        "name": "PharmiWeb — June 29 Hearing Faces Constitutional Issues (May 18, 2026)",
-        "url": "https://www.pharmiweb.com/press-release/2026-05-18/june-29-marijuana-rescheduling-hearing-faces-constitutional-issues-before-it-even-begins"
-      },
-      "date": "2026-06"
-    },
-    {
-      "id": "watch-former-prosecutors-warn-dea-registration-rush",
-      "headline": "Former federal prosecutor and IRS attorney warn: Do Not Rush DEA Registration",
-      "claim": "A former federal prosecutor and a former IRS attorney are publicly advising cannabis operators NOT to file DEA registration before the June 27 expedited deadline without first consulting specialized criminal-defense and tax counsel. Arguments: (1) the Section 4 prior-distribution question documents conduct that was federally illegal when it occurred, and DEA's informal 'not a categorical barrier' statement is not binding policy; (2) the D.C. Circuit challenges could stay or vacate the entire order, making rushed registrations moot; (3) for operators whose primary concern is state-license continuity rather than federal supply-chain expansion, the registration risk may outweigh the benefit.",
-      "caution": "This advice conflicts with OBNDD Director Anderson's directive that ALL Oklahoma OMMA manufacturers and distributors MUST register by ~June 27 to avoid OBNDD administrative sanctions up to license revocation. Unlike dispensaries (for whom OMMA calls registration optional), Oklahoma cultivators and processors face a state-level mandate from OBNDD — not merely a federal opportunity. Operators following this national commentary without accounting for Oklahoma's OBNDD requirement risk losing their OBNDD manufacturer registration and by extension their OMMA grower/processor license. Consult Oklahoma-licensed counsel familiar with both DEA registration and OBNDD requirements before deciding.",
-      "source": {
-        "name": "Cannabis Business Times — Former Prosecutors Warn Against Rushing",
-        "url": "https://www.cannabisbusinesstimes.com/cannabis-rescheduling/news/15825348/former-federal-prosecutor-former-irs-lawyer-warn-cannabis-industry-about-jumping-on-dea-registration-bandwagon"
-      },
-      "date": "2026-06"
-    },
-    {
-      "id": "watch-mmj-fraudulent-safety-testing-claim",
-      "headline": "'Federal rescheduling rewards a cannabis supply chain built on fraudulent safety testing' — MMJ International press campaign",
-      "claim": "MMJ International Holdings (press release via AccessNewswire, June 3, 2026) claims the April 28 rescheduling order granted Schedule III status to a supply chain characterized by 'documented lab fraud, contaminated products, and a near-total absence of safety science' — without requiring a single state-licensed product to demonstrate safety, purity, or clinical efficacy. The company calls on federal courts and Congress to scrutinize the state-licensed supply chain before extending federal legitimacy. MMJ International is simultaneously a D.C. Circuit petitioner in Case 26-1136 and a co-filer of the June 9 stay motion.",
-      "caution": "MMJ International Holdings is an interested litigation party — this is paid-wire advocacy, not independent journalism. Oklahoma has had documented lab-fraud cases (OMMA has acted on testing violations and issued product recalls involving fraudulent or failed lab results), so the underlying concern about testing integrity is not fabricated; however, the framing is designed to advance MMJ International's litigation strategy and commercial interests. As of June 19, no court has accepted this argument as grounds for a stay or vacatur. Oklahoma operators should monitor whether this argument gains traction in the D.C. Circuit, as a ruling that imposed additional safety-testing conditions on DEA registration would directly affect cultivators and manufacturers.",
-      "source": {
-        "name": "AccessNewswire — MMJ International Holdings (June 3, 2026)",
-        "url": "https://www.accessnewswire.com/newsroom/en/healthcare-and-pharmaceutical/federal-rescheduling-is-rewarding-a-cannabis-supply-chain-built-on-fr-1172962"
-      },
-      "date": "2026-06"
-    },
-    {
-      "id": "watch-unvetted-content-sites-dea-guidance",
-      "headline": "Unvetted content-marketing websites publishing authoritative-sounding but unreliable DEA compliance guidance",
-      "claim": "Multiple websites with no identifiable editorial standards, named authors, or organizational credentials are publishing DEA registration guidance that appears in Google results alongside legitimate law-firm content: HealthDataConsortium.org ('June 22, 2026: What Medical Cannabis Operators Must Do Now' — no author, no organizational affiliation found); hrzenden.com / Zen Den Co. ('DEA Registration Deadline Cannabis June 22' — apparent lead-generation content from a non-cannabis business); WeedPress 'The Paper Trail' (aggressive compliance-cliff framing, operated by an individual, targeting South Dakota operators but indexed broadly). These sites are amplifying the June 22 deadline confusion and creating additional noise for operators seeking reliable guidance.",
-      "caution": "Oklahoma operators searching for DEA registration guidance are encountering these sites in search results, sometimes above credible law-firm or government content. Their articles may contain factual errors, be out of date, or be designed primarily for lead generation rather than compliance accuracy. No website is an authoritative source unless it ends in .gov. Cross-check any guidance against primary sources: the Federal Register notice (federalregister.gov/documents/2026/04/28/2026-08177), the DEA Diversion Control page (deadiversion.usdoj.gov), OMMA official bulletins (oklahoma.gov/omma), and OBNDD's director bulletin (obndd.ok.gov).",
-      "source": {
-        "name": "HealthDataConsortium.org — 'June 22, 2026: What Medical Cannabis Operators Must Do Now'",
-        "url": "https://healthdataconsortium.org/medical-marijuana-schedule-iii-patient-impact-2026/"
-      },
-      "date": "2026-06"
-    },
-    {
-      "id": "watch-mmj-fake-marijuana-news-dc-circuit-june13",
-      "headline": "'Fake Marijuana News' — MMJ International claims cannabis media is misleading investors about D.C. Circuit strength",
-      "claim": "MMJ International Holdings issued two closely related press releases on June 12–13, 2026. The June 12 release was titled 'Marijuana Rescheduling Delayed or Denied? Marijuana Faces its Biggest Threat Yet: the Constitution' (HealthTechnologyNet). On June 13, 2026, MMJ issued a follow-up via AccessNewswire titled 'Fake Marijuana News: What the Cannabis Media Isn't Telling Investors About the D.C. Circuit Rescheduling Challenge.' MMJ alleges mainstream cannabis media (described as financially entangled with the cannabis industry) is downplaying the legal strength of the court challenges — specifically: (1) the petitioner coalition spans states (Nebraska, Indiana), national advocacy groups (SAM, NDASA), and pharmaceutical developers (MMJ International), giving it strong standing; (2) the DOJ itself has conceded that DEA ALJ removal protections are unconstitutional, fatally undermining the June 29 broader-rescheduling hearing; (3) the D.C. Circuit challenges could void the entire Schedule III framework. MMJ frames mainstream cannabis coverage as investor manipulation designed to support cannabis stock prices.",
-      "caution": "MMJ International Holdings is a litigation party and a pharmaceutical competitor to state-licensed cannabis operators — its 'Fake Marijuana News' framing is itself advocacy, not independent analysis. The underlying legal challenges ARE real (the court has accepted the petitions; the ALJ constitutional issue is real; no stay has been granted as of June 19, 2026), but MMJ's framing exaggerates certainty of outcome to advance its own commercial interests. Oklahoma operators should evaluate D.C. Circuit developments through neutral legal counsel and primary court filings, not via MMJ International press releases. The order remains in effect and the registration deadline remains June 22 (dispensaries) and June 26–27 (manufacturers/cultivators).",
-      "source": {
-        "name": "AccessNewswire — MMJ International Holdings (June 13, 2026)",
-        "url": "https://www.accessnewswire.com/newsroom/en/healthcare-and-pharmaceutical/fake-marijuana-news-what-the-cannabis-media-isnt-telling-investors-ab-1176744"
-      },
-      "date": "2026-06"
-    },
-    {
-      "id": "watch-small-operators-280e-windfall-unlikely",
-      "headline": "'The 280E Windfall May Leave Most Small Cannabis Businesses Behind' — compliance costs may outweigh tax savings for small operators",
-      "claim": "WeedPress (May 31, 2026) argues that while large MSOs may benefit from 280E relief post-rescheduling, most small and mid-size cannabis operators will not realize the touted 'tax windfall' because: (1) DEA registration compliance costs (Section 11 cGMP requirements, legal fees for Section 4, $3,699/yr manufacturer fee) may exceed the actual tax savings for a small grow or processor; (2) DEA's six-month review period locks applicants in regulatory uncertainty; (3) the Section 4 self-incrimination exposure creates unavoidable legal costs; and (4) small operators who cannot meet Schedule III federal compliance expectations may face new federal exposure they did not have when operating in the pre-rescheduling legal gray zone.",
-      "caution": "WeedPress is operated by an individual blogger with limited identified editorial credentials — it is not a peer-reviewed publication or established trade outlet. The underlying question (whether DEA registration compliance costs outweigh 280E savings for smaller operators) is legitimate and worth quantifying with your CPA and Oklahoma-licensed attorney. However, do NOT use this framing to conclude that DEA registration is optional for CAKE or other Oklahoma cultivators and processors — OBNDD's mandatory directive is not conditioned on whether the 280E tax benefit justifies the registration cost. The cost-benefit analysis is real; the conclusion that 'therefore don't register' is directly contradicted by OBNDD's enforcement position.",
-      "source": {
-        "name": "WeedPress — Many Operators Can't Comply With Federal Registration DEA Guidelines",
-        "url": "https://weedpress.org/2026/05/31/many-operators-cant-comply-with-federal-registration-dea-guidelines-why-the-much-hyped-tax-windfall-may-leave-most-small-cannabis-businesses-behind/"
-      },
-      "date": "2026-05"
-    },
-    {
-      "id": "watch-former-dea-section-chief-june17",
-      "headline": "MMJ International features former DEA Section Chief Jorge Jimenez to oppose rescheduling — press release issued June 17, 2026",
-      "claim": "MMJ International Holdings issued a press release on June 17, 2026 via AccessNewswire/Globe and Mail titled 'Former DEA Section Chief Steps Forward to Challenge Marijuana Rescheduling Process,' featuring Jorge Jimenez (described as a former DEA Section Chief) and other enforcement veterans arguing the April 28 rescheduling order is legally improper and the DEA ALJ framework underlying the June 29 hearing is unconstitutional. The release is the latest in MMJ's accelerating pre-hearing press campaign (releases issued May 18, May 26, June 3, June 12, June 13, and now June 17). It is being amplified on social media as evidence that the hearing and the entire rescheduling framework are about to collapse.",
-      "caution": "This is a paid wire press release from MMJ International Holdings, a pharmaceutical cannabinoid company and formal litigation petitioner in D.C. Circuit Case 26-1136 — not independent journalism. A former DEA official's public opposition may carry rhetorical weight and potentially legal weight in the D.C. Circuit, but no court has acted on any of MMJ's filings and the June 29 hearing remains scheduled as of June 19, 2026 — with participant notifications sent June 18–19. The constitutional argument about DEA ALJ removal protections is real (DOJ conceded it in an earlier case), but it primarily affects the broader-rescheduling hearing — not the April 28 state-medical-marijuana Schedule III order that is already in effect and governs OBNDD's mandatory registration requirement.",
-      "source": {
-        "name": "Globe and Mail / AccessNewswire — MMJ International (June 17, 2026)",
-        "url": "https://www.theglobeandmail.com/investing/markets/markets-news/ACCESS%20Newswire/2506646/former-dea-section-chief-steps-forward-to-challenge-marijuana-rescheduling-process/"
-      },
-      "date": "2026-06"
-    },
-    {
-      "id": "watch-cannabis-attorney-more-likely-not-reversed",
-      "headline": "Cannabis-industry attorney Jason Adelstone (Harris Sliwoski): D.C. Circuit challenge 'more likely than not' to stay and reverse rescheduling if standing established",
-      "claim": "In a June 15–16, 2026 analysis distributed via AccessNewswire and the Canna Law Blog, Harris Sliwoski LLP attorney Jason Adelstone wrote that if the D.C. Circuit petitioners (NDASA, SAM, MMJ International, Nebraska, Indiana, and co-petitioners) establish standing and the court reaches the merits of the case, the DEA's marijuana rescheduling rule is 'more likely than not' to be stayed and ultimately reversed. Adelstone argued the petitioners' reliance on the D.C. Circuit's own precedent in NORML v. DEA may force the court to confront legal questions extending far beyond marijuana policy, and characterized the challenge as presenting a 'substantial threat' to the Schedule III rule.",
-      "caution": "Harris Sliwoski is a reputable cannabis law firm and not an interested litigation party (unlike MMJ International), which lends this analysis more credibility than prior advocacy press releases. However, the key caveat is the 'IF petitioners establish standing' condition — standing is actively disputed and not guaranteed; the petitioners must first overcome standing hurdles before the court reaches the merits. Cannabis-industry attorneys have previously underestimated litigation risks in this space. More importantly for Oklahoma operators: this analysis does NOT change OBNDD's mandatory registration directive. The concrete risk of not registering by June 26–27 (OBNDD sanctions, potential license jeopardy) remains immediate and certain, while the stay risk — though real and now conceded by a cannabis-friendly attorney — has not materialized. Do NOT use this analysis as a basis to delay or forego DEA registration. Consult Oklahoma-licensed counsel who can assess both the OBNDD mandate and the litigation risk simultaneously.",
-      "source": {
-        "name": "Globe and Mail / AccessNewswire — Harris Sliwoski LLP (June 16, 2026)",
-        "url": "https://www.theglobeandmail.com/investing/markets/markets-news/ACCESS%20Newswire/2487336/cannabis-industry-attorney-concedes-d-c-circuit-challenge-could-reverse-marijuana-rescheduling/"
-      },
-      "date": "2026-06"
-    },
-    {
-      "id": "watch-dea-hearing-only-opponents-reaction",
-      "headline": "'Rigged hearing' narrative: cannabis industry and advocates describe DEA participant selection as a structured all-opposition proceeding",
-      "claim": "Following DEA's release of the June 29 hearing participant list (~June 18–19, 2026) — which includes only rescheduling opponents — cannabis trade groups, patient advocates, and reform organizations are describing the hearing as structurally designed to produce an anti-rescheduling administrative record. Commentary on social media and cannabis trade outlets frames the all-opponent selection as 'rigged,' argues it delegitimizes the process, and suggests it will strengthen D.C. Circuit petitioners' argument that the proceeding is constitutionally or procedurally defective. NORML — which was excluded — had filed a notice of intent to participate specifically arguing that cannabis consumers must be represented.",
-      "caution": "The participant selection is a confirmed fact, not merely a claim. The 'rigged' characterization is commentary — no court has found the selection process improper as of June 20, 2026. The broader-rescheduling ALJ hearing addresses whether adult-use marijuana moves to Schedule III — it is procedurally and legally separate from the April 28 state-medical-marijuana Schedule III order already in effect. Oklahoma cultivators and processors must still use Form 225 to meet the June 26–27 expedited window. Do not allow commentary about the hearing's participant composition to create a false impression that the entire rescheduling framework is collapsing — no stay has been granted as of June 20, 2026, and OBNDD's mandatory registration directive is unchanged.",
-      "source": {
-        "name": "MJBizDaily — DEA Selects Only Cannabis Foes for Hearing",
-        "url": "https://mjbizdaily.com/news/dea-selects-only-cannabis-foes-to-participate-in-marijuana-rescheduling-hearing/616541/"
-      },
-      "date": "2026-06"
-    },
-    {
-      "id": "watch-dea-inspection-reaction-roadmap-concern",
-      "headline": "'They're already at the door' — DEA inspection reports renew operator fears that registration triggers immediate federal on-site presence",
-      "claim": "Following Marijuana Moment's June 19 report that DEA has begun on-site inspections at cannabis businesses that applied for Schedule III registration, operators are sharing reactions across industry forums and social media. The predominant narrative: registration has already triggered 5–6 federal agents arriving for six-hour site visits, confirming that applying is not a paper exercise but a direct invitation for DEA to map your facility, operations, and personnel. Operators who were holding off — particularly cultivators waiting for the manufacturer portal — are pointing to the Mississippi inspection reports as validation of the existing 'giving DEA a roadmap' concern. Some social commentary describes the Mississippi visits as a 'dry run' before DEA scales inspections nationally and warns that 'every dispensary that filed is getting a visit.'",
-      "caution": "The Mississippi inspections reported by Marijuana Moment (June 19, 2026) are consistent with DEA's standard Schedule III registration review process — inspections are a normal and expected step, not a surprise enforcement action. The collaborative, inquisitive tone described by High Street Dispensary owner David Fowler does not support the interpretation that DEA is using inspections as pretextual enforcement. More critically for Oklahoma cultivators and processors: OBNDD Director Anderson has issued a mandatory directive to register — the risk of NOT registering by June 26–27 (OBNDD sanctions, potential OMMA license revocation) is immediate and concrete. Using inspection news as a reason to avoid filing directly contradicts OBNDD's mandate and does not eliminate the underlying compliance obligation. Operators genuinely concerned about inspection readiness should consult counsel and prepare documentation now — then file, not skip.",
-      "source": {
-        "name": "Marijuana Moment — DEA Begins On-Site Inspections (June 19, 2026)",
-        "url": "https://www.marijuanamoment.net/dea-begins-on-site-inspections-at-marijuana-businesses-that-applied-for-federal-protections-under-trumps-rescheduling-move/"
-      },
-      "date": "2026-06"
-    },
-    {
       "id": "watch-january-2027-grace-period-is-not-filing-deadline",
       "headline": "'The OBNDD January 2027 grace period means you have until January 2027 to file' — the most dangerous deadline confusion circulating as the expedited window closes",
       "claim": "Oklahoma cannabis operator forums, Reddit (r/OklahomaMarijuana, r/cannabiscultivation), and some local coverage are circulating the claim that since OBNDD announced a grace period until January 1, 2027 before administrative enforcement, operators have until January 1, 2027 to submit their DEA registration application. Some versions say 'we have six more months' or 'the real deadline is January.' This conflates two distinct deadlines.",
@@ -1555,61 +1399,6 @@
       "source": {
         "name": "OBNDD Director Bulletin (May 8, 2026) — DEA Registration for Oklahoma OMMA Operators",
         "url": "https://www.obndd.ok.gov/home/showpublisheddocument/887"
-      },
-      "date": "2026-06"
-    },
-    {
-      "id": "watch-simplifya-registration-optional-argument",
-      "headline": "Simplifya (compliance software): 'Rescheduling Does Not Necessarily Mean Registering with the DEA' — dangerous framing for Oklahoma operators",
-      "claim": "Simplifya, a cannabis compliance software company, published a piece on approximately June 19, 2026 arguing that DEA registration is not clearly mandatory and that operators should evaluate the cost-benefit before registering, given: (1) legal uncertainty around the rescheduling order, (2) unclear compliance cost burden, (3) the Section 4 self-incrimination problem on Form 225, and (4) six-month DEA review uncertainty. The piece concludes operators should consult counsel and may rationally choose not to register before the June 26 deadline.",
-      "caution": "This argument may be appropriate guidance in states where regulators have NOT issued an explicit registration mandate. It is directly and dangerously wrong for Oklahoma. OBNDD Director Donnie Anderson issued an explicit bulletin on May 8, 2026 stating that ALL OMMA registrants who are manufacturers or distributors MUST obtain DEA registration, warning that failure 'could result in OBNDD administrative sanctions up to and including the potential revocation' of OBNDD registrations. Simplifya's framing is generic national advice that does not account for Oklahoma's state-level mandate. An Oklahoma cultivator or processor who reads Simplifya and concludes they can skip registration faces OBNDD sanctions that are entirely independent of whether the DEA rescheduling order is later stayed or vacated. The cost-benefit analysis Simplifya recommends is real — but in Oklahoma, the cost of NOT registering by June 26 includes loss of the OBNDD manufacturer registration that underlies the OMMA grower/processor license. Consult Oklahoma-licensed counsel, not national software vendor guidance.",
-      "source": {
-        "name": "Simplifya — Rescheduling Does Not Necessarily Mean Registering with the DEA",
-        "url": "https://www.simplifya.com/rescheduling-does-not-necessarily-mean-registering-with-the-dea/"
-      },
-      "date": "2026-06"
-    },
-    {
-      "id": "watch-post-window-what-now-confusion",
-      "headline": "'The window closed — does that mean we can never register?' — post-deadline confusion circulating among operators who missed the June 29 expedited window",
-      "claim": "Oklahoma cannabis operators and national industry forums are circulating questions and conflicting assertions about what happens now that the 60-day expedited window has closed: (1) 'If we missed the window, are we permanently barred from DEA registration?'; (2) 'Does missing the window mean automatic OBNDD license revocation?'; (3) 'Is there still a pathway or are we just done?'; (4) 'We heard the window might be extended because the dedicated portal never launched.'",
-      "caution": "The expedited 60-day window closed June 29 — but DEA registration is NOT permanently closed. Operators who missed the window may still apply for DEA registration using Form 225 at deadiversion.usdoj.gov outside the expedited window. The consequences of missing the window are: (1) NO safe-harbor operating authority while DEA reviews the application — you are not protected during the review period; (2) OBNDD enforcement sanctions begin January 1, 2027 against operators who still do not have registration by that date; (3) there is no confirmed DEA extension of the window. Apply via Form 225 now if you have not already — late filing is better than not filing, but consult Oklahoma-licensed counsel about the gap period between application and registration when you have no safe harbor. No OBNDD automatic license revocation occurs on June 29 — enforcement begins January 1, 2027.",
-      "source": {
-        "name": "OBNDD Director Bulletin (May 8, 2026) — DEA Registration Grace Period",
-        "url": "https://www.obndd.ok.gov/home/showpublisheddocument/887"
-      },
-      "date": "2026-06"
-    },
-    {
-      "id": "watch-stacked-hearing-atach-trump-angle",
-      "headline": "'Stacked, Closed-Door Hearing' narrative dominant in cannabis media; ATACH argues selection contradicts Trump's own rescheduling stance; Harris Sliwoski warns one-sided record weakens legal durability",
-      "claim": "The 'stacked hearing' framing — all 7 selected participants oppose rescheduling, zero pro-reform parties included — has become the dominant cannabis industry narrative heading into the June 29 hearing. American Trade Association for Cannabis and Hemp (ATACH) president Michael Bronstein stated the roster is full of 'prohibitionist parties that oppose President Trump's position on rescheduling,' introducing a political dimension not previously prominent. Separately, Harris Sliwoski LLP's Canna Law Blog published an analysis ('Why Marijuana Rescheduling's One-Sided Hearing Matters') arguing a one-sided administrative record weakens the final rule's durability if challenged in court. High Times, cannabiscreditscores.com, and cannabis trade press are all using 'stacked' and 'closed-door' framing. Cannabis Business Times ran a separate analysis asking 'Should DEA's One-Sided Cannabis Rescheduling Hearing Be Reason for Concern?' — noting expert disagreement on how much the participant composition actually matters.",
-      "caution": "The participant selection is a confirmed fact; the 'stacked' characterization is commentary. The ATACH angle (opposing Trump's position) is advocacy framing designed to pressure the administration and is not a legal argument. The Harris Sliwoski analysis on administrative record durability is legally coherent and worth monitoring in the D.C. Circuit context. For Oklahoma operators, no amount of post-hearing commentary changes OBNDD's mandatory registration directive or the June 29 Form 225 deadline. Do not let 'stacked hearing' framing create a false impression that the Schedule III order for state-licensed medical marijuana is itself under attack at the June 29 proceeding — Chief ALJ Julius's scope order is unambiguous.",
-      "source": {
-        "name": "Cannabis Business Times — Should DEA's One-Sided Cannabis Rescheduling Hearing Be Reason for Concern?",
-        "url": "https://www.cannabisbusinesstimes.com/cannabis-rescheduling/news/15828554/should-deas-onesided-cannabis-rescheduling-hearing-be-reason-for-concern"
-      },
-      "date": "2026-06"
-    },
-    {
-      "id": "watch-sabet-solely-political-claim-day1",
-      "headline": "SAM's Sabet calls rescheduling 'solely political' on Day 1 — advocacy framing circulating in trade media as prediction of reversal",
-      "claim": "Kevin Sabet (CEO, Smart Approaches to Marijuana), a designated hearing participant scheduled to testify July 6, issued a press statement outside DEA headquarters on June 29 calling the Trump administration's rescheduling 'solely political,' citing cannabis industry campaign donations (specifically Trulieve CEO Kim Rivers's donations to Trump inaugural committees and MAHA PACs). This framing is being amplified in cannabis trade media and on social media as a signal that rescheduling will be reversed once courts examine its alleged political motivation.",
-      "caution": "Sabet is one of seven designated anti-rescheduling hearing participants — his Day 1 press statement is advocacy, not legal or scientific analysis. Courts do not reverse agency rulemaking based on political-motivation allegations alone; the APA standard is whether the rule was arbitrary, capricious, or contrary to law. The government's own FDA witness (Chiapperino) entered substantive eight-factor scientific testimony into the administrative record on June 29, directly contradicting the 'solely political' framing. Sabet is scheduled to testify as a participant on July 6, meaning this framing will recur with new amplification on his testimony day. Oklahoma operators should evaluate this claim in the context of Sabet's litigation-adjacent advocacy role, not as objective legal or scientific fact. The April 28 Schedule III order remains in effect; no court stay has been granted.",
-      "source": {
-        "name": "MJBizDaily — Cannabis Rescheduling 'Solely Political,' Opponent Claims as Hearings Begin",
-        "url": "https://mjbizdaily.com/news/trump-marijuana-rescheduling-is-solely-political-opponent-claims-as-dea-hearings-begin/616719/"
-      },
-      "date": "2026-06"
-    },
-    {
-      "id": "watch-alj-hearing-blackout-unverifiable-claims-july",
-      "headline": "ALJ hearing blackout (July 1–15) — daily social-media hearing claims are unverifiable until DEA releases official transcript post-July 15",
-      "claim": "The June 29–July 15 ALJ broader-rescheduling hearing is closed to remote access — no livestream, no recording, no daily transcript. Cannabis industry newsletters, X/Twitter accounts, LinkedIn posts, and Reddit threads are beginning to summarize 'what happened at the hearing today' based on limited second-hand reports from in-person observers. Some summaries frame daily testimony as more definitive than warranted: e.g., 'the FDA testimony guarantees Schedule III survives' or 'SAM's July 6 testimony proves rescheduling will be reversed.'",
-      "caution": "The official hearing transcript publishes on DEA.gov only after proceedings conclude post-July 15. Until then, any claim about specific testimony content, ALJ rulings, cross-examination outcomes, or the hearing's likely impact on the D.C. Circuit challenge is unverified and potentially shaped by the source's advocacy position. Chief ALJ Julius's June 19 scope order is unambiguous: the hearing addresses ONLY adult-use marijuana — nothing said in the hearing room changes Oklahoma state-licensed medical marijuana's Schedule III status or OBNDD registration obligation. Do not adjust compliance posture (DEA registration decisions, 280E treatment, OBNDD engagement) based on unverified hearing-day claims during July 1–15. The next verifiable legal milestone is the DOJ D.C. Circuit response brief due July 2 — a public court filing that will be directly accessible at pacer.gov.",
-      "source": {
-        "name": "DEA — Marijuana Rescheduling Regulatory Actions (official transcript will publish post-July 15)",
-        "url": "https://www.dea.gov/marijuana-rescheduling-regulatory-actions"
       },
       "date": "2026-06"
     },
