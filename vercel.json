@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/banksync-recover",
       "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/api/cron/generate-recurring-tasks",
+      "schedule": "0 8 * * *"
     }
   ]
 }

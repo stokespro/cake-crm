@@ -55,7 +55,6 @@ import {
   createGrowRoom,
   updateGrowRoom,
   deleteGrowRoom,
-  generateRecurringTasksAction,
 } from '@/actions/cultivation'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -271,11 +270,9 @@ export default function CultivationPage() {
 
   async function fetchData() {
     try {
-    // Best-effort: generate any pending recurring task instances
-    // Wrapped in its own try/catch inside the action — failure here must not
-    // block the rest of the page load.
-    await generateRecurringTasksAction()
-
+    // Recurring task generation now runs on a nightly Vercel Cron
+    // (app/api/cron/generate-recurring-tasks/route.ts) instead of on every
+    // page load — see generateRecurringTasksCore in actions/cultivation.ts.
     const todayStr = format(new Date(), 'yyyy-MM-dd')
     const [roomsRes, cyclesRes, tasksRes, myTasksRes] = await Promise.all([
       getGrowRooms(),

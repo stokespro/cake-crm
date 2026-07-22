@@ -69,7 +69,6 @@ import {
   getCultivationUsers,
   startTask,
   deleteTask as deleteTaskAction,
-  generateRecurringTasksAction,
 } from '@/actions/cultivation'
 
 // --- Constants ---
@@ -148,6 +147,11 @@ function assigneeNames(task: CultivationTask): string {
   return task.assigned_user?.name || 'Unassigned'
 }
 
+// Rows requested per server-side page — must match DEFAULT_PAGE_SIZE in
+// actions/cultivation.ts (kept as a separate constant since the client
+// can't import a server-only module's internals).
+const PAGE_SIZE = 50
+
 export default function CultivationTasksPage() {
   const { user } = useAuth()
   const [tasks, setTasks] = useState<CultivationTask[]>([])
@@ -165,6 +169,15 @@ export default function CultivationTasksPage() {
   // filter changes) — only the most recently issued request is allowed to
   // apply its data or clear `loading`.
   const fetchSeqRef = useRef(0)
+
+  // Server-side pagination state. `totalCount`/`hasMore` reflect the full
+  // set matching the current timeframe+status window on the server;
+  // `tasks` only holds the pages loaded so far. Reset to page 0 whenever a
+  // filter change triggers a fresh fetchData() (see the effect below).
+  const [totalCount, setTotalCount] = useState(0)
+  const [hasMore, setHasMore] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const offsetRef = useRef(0)
 
   // View mode
   const [viewMode, setViewMode] = useState<'all' | 'mine'>(() =>
@@ -246,21 +259,27 @@ export default function CultivationTasksPage() {
     }
   }
 
+  /** Full refetch from page 0 — used for the initial load and any
+   * filter-triggered refetch. Resets pagination (offsetRef, tasks, hasMore)
+   * so a filter change mid-load-more can't leave stale pages mixed in. */
   async function fetchData() {
-    // Bump the sequence so any earlier in-flight request can recognize
-    // itself as stale once this one resolves.
+    // Bump the sequence so any earlier in-flight request (including a
+    // pending "Load more") can recognize itself as stale once this one
+    // resolves.
     const requestId = ++fetchSeqRef.current
+    offsetRef.current = 0
     setLoading(true)
+    setLoadingMore(false)
     try {
-      // Best-effort: generate any pending recurring task instances
-      // Action is wrapped internally — failure here must not block data load.
-      await generateRecurringTasksAction()
-
+      // Recurring task generation now runs on a nightly Vercel Cron
+      // (app/api/cron/generate-recurring-tasks/route.ts) instead of on
+      // every page load — see generateRecurringTasksCore in
+      // actions/cultivation.ts.
       const { dateFrom, dateTo } = computeTimeframeRange()
       const statuses = statusesForFilter(filterStatus)
 
       const [tasksRes, roomsRes, usersRes, summaryRes] = await Promise.all([
-        getCultivationTasks({ dateFrom, dateTo, statuses }),
+        getCultivationTasks({ dateFrom, dateTo, statuses, limit: PAGE_SIZE, offset: 0 }),
         getGrowRooms(),
         getCultivationUsers(),
         // Lightweight, unfiltered — backs the header stat cards so they stay
@@ -272,7 +291,13 @@ export default function CultivationTasksPage() {
       // started — don't let this stale response overwrite fresher data.
       if (requestId !== fetchSeqRef.current) return
 
-      if (tasksRes.data) setTasks(tasksRes.data as CultivationTask[])
+      if (tasksRes.data) {
+        const page = tasksRes.data.tasks as CultivationTask[]
+        setTasks(page)
+        setTotalCount(tasksRes.data.totalCount)
+        setHasMore(tasksRes.data.hasMore)
+        offsetRef.current = page.length
+      }
       if (roomsRes.data) setRooms(roomsRes.data as GrowRoom[])
       if (usersRes.data) setUsers(usersRes.data as UserOption[])
       if (summaryRes.data) setSummary(summaryRes.data)
@@ -285,6 +310,46 @@ export default function CultivationTasksPage() {
       if (requestId === fetchSeqRef.current) {
         setLoading(false)
         setHasLoadedOnce(true)
+      }
+    }
+  }
+
+  /** Fetches the next page (at offsetRef.current) and appends it to `tasks`.
+   * Shares fetchSeqRef with fetchData() so a filter change firing mid-flight
+   * invalidates this response instead of mixing pages from two different
+   * filter states. */
+  async function loadMoreTasks() {
+    const requestId = ++fetchSeqRef.current
+    setLoadingMore(true)
+    try {
+      const { dateFrom, dateTo } = computeTimeframeRange()
+      const statuses = statusesForFilter(filterStatus)
+
+      const res = await getCultivationTasks({
+        dateFrom,
+        dateTo,
+        statuses,
+        limit: PAGE_SIZE,
+        offset: offsetRef.current,
+      })
+
+      // A filter change (or another load-more) superseded this request.
+      if (requestId !== fetchSeqRef.current) return
+
+      if (res.data) {
+        const page = res.data.tasks as CultivationTask[]
+        setTasks((prev) => [...prev, ...page])
+        setTotalCount(res.data.totalCount)
+        setHasMore(res.data.hasMore)
+        offsetRef.current += page.length
+      } else if (res.error) {
+        toast.error(res.error)
+      }
+    } catch (err) {
+      console.error('[cultivation/tasks] loadMoreTasks error:', err)
+    } finally {
+      if (requestId === fetchSeqRef.current) {
+        setLoadingMore(false)
       }
     }
   }
@@ -719,9 +784,17 @@ export default function CultivationTasksPage() {
         )}
       </div>
 
-      {/* Results count */}
-      <p className="text-sm text-muted-foreground flex items-center gap-1.5">
-        {sortedTasks.length} task{sortedTasks.length !== 1 ? 's' : ''}
+      {/* Results count — `tasks` is what's loaded from the server so far
+          (paginated, scoped to the current timeframe+status); `totalCount`
+          is the full server-side match count for that same scope.
+          Client-only filters (search/room/priority/type/stage/assignee/My
+          Tasks) further narrow `tasks` down to `sortedTasks` without
+          fetching more, so when those are active we surface both numbers
+          rather than implying `sortedTasks.length` is the server total. */}
+      <p className="text-sm text-muted-foreground flex items-center gap-1.5 flex-wrap">
+        {sortedTasks.length === tasks.length
+          ? `Showing ${tasks.length} of ${totalCount} task${totalCount !== 1 ? 's' : ''}`
+          : `Showing ${sortedTasks.length} of ${tasks.length} loaded (${totalCount} total)`}
         {hasFilters ? ' (filtered)' : ''}
         {loading && (
           <span className="inline-flex items-center gap-1 text-xs">
@@ -919,6 +992,23 @@ export default function CultivationTasksPage() {
           })
         )}
       </div>
+
+      {/* Load More — only appears when the server reports more rows exist
+          beyond what's currently loaded for this timeframe+status window. */}
+      {hasMore && (
+        <div className="flex justify-center pt-2">
+          <Button variant="outline" onClick={loadMoreTasks} disabled={loadingMore}>
+            {loadingMore ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Loading…
+              </>
+            ) : (
+              `Load more (${totalCount - tasks.length} remaining)`
+            )}
+          </Button>
+        </div>
+      )}
 
       {/* Detail Sheet */}
       <TaskDetailSheet

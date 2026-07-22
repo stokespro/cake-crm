@@ -128,12 +128,32 @@ function flattenAssignees<T extends AssigneesEmbedRow>(
 // on every page load.
 const DEFAULT_STATUSES: CultivationTaskStatus[] = ['pending', 'in_progress']
 
+// Statuses that represent finished (history) rows. These accumulate forever,
+// so any query that includes one of them gets a hard lower bound on
+// due_date — see HISTORY_LOOKBACK_DAYS below — even if the caller asked for
+// an unbounded start (e.g. the "Past Due & Today" preset, which passes
+// dateFrom: null so pending/in_progress overdue tasks always show).
+const HISTORY_STATUSES: CultivationTaskStatus[] = ['completed', 'skipped']
+
+// Max number of days back we'll ever query for completed/skipped tasks,
+// regardless of the requested dateFrom. Prevents an unbounded "Past Due &
+// Today" + Status=Completed combo (or any other unbounded-start query that
+// includes a history status) from scanning the entire all-time history
+// table. Tune here if the business needs a longer lookback.
+const HISTORY_LOOKBACK_DAYS = 30
+
+// Default page size for server-side pagination when the caller doesn't
+// specify one.
+const DEFAULT_PAGE_SIZE = 50
+
 export interface GetCultivationTasksParams {
   /**
    * Lower bound (inclusive) on due_date, as a YYYY-MM-DD string. Omit or
    * pass null/undefined for an unbounded start — this is what makes
    * "Past Due & Today" (and the bare default call) always surface overdue
-   * tasks regardless of how far in the past they're due.
+   * tasks regardless of how far in the past they're due. Note: if `statuses`
+   * includes a history status (completed/skipped), the effective start is
+   * still capped at HISTORY_LOOKBACK_DAYS back — see below.
    */
   dateFrom?: string | null
   /**
@@ -145,23 +165,53 @@ export interface GetCultivationTasksParams {
   dateTo?: string | null
   /** Defaults to incomplete tasks only (pending, in_progress). */
   statuses?: CultivationTaskStatus[]
+  /** Max rows to return. Defaults to DEFAULT_PAGE_SIZE (50). */
+  limit?: number
+  /** Row offset for pagination. Defaults to 0. */
+  offset?: number
+}
+
+export interface GetCultivationTasksResult {
+  tasks: unknown[]
+  /** Total rows matching the filters (ignoring limit/offset). */
+  totalCount: number
+  /** Whether more rows exist beyond this page (offset + tasks.length < totalCount). */
+  hasMore: boolean
 }
 
 export async function getCultivationTasks(
   params: GetCultivationTasksParams = {}
-): Promise<{ data: unknown[]; error?: never } | { data?: never; error: string }> {
+): Promise<{ data: GetCultivationTasksResult; error?: never } | { data?: never; error: string }> {
   const auth = await requireRole(VIEW_ROLES)
   if (!auth.authorized) return { error: auth.reason }
 
   const statuses = params.statuses ?? DEFAULT_STATUSES
-  const dateFrom = params.dateFrom ?? null
+  let dateFrom = params.dateFrom ?? null
   const dateTo = params.dateTo === undefined ? new Date().toISOString().split('T')[0] : params.dateTo
+  const limit = params.limit && params.limit > 0 ? params.limit : DEFAULT_PAGE_SIZE
+  const offset = params.offset && params.offset > 0 ? params.offset : 0
+
+  // Never let a query that includes completed/skipped rows look back further
+  // than HISTORY_LOOKBACK_DAYS, even if the caller passed an unbounded (or
+  // further-back) dateFrom — completed/skipped history only ever grows, so
+  // an unbounded start here would re-fetch the entire all-time table (the
+  // exact slow-load regression this cap exists to prevent). Pure
+  // pending/in_progress queries are unaffected and keep their unbounded
+  // start so overdue tasks always surface regardless of age.
+  const includesHistoryStatus = statuses.some((s) => HISTORY_STATUSES.includes(s))
+  if (includesHistoryStatus) {
+    const cutoff = new Date()
+    cutoff.setDate(cutoff.getDate() - HISTORY_LOOKBACK_DAYS)
+    const cutoffStr = cutoff.toISOString().split('T')[0]
+    dateFrom = dateFrom && dateFrom > cutoffStr ? dateFrom : cutoffStr
+  }
 
   const db = await createServiceClient()
   let query = db
     .from('cultivation_tasks')
     .select(
-      `*, room:grow_rooms(id, room_name, room_number), assigned_user:users!cultivation_tasks_assigned_to_fkey(id, name), completed_by_user:users!cultivation_tasks_completed_by_fkey(id, name), ${ASSIGNEES_EMBED}`
+      `*, room:grow_rooms(id, room_name, room_number), assigned_user:users!cultivation_tasks_assigned_to_fkey(id, name), completed_by_user:users!cultivation_tasks_completed_by_fkey(id, name), ${ASSIGNEES_EMBED}`,
+      { count: 'exact' }
     )
     .or('frequency.is.null,recurring_parent_id.not.is.null')
 
@@ -176,17 +226,28 @@ export async function getCultivationTasks(
   }
 
   // due_date ASC puts past-due and today first; priority DESC (critical
-  // first) breaks ties within a day.
-  const { data, error } = await query
+  // first) breaks ties within a day. Sort is applied server-side before
+  // .range() so pagination is stable across pages.
+  const { data, error, count } = await query
     .order('due_date', { ascending: true })
     .order('priority', { ascending: false })
+    .range(offset, offset + limit - 1)
 
   if (error) {
     console.error('[cultivation] getCultivationTasks error:', error)
     return { error: 'Failed to load tasks' }
   }
 
-  return { data: flattenAssignees(data ?? []) }
+  const rows = flattenAssignees(data ?? [])
+  const totalCount = count ?? rows.length
+
+  return {
+    data: {
+      tasks: rows,
+      totalCount,
+      hasMore: offset + rows.length < totalCount,
+    },
+  }
 }
 
 export async function getCultivationTaskSummary(): Promise<
@@ -1054,13 +1115,16 @@ function dueDatesNeeded(
   return dates
 }
 
-export async function generateRecurringTasksAction(): Promise<
+/**
+ * Core recurring-task generation logic. Session-independent — builds its
+ * own service-role Supabase client, so it can be called from contexts with
+ * no cookies/session (e.g. the nightly Vercel Cron route) as well as from
+ * the thin, role-guarded action below.
+ */
+export async function generateRecurringTasksCore(): Promise<
   { generated: number; error?: never } | { error: string }
 > {
   try {
-    const auth = await requireRole(VIEW_ROLES)
-    if (!auth.authorized) return { generated: 0 }
-
     const db = await createServiceClient()
     const today = new Date()
     today.setHours(0, 0, 0, 0)
@@ -1166,7 +1230,22 @@ export async function generateRecurringTasksAction(): Promise<
     return { generated }
   } catch (err) {
     // Never block page load — recurring generation is best-effort
-    console.error('[cultivation] generateRecurringTasksAction unexpected error:', err)
+    console.error('[cultivation] generateRecurringTasksCore unexpected error:', err)
     return { generated: 0 }
   }
+}
+
+/**
+ * Thin, role-guarded wrapper around generateRecurringTasksCore() — kept
+ * exported for any future manual/UI-triggered invocation. The nightly
+ * Vercel Cron (app/api/cron/generate-recurring-tasks/route.ts) calls
+ * generateRecurringTasksCore() directly instead, since a cron request has
+ * no session to check a role against.
+ */
+export async function generateRecurringTasksAction(): Promise<
+  { generated: number; error?: never } | { error: string }
+> {
+  const auth = await requireRole(VIEW_ROLES)
+  if (!auth.authorized) return { generated: 0 }
+  return generateRecurringTasksCore()
 }
