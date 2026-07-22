@@ -18,6 +18,9 @@ export interface Batch {
   strain_id: string
   is_active: boolean
   created_at: string
+  thc_percentage?: number | null
+  terpenes_percentage?: number | null
+  total_cannabinoids_percentage?: number | null
   strain?: Strain
 }
 

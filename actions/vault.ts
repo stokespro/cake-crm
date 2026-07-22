@@ -700,9 +700,38 @@ export async function toggleBatchActive(
   return { success: true, batch: data as Batch }
 }
 
+// Optional lab/COA testing values captured on a batch
+export interface BatchTestingFields {
+  thcPercentage?: number | string | null
+  terpenesPercentage?: number | string | null
+  totalCannabinoidsPercentage?: number | string | null
+}
+
+// Normalizes an optional percentage input (number, numeric string, or empty/null)
+// into a number in [0, 100] or null. Throws a plain Error with a friendly message
+// when the value is present but invalid.
+function parsePercentage(value: number | string | null | undefined, label: string): number | null {
+  if (value === null || value === undefined || value === '') {
+    return null
+  }
+
+  const parsed = typeof value === 'number' ? value : Number(value)
+
+  if (Number.isNaN(parsed)) {
+    throw new Error(`${label} must be a number`)
+  }
+
+  if (parsed < 0 || parsed > 100) {
+    throw new Error(`${label} must be between 0 and 100`)
+  }
+
+  return parsed
+}
+
 export async function createBatch(
   name: string,
-  strainId: string
+  strainId: string,
+  testing?: BatchTestingFields
 ): Promise<{ success: boolean; batch?: Batch; error?: string }> {
   const auth = await requireRole(VAULT_ADMIN_ROLES)
   if (!auth.authorized) return { success: false, error: auth.reason }
@@ -715,6 +744,17 @@ export async function createBatch(
 
   if (!strainId) {
     return { success: false, error: 'Strain is required' }
+  }
+
+  let thcPercentage: number | null
+  let terpenesPercentage: number | null
+  let totalCannabinoidsPercentage: number | null
+  try {
+    thcPercentage = parsePercentage(testing?.thcPercentage, 'THC %')
+    terpenesPercentage = parsePercentage(testing?.terpenesPercentage, 'Terpenes %')
+    totalCannabinoidsPercentage = parsePercentage(testing?.totalCannabinoidsPercentage, 'Total Cannabinoids %')
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Invalid testing values' }
   }
 
   // Check if batch already exists
@@ -730,7 +770,13 @@ export async function createBatch(
 
   const { data, error } = await db
     .from('batches')
-    .insert({ name: name.trim(), strain_id: strainId })
+    .insert({
+      name: name.trim(),
+      strain_id: strainId,
+      thc_percentage: thcPercentage,
+      terpenes_percentage: terpenesPercentage,
+      total_cannabinoids_percentage: totalCannabinoidsPercentage,
+    })
     .select(`
       *,
       strain:strains(*)
@@ -747,7 +793,8 @@ export async function createBatch(
 export async function updateBatch(
   id: string,
   name: string,
-  strainId: string
+  strainId: string,
+  testing?: BatchTestingFields
 ): Promise<{ success: boolean; batch?: Batch; error?: string }> {
   const auth = await requireRole(VAULT_ADMIN_ROLES)
   if (!auth.authorized) return { success: false, error: auth.reason }
@@ -760,6 +807,17 @@ export async function updateBatch(
 
   if (!strainId) {
     return { success: false, error: 'Strain is required' }
+  }
+
+  let thcPercentage: number | null
+  let terpenesPercentage: number | null
+  let totalCannabinoidsPercentage: number | null
+  try {
+    thcPercentage = parsePercentage(testing?.thcPercentage, 'THC %')
+    terpenesPercentage = parsePercentage(testing?.terpenesPercentage, 'Terpenes %')
+    totalCannabinoidsPercentage = parsePercentage(testing?.totalCannabinoidsPercentage, 'Total Cannabinoids %')
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Invalid testing values' }
   }
 
   // Check if another batch with this name exists
@@ -776,7 +834,13 @@ export async function updateBatch(
 
   const { data, error } = await db
     .from('batches')
-    .update({ name: name.trim(), strain_id: strainId })
+    .update({
+      name: name.trim(),
+      strain_id: strainId,
+      thc_percentage: thcPercentage,
+      terpenes_percentage: terpenesPercentage,
+      total_cannabinoids_percentage: totalCannabinoidsPercentage,
+    })
     .eq('id', id)
     .select(`
       *,
