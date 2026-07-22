@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -47,7 +48,7 @@ import {
   ArrowRight,
   Loader2,
 } from 'lucide-react'
-import { format, parseISO, isPast, isToday, subDays, addDays, addWeeks, startOfWeek, endOfWeek } from 'date-fns'
+import { format, isPast, subDays, addDays, addWeeks, startOfWeek, endOfWeek } from 'date-fns'
 import { parseLocalDate } from '@/lib/utils'
 import Link from 'next/link'
 import { useAuth, canManageCultivation, canCompleteCultivation } from '@/lib/auth-context'
@@ -64,7 +65,7 @@ import { TaskCompletionSheet } from '@/components/cultivation/task-completion-sh
 import { CreateTaskSheet } from '@/components/cultivation/create-task-sheet'
 import {
   getCultivationTasks,
-  getCultivationTaskSummary,
+  getCultivationTaskCounts,
   getGrowRooms,
   getCultivationUsers,
   startTask,
@@ -102,13 +103,14 @@ interface UserOption {
   role: string
 }
 
-interface TaskSummaryRow {
-  id: string
-  status: string
-  due_date: string
-  completed_at: string | null
-  room_id: string | null
+interface TaskStats {
+  overdue: number
+  dueToday: number
+  inProgress: number
+  completedToday: number
 }
+
+const EMPTY_STATS: TaskStats = { overdue: 0, dueToday: 0, inProgress: 0, completedToday: 0 }
 
 type TimeframePreset =
   | 'past_due_today'
@@ -155,16 +157,23 @@ const PAGE_SIZE = 50
 export default function CultivationTasksPage() {
   const { user } = useAuth()
   const [tasks, setTasks] = useState<CultivationTask[]>([])
-  const [summary, setSummary] = useState<TaskSummaryRow[]>([])
+  const [stats, setStats] = useState<TaskStats>(EMPTY_STATS)
   const [rooms, setRooms] = useState<GrowRoom[]>([])
   const [users, setUsers] = useState<UserOption[]>([])
-  // Single loading indicator shared by the initial load and every
-  // filter-triggered refetch (Timeframe/Status/Custom dates). Before the
-  // first successful load it drives the full-page spinner below; after
-  // that, `hasLoadedOnce` switches the UI to keep the existing rows on
-  // screen and show an inline "Refreshing…" indicator instead.
+  // Loading indicator for the task LIST only, shared by the initial load
+  // and every filter-triggered refetch (Timeframe/Status/Custom dates).
+  // Rooms/users (static reference data) and the summary stat counts are
+  // fetched once on mount, independently — see the mount effect below —
+  // so they no longer ride along on every filter change and don't gate
+  // this indicator. `hasLoadedOnce` distinguishes the very first load (no
+  // rows on screen yet) from a subsequent refetch (existing rows stay
+  // visible with an inline "Refreshing…" indicator instead).
   const [loading, setLoading] = useState(true)
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false)
+  // Stat cards have their own independent loading flag since they're
+  // fetched once on mount and again only after task mutations — not on
+  // every filter change.
+  const [statsLoading, setStatsLoading] = useState(true)
   // Guards against an in-flight fetch resolving out of order (e.g. rapid
   // filter changes) — only the most recently issued request is allowed to
   // apply its data or clear `loading`.
@@ -261,7 +270,11 @@ export default function CultivationTasksPage() {
 
   /** Full refetch from page 0 — used for the initial load and any
    * filter-triggered refetch. Resets pagination (offsetRef, tasks, hasMore)
-   * so a filter change mid-load-more can't leave stale pages mixed in. */
+   * so a filter change mid-load-more can't leave stale pages mixed in.
+   * Only fetches the task LIST — rooms/users (static reference data) and
+   * the summary stat counts are filter-independent and are fetched
+   * separately (see fetchStaticData / fetchStats and the mount effect
+   * below), so they no longer ride along on every filter change. */
   async function fetchData() {
     // Bump the sequence so any earlier in-flight request (including a
     // pending "Load more") can recognize itself as stale once this one
@@ -278,14 +291,13 @@ export default function CultivationTasksPage() {
       const { dateFrom, dateTo } = computeTimeframeRange()
       const statuses = statusesForFilter(filterStatus)
 
-      const [tasksRes, roomsRes, usersRes, summaryRes] = await Promise.all([
-        getCultivationTasks({ dateFrom, dateTo, statuses, limit: PAGE_SIZE, offset: 0 }),
-        getGrowRooms(),
-        getCultivationUsers(),
-        // Lightweight, unfiltered — backs the header stat cards so they stay
-        // accurate no matter what Timeframe/Status the table is scoped to.
-        getCultivationTaskSummary(),
-      ])
+      const tasksRes = await getCultivationTasks({
+        dateFrom,
+        dateTo,
+        statuses,
+        limit: PAGE_SIZE,
+        offset: 0,
+      })
 
       // A newer fetch (from a subsequent filter change) has already
       // started — don't let this stale response overwrite fresher data.
@@ -297,10 +309,9 @@ export default function CultivationTasksPage() {
         setTotalCount(tasksRes.data.totalCount)
         setHasMore(tasksRes.data.hasMore)
         offsetRef.current = page.length
+      } else if (tasksRes.error) {
+        toast.error(tasksRes.error)
       }
-      if (roomsRes.data) setRooms(roomsRes.data as GrowRoom[])
-      if (usersRes.data) setUsers(usersRes.data as UserOption[])
-      if (summaryRes.data) setSummary(summaryRes.data)
     } catch (err) {
       console.error('[cultivation/tasks] fetchData error:', err)
     } finally {
@@ -311,6 +322,51 @@ export default function CultivationTasksPage() {
         setLoading(false)
         setHasLoadedOnce(true)
       }
+    }
+  }
+
+  /** Fetches the lightweight, count-only summary that backs the header stat
+   * cards. Global (unfiltered by Timeframe/Status) so it's fetched once on
+   * mount rather than on every filter change — see the mount effect below.
+   * Also re-run after any task mutation (start/complete/create/edit/delete)
+   * so the cards stay accurate even though they no longer ride along on
+   * fetchData(). */
+  async function fetchStats() {
+    setStatsLoading(true)
+    try {
+      const now = new Date()
+      const todayStr = format(now, 'yyyy-MM-dd')
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+      const startOfTomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
+
+      const res = await getCultivationTaskCounts({
+        todayStr,
+        completedTodayFrom: startOfToday.toISOString(),
+        completedTodayTo: startOfTomorrow.toISOString(),
+      })
+
+      if (res.data) {
+        setStats(res.data)
+      } else if (res.error) {
+        console.error('[cultivation/tasks] fetchStats error:', res.error)
+      }
+    } catch (err) {
+      console.error('[cultivation/tasks] fetchStats error:', err)
+    } finally {
+      setStatsLoading(false)
+    }
+  }
+
+  /** Fetches static reference data (grow rooms, assignable users) once on
+   * mount — these don't depend on the Timeframe/Status filters, so they no
+   * longer refetch on every filter change. */
+  async function fetchStaticData() {
+    try {
+      const [roomsRes, usersRes] = await Promise.all([getGrowRooms(), getCultivationUsers()])
+      if (roomsRes.data) setRooms(roomsRes.data as GrowRoom[])
+      if (usersRes.data) setUsers(usersRes.data as UserOption[])
+    } catch (err) {
+      console.error('[cultivation/tasks] fetchStaticData error:', err)
     }
   }
 
@@ -354,6 +410,16 @@ export default function CultivationTasksPage() {
     }
   }
 
+  // Static reference data (rooms/users) and the global summary counts don't
+  // depend on the timeframe/status filters — fetch them once on mount only.
+  useEffect(() => {
+    fetchStaticData()
+    fetchStats()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // The task LIST is the only thing that needs to refetch when the
+  // timeframe/status/date filters change.
   useEffect(() => {
     fetchData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -436,36 +502,6 @@ export default function CultivationTasksPage() {
     })
   }, [filteredTasks])
 
-  // --- Summary stats ---
-  // Derived from the lightweight, unfiltered getCultivationTaskSummary()
-  // fetch (not from `tasks`/`filteredTasks`) so the header cards stay
-  // globally accurate regardless of the Timeframe/Status/other filters
-  // currently scoping the table below.
-  const stats = useMemo(() => {
-    const todayStr = format(new Date(), 'yyyy-MM-dd')
-    let overdue = 0
-    let dueToday = 0
-    let inProgress = 0
-    let completedToday = 0
-
-    for (const t of summary) {
-      if ((t.status === 'pending' || t.status === 'in_progress') && t.due_date < todayStr) {
-        overdue++
-      }
-      if ((t.status === 'pending' || t.status === 'in_progress') && t.due_date === todayStr) {
-        dueToday++
-      }
-      if (t.status === 'in_progress') {
-        inProgress++
-      }
-      if (t.status === 'completed' && t.completed_at && isToday(parseISO(t.completed_at))) {
-        completedToday++
-      }
-    }
-
-    return { overdue, dueToday, inProgress, completedToday }
-  }, [summary])
-
   // --- Actions ---
 
   async function handleStartTask(task: CultivationTask) {
@@ -477,6 +513,7 @@ export default function CultivationTasksPage() {
     toast.success('Task started')
     setDetailOpen(false)
     fetchData()
+    fetchStats()
   }
 
   async function handleDeleteTask() {
@@ -490,6 +527,7 @@ export default function CultivationTasksPage() {
     setDeleteTask(null)
     setDetailOpen(false)
     fetchData()
+    fetchStats()
   }
 
   function openDetailSheet(task: CultivationTask) {
@@ -546,17 +584,6 @@ export default function CultivationTasksPage() {
     return '\u2014'
   }
 
-  // Full-page spinner only for the very first load (no data on screen yet).
-  // Subsequent filter-triggered refetches keep the existing rows visible
-  // and surface `loading` via the inline indicator/overlay below instead.
-  if (loading && !hasLoadedOnce) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-muted-foreground">Loading tasks...</div>
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -582,7 +609,9 @@ export default function CultivationTasksPage() {
         )}
       </div>
 
-      {/* Summary Cards */}
+      {/* Summary Cards — fetched once on mount (and after task mutations)
+          via the lightweight, count-only getCultivationTaskCounts(), so
+          they show their own skeleton instead of blocking the page shell. */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -590,9 +619,13 @@ export default function CultivationTasksPage() {
             <AlertTriangle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${stats.overdue > 0 ? 'text-red-600' : ''}`}>
-              {stats.overdue}
-            </div>
+            {statsLoading ? (
+              <Skeleton className="h-8 w-12" />
+            ) : (
+              <div className={`text-2xl font-bold ${stats.overdue > 0 ? 'text-red-600' : ''}`}>
+                {stats.overdue}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -602,7 +635,11 @@ export default function CultivationTasksPage() {
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.dueToday}</div>
+            {statsLoading ? (
+              <Skeleton className="h-8 w-12" />
+            ) : (
+              <div className="text-2xl font-bold">{stats.dueToday}</div>
+            )}
           </CardContent>
         </Card>
 
@@ -612,7 +649,11 @@ export default function CultivationTasksPage() {
             <Play className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.inProgress}</div>
+            {statsLoading ? (
+              <Skeleton className="h-8 w-12" />
+            ) : (
+              <div className="text-2xl font-bold">{stats.inProgress}</div>
+            )}
           </CardContent>
         </Card>
 
@@ -622,7 +663,11 @@ export default function CultivationTasksPage() {
             <CheckCircle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.completedToday}</div>
+            {statsLoading ? (
+              <Skeleton className="h-8 w-12" />
+            ) : (
+              <div className="text-2xl font-bold">{stats.completedToday}</div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -784,6 +829,19 @@ export default function CultivationTasksPage() {
         )}
       </div>
 
+      {/* Results region — the task list/table. On the very first load (no
+          rows on screen yet) this shows a skeleton scoped to just this
+          region instead of blocking the whole page shell; every subsequent
+          filter-triggered refetch keeps existing rows visible with the
+          inline "Refreshing…" indicator/opacity treatment below. */}
+      {loading && !hasLoadedOnce ? (
+        <div className="space-y-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-14 w-full" />
+          ))}
+        </div>
+      ) : (
+      <>
       {/* Results count — `tasks` is what's loaded from the server so far
           (paginated, scoped to the current timeframe+status); `totalCount`
           is the full server-side match count for that same scope.
@@ -1009,6 +1067,8 @@ export default function CultivationTasksPage() {
           </Button>
         </div>
       )}
+      </>
+      )}
 
       {/* Detail Sheet */}
       <TaskDetailSheet
@@ -1034,6 +1094,7 @@ export default function CultivationTasksPage() {
         onCompleted={() => {
           setCompletionOpen(false)
           fetchData()
+          fetchStats()
         }}
       />
 
@@ -1048,6 +1109,7 @@ export default function CultivationTasksPage() {
         onSaved={() => {
           setCreateOpen(false)
           fetchData()
+          fetchStats()
         }}
       />
 

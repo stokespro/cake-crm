@@ -272,6 +272,108 @@ export async function getCultivationTaskSummary(): Promise<
   return { data: data ?? [] }
 }
 
+export interface CultivationTaskCountsParams {
+  /**
+   * Client-local "today" as a YYYY-MM-DD string — used to bucket the
+   * overdue/dueToday counts against due_date (a plain date column, so no
+   * timezone conversion is needed once we have the caller's local date).
+   */
+  todayStr: string
+  /**
+   * ISO timestamp for the start of the client-local "today" — lower bound
+   * (inclusive) for the completedToday count against completed_at.
+   */
+  completedTodayFrom: string
+  /**
+   * ISO timestamp for the start of the client-local "tomorrow" — upper
+   * bound (exclusive) for the completedToday count against completed_at.
+   */
+  completedTodayTo: string
+}
+
+export interface CultivationTaskCounts {
+  overdue: number
+  dueToday: number
+  inProgress: number
+  completedToday: number
+}
+
+// Same "exclude recurring definition rows" filter used by getCultivationTasks
+// — recurring parent/template rows aren't real due tasks, so they're never
+// counted toward the stat cards.
+const RECURRING_FILTER = 'frequency.is.null,recurring_parent_id.not.is.null'
+
+/**
+ * Backs the cultivation TASKS page's header stat cards (Overdue / Due Today
+ * / In Progress / Completed Today). Deliberately count-only — no rows are
+ * ever transferred to the client, just 4 integers, run in parallel via
+ * `.select('*', { count: 'exact', head: true })`. Unfiltered by the page's
+ * Timeframe/Status filters (matches getCultivationTaskSummary's previous
+ * row-shipping semantics for these same 4 numbers), scoped only by:
+ *   - overdue: status in (pending, in_progress) AND due_date < today
+ *   - dueToday: status in (pending, in_progress) AND due_date = today
+ *   - inProgress: status = in_progress (no date bound)
+ *   - completedToday: status = completed AND completed_at falls within the
+ *     caller's local "today" (via the completedTodayFrom/To ISO bounds)
+ *
+ * Note: getCultivationTaskSummary() above still ships full rows — it backs
+ * the main cultivation dashboard's per-room breakdown and "upcoming this
+ * week" count, which need row-level data this lean version doesn't provide.
+ */
+export async function getCultivationTaskCounts(
+  params: CultivationTaskCountsParams
+): Promise<
+  { data: CultivationTaskCounts; error?: never } | { data?: never; error: string }
+> {
+  const auth = await requireRole(VIEW_ROLES)
+  if (!auth.authorized) return { error: auth.reason }
+
+  const db = await createServiceClient()
+
+  const [overdueRes, dueTodayRes, inProgressRes, completedTodayRes] = await Promise.all([
+    db
+      .from('cultivation_tasks')
+      .select('*', { count: 'exact', head: true })
+      .in('status', ['pending', 'in_progress'])
+      .lt('due_date', params.todayStr)
+      .or(RECURRING_FILTER),
+    db
+      .from('cultivation_tasks')
+      .select('*', { count: 'exact', head: true })
+      .in('status', ['pending', 'in_progress'])
+      .eq('due_date', params.todayStr)
+      .or(RECURRING_FILTER),
+    db
+      .from('cultivation_tasks')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'in_progress')
+      .or(RECURRING_FILTER),
+    db
+      .from('cultivation_tasks')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'completed')
+      .gte('completed_at', params.completedTodayFrom)
+      .lt('completed_at', params.completedTodayTo)
+      .or(RECURRING_FILTER),
+  ])
+
+  const firstError =
+    overdueRes.error || dueTodayRes.error || inProgressRes.error || completedTodayRes.error
+  if (firstError) {
+    console.error('[cultivation] getCultivationTaskCounts error:', firstError)
+    return { error: 'Failed to load task counts' }
+  }
+
+  return {
+    data: {
+      overdue: overdueRes.count ?? 0,
+      dueToday: dueTodayRes.count ?? 0,
+      inProgress: inProgressRes.count ?? 0,
+      completedToday: completedTodayRes.count ?? 0,
+    },
+  }
+}
+
 export async function getMyTodayTasks(todayStr: string): Promise<
   { data: unknown[]; error?: never } | { data?: never; error: string }
 > {
