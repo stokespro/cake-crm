@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -44,6 +44,8 @@ import {
   Trash2,
   X,
   ArrowLeft,
+  ArrowRight,
+  Loader2,
 } from 'lucide-react'
 import { format, parseISO, isPast, isToday, subDays, addDays, addWeeks, startOfWeek, endOfWeek } from 'date-fns'
 import { parseLocalDate } from '@/lib/utils'
@@ -152,7 +154,17 @@ export default function CultivationTasksPage() {
   const [summary, setSummary] = useState<TaskSummaryRow[]>([])
   const [rooms, setRooms] = useState<GrowRoom[]>([])
   const [users, setUsers] = useState<UserOption[]>([])
+  // Single loading indicator shared by the initial load and every
+  // filter-triggered refetch (Timeframe/Status/Custom dates). Before the
+  // first successful load it drives the full-page spinner below; after
+  // that, `hasLoadedOnce` switches the UI to keep the existing rows on
+  // screen and show an inline "Refreshing…" indicator instead.
   const [loading, setLoading] = useState(true)
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false)
+  // Guards against an in-flight fetch resolving out of order (e.g. rapid
+  // filter changes) — only the most recently issued request is allowed to
+  // apply its data or clear `loading`.
+  const fetchSeqRef = useRef(0)
 
   // View mode
   const [viewMode, setViewMode] = useState<'all' | 'mine'>(() =>
@@ -235,6 +247,10 @@ export default function CultivationTasksPage() {
   }
 
   async function fetchData() {
+    // Bump the sequence so any earlier in-flight request can recognize
+    // itself as stale once this one resolves.
+    const requestId = ++fetchSeqRef.current
+    setLoading(true)
     try {
       // Best-effort: generate any pending recurring task instances
       // Action is wrapped internally — failure here must not block data load.
@@ -252,6 +268,10 @@ export default function CultivationTasksPage() {
         getCultivationTaskSummary(),
       ])
 
+      // A newer fetch (from a subsequent filter change) has already
+      // started — don't let this stale response overwrite fresher data.
+      if (requestId !== fetchSeqRef.current) return
+
       if (tasksRes.data) setTasks(tasksRes.data as CultivationTask[])
       if (roomsRes.data) setRooms(roomsRes.data as GrowRoom[])
       if (usersRes.data) setUsers(usersRes.data as UserOption[])
@@ -259,7 +279,13 @@ export default function CultivationTasksPage() {
     } catch (err) {
       console.error('[cultivation/tasks] fetchData error:', err)
     } finally {
-      setLoading(false)
+      // Only the most recently issued request is allowed to clear the
+      // loading indicator — an earlier, slower request resolving late
+      // must not flip loading off while a newer refetch is still pending.
+      if (requestId === fetchSeqRef.current) {
+        setLoading(false)
+        setHasLoadedOnce(true)
+      }
     }
   }
 
@@ -455,7 +481,10 @@ export default function CultivationTasksPage() {
     return '\u2014'
   }
 
-  if (loading) {
+  // Full-page spinner only for the very first load (no data on screen yet).
+  // Subsequent filter-triggered refetches keep the existing rows visible
+  // and surface `loading` via the inline indicator/overlay below instead.
+  if (loading && !hasLoadedOnce) {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="text-muted-foreground">Loading tasks...</div>
@@ -660,33 +689,27 @@ export default function CultivationTasksPage() {
           </SelectContent>
         </Select>
 
-        <div className="flex flex-col gap-1 w-full sm:w-[150px]">
-          <label htmlFor="task-date-from" className="text-xs text-muted-foreground">
-            From
-          </label>
-          <Input
-            id="task-date-from"
-            type="date"
-            value={filterDateFrom}
-            onChange={(e) => setFilterDateFrom(e.target.value)}
-            disabled={timeframe !== 'custom'}
-            className="w-full"
-          />
-        </div>
-
-        <div className="flex flex-col gap-1 w-full sm:w-[150px]">
-          <label htmlFor="task-date-to" className="text-xs text-muted-foreground">
-            To
-          </label>
-          <Input
-            id="task-date-to"
-            type="date"
-            value={filterDateTo}
-            onChange={(e) => setFilterDateTo(e.target.value)}
-            disabled={timeframe !== 'custom'}
-            className="w-full"
-          />
-        </div>
+        {timeframe === 'custom' && (
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <Input
+              id="task-date-from"
+              type="date"
+              value={filterDateFrom}
+              onChange={(e) => setFilterDateFrom(e.target.value)}
+              aria-label="Start date"
+              className="flex-1 min-w-0 sm:flex-none sm:w-[140px]"
+            />
+            <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden="true" />
+            <Input
+              id="task-date-to"
+              type="date"
+              value={filterDateTo}
+              onChange={(e) => setFilterDateTo(e.target.value)}
+              aria-label="End date"
+              className="flex-1 min-w-0 sm:flex-none sm:w-[140px]"
+            />
+          </div>
+        )}
 
         {hasFilters && (
           <Button variant="ghost" size="sm" onClick={clearFilters} className="h-9">
@@ -697,13 +720,19 @@ export default function CultivationTasksPage() {
       </div>
 
       {/* Results count */}
-      <p className="text-sm text-muted-foreground">
+      <p className="text-sm text-muted-foreground flex items-center gap-1.5">
         {sortedTasks.length} task{sortedTasks.length !== 1 ? 's' : ''}
         {hasFilters ? ' (filtered)' : ''}
+        {loading && (
+          <span className="inline-flex items-center gap-1 text-xs">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            Refreshing…
+          </span>
+        )}
       </p>
 
       {/* Desktop Table */}
-      <div className="hidden sm:block">
+      <div className={`hidden sm:block transition-opacity ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
         <div className="border rounded-lg">
           <Table>
             <TableHeader>
@@ -808,7 +837,7 @@ export default function CultivationTasksPage() {
       </div>
 
       {/* Mobile Card View */}
-      <div className="sm:hidden space-y-3">
+      <div className={`sm:hidden space-y-3 transition-opacity ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
         {sortedTasks.length === 0 ? (
           <p className="text-center py-8 text-muted-foreground">No tasks found.</p>
         ) : (
