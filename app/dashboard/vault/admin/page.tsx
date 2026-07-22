@@ -81,6 +81,9 @@ export default function VaultAdminPage() {
   const [editingBatch, setEditingBatch] = useState<Batch | null>(null)
   const [batchName, setBatchName] = useState('')
   const [batchStrainId, setBatchStrainId] = useState('')
+  const [batchThc, setBatchThc] = useState('')
+  const [batchTerpenes, setBatchTerpenes] = useState('')
+  const [batchTotalCannabinoids, setBatchTotalCannabinoids] = useState('')
   const [batchSaving, setBatchSaving] = useState(false)
   const [batchError, setBatchError] = useState('')
   const [deleteBatchId, setDeleteBatchId] = useState<string | null>(null)
@@ -325,10 +328,18 @@ export default function VaultAdminPage() {
       setEditingBatch(batch)
       setBatchName(batch.name)
       setBatchStrainId(batch.strain_id)
+      setBatchThc(batch.thc_percentage != null ? String(batch.thc_percentage) : '')
+      setBatchTerpenes(batch.terpenes_percentage != null ? String(batch.terpenes_percentage) : '')
+      setBatchTotalCannabinoids(
+        batch.total_cannabinoids_percentage != null ? String(batch.total_cannabinoids_percentage) : ''
+      )
     } else {
       setEditingBatch(null)
       setBatchName('')
       setBatchStrainId('')
+      setBatchThc('')
+      setBatchTerpenes('')
+      setBatchTotalCannabinoids('')
     }
     setBatchError('')
     setBatchDialogOpen(true)
@@ -338,11 +349,17 @@ export default function VaultAdminPage() {
     setBatchSaving(true)
     setBatchError('')
 
+    const testing = {
+      thcPercentage: batchThc,
+      terpenesPercentage: batchTerpenes,
+      totalCannabinoidsPercentage: batchTotalCannabinoids,
+    }
+
     let result
     if (editingBatch) {
-      result = await updateBatch(editingBatch.id, batchName, batchStrainId)
+      result = await updateBatch(editingBatch.id, batchName, batchStrainId, testing)
     } else {
-      result = await createBatch(batchName, batchStrainId)
+      result = await createBatch(batchName, batchStrainId, testing)
     }
 
     if (result.success) {
@@ -1027,6 +1044,50 @@ export default function VaultAdminPage() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="space-y-2">
+                <Label htmlFor="batchThc">THC %</Label>
+                <Input
+                  id="batchThc"
+                  type="number"
+                  inputMode="decimal"
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  value={batchThc}
+                  onChange={(e) => setBatchThc(e.target.value)}
+                  placeholder="e.g., 22.50"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="batchTerpenes">Terpenes %</Label>
+                <Input
+                  id="batchTerpenes"
+                  type="number"
+                  inputMode="decimal"
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  value={batchTerpenes}
+                  onChange={(e) => setBatchTerpenes(e.target.value)}
+                  placeholder="e.g., 1.80"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="batchTotalCannabinoids">Total Cannabinoids %</Label>
+                <Input
+                  id="batchTotalCannabinoids"
+                  type="number"
+                  inputMode="decimal"
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  value={batchTotalCannabinoids}
+                  onChange={(e) => setBatchTotalCannabinoids(e.target.value)}
+                  placeholder="e.g., 25.00"
+                />
+              </div>
             </div>
             {batchError && (
               <p className="text-sm text-destructive">{batchError}</p>

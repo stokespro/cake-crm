@@ -21,6 +21,9 @@ export type Database = {
           is_active: boolean
           name: string
           strain_id: string | null
+          terpenes_percentage: number | null
+          thc_percentage: number | null
+          total_cannabinoids_percentage: number | null
         }
         Insert: {
           created_at?: string | null
@@ -28,6 +31,9 @@ export type Database = {
           is_active?: boolean
           name: string
           strain_id?: string | null
+          terpenes_percentage?: number | null
+          thc_percentage?: number | null
+          total_cannabinoids_percentage?: number | null
         }
         Update: {
           created_at?: string | null
@@ -35,6 +41,9 @@ export type Database = {
           is_active?: boolean
           name?: string
           strain_id?: string | null
+          terpenes_percentage?: number | null
+          thc_percentage?: number | null
+          total_cannabinoids_percentage?: number | null
         }
         Relationships: [
           {
